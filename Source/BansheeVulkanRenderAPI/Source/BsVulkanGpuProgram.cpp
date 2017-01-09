@@ -19,7 +19,7 @@
 #include "SPIRV/GlslangToSpv.h"
 #include "SPIRV/Logger.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	const TBuiltInResource DefaultTBuiltInResource = {
 		/* .MaxLights = */ 32,
@@ -493,7 +493,7 @@ namespace bs
 						LOGERR("Uniform is referencing a uniform block that doesn't exist: " + String(name));
 
 					const GpuParamBlockDesc& paramBlockDesc = desc.paramBlocks[iterFind->second];
-					const GpuParamDataTypeInfo& typeInfo = GpuParams::PARAM_SIZES.lookup[paramType];
+					const GpuParamDataTypeInfo& typeInfo = bs::GpuParams::PARAM_SIZES.lookup[paramType];
 					int bufferOffset = program->getUniformBufferOffset(i) / 4;
 
 					GpuParamDataDesc param;
@@ -524,13 +524,13 @@ namespace bs
 		vkDestroyShaderModule(mOwner->getDevice().getLogical(), mModule, gVulkanAllocator);
 	}
 
-	VulkanGpuProgramCore::VulkanGpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
-		: GpuProgramCore(desc, deviceMask), mDeviceMask(deviceMask), mModules()
+	VulkanGpuProgram::VulkanGpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
+		: GpuProgram(desc, deviceMask), mDeviceMask(deviceMask), mModules()
 	{
 
 	}
 
-	VulkanGpuProgramCore::~VulkanGpuProgramCore()
+	VulkanGpuProgram::~VulkanGpuProgram()
 	{
 		for (UINT32 i = 0; i < BS_MAX_DEVICES; i++)
 		{
@@ -541,14 +541,14 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_GpuProgram);
 	}
 
-	void VulkanGpuProgramCore::initialize()
+	void VulkanGpuProgram::initialize()
 	{
 		if (!isSupported())
 		{
 			mIsCompiled = false;
 			mCompileError = "Specified program is not supported by the current render system.";
 
-			GpuProgramCore::initialize();
+			GpuProgram::initialize();
 			return;
 		}
 		
@@ -627,7 +627,7 @@ namespace bs
 			List<VertexElement> elementList;
 					
 			if (parseVertexAttributes(program, elementList, mCompileError))
-				mInputDeclaration = HardwareBufferCoreManager::instance().createVertexDeclaration(elementList, mDeviceMask);
+				mInputDeclaration = HardwareBufferManager::instance().createVertexDeclaration(elementList, mDeviceMask);
 			else
 			{
 				mIsCompiled = false;
@@ -643,7 +643,7 @@ namespace bs
 		moduleCI.codeSize = spirv.size() * sizeof(UINT32);
 		moduleCI.pCode = spirv.data();
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 
 		VulkanDevice* devices[BS_MAX_DEVICES];
 		VulkanUtility::getDevices(rapi, mDeviceMask, devices);
@@ -671,6 +671,6 @@ cleanup:
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_GpuProgram);
 
-		GpuProgramCore::initialize();
+		GpuProgram::initialize();
 	}
-}
+}}

@@ -70,246 +70,6 @@ namespace bs
 		return dst;
 	}
 
-	SPtr<TextureCore> TextureCore::WHITE;
-	SPtr<TextureCore> TextureCore::BLACK;
-	SPtr<TextureCore> TextureCore::NORMAL;
-
-	TextureCore::TextureCore(const TEXTURE_DESC& desc, const SPtr<PixelData>& initData, GpuDeviceFlags deviceMask)
-		:mProperties(desc), mInitData(initData)
-	{ }
-
-	void TextureCore::initialize()
-	{
-		if (mInitData != nullptr)
-		{
-			writeData(*mInitData, 0, 0, true);
-			mInitData->_unlock();
-			mInitData = nullptr;
-		}
-	}
-
-	void TextureCore::writeData(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardEntireBuffer,
-		UINT32 queueIdx)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		if(discardEntireBuffer)
-		{
-			if((mProperties.getUsage() & TU_DYNAMIC) == 0)
-			{
-				// Buffer discard is enabled but buffer was not created as dynamic. Disabling discard.
-				discardEntireBuffer = false;
-			}
-		}
-
-		writeDataImpl(src, face, mipLevel, discardEntireBuffer, queueIdx);
-	}
-
-	void TextureCore::readData(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		PixelData& pixelData = static_cast<PixelData&>(dest);
-
-		UINT32 mipWidth, mipHeight, mipDepth;
-		PixelUtil::getSizeForMipLevel(mProperties.getWidth(), mProperties.getHeight(), mProperties.getDepth(),
-			mipLevel, mipWidth, mipHeight, mipDepth);
-
-		if (pixelData.getWidth() != mipWidth || pixelData.getHeight() != mipHeight ||
-			pixelData.getDepth() != mipDepth || pixelData.getFormat() != mProperties.getFormat())
-		{
-			LOGERR("Provided buffer is not of valid dimensions or format in order to read from this texture.");
-			return;
-		}
-
-		readDataImpl(pixelData, face, mipLevel , deviceIdx, queueIdx);
-	}
-
-	PixelData TextureCore::lock(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		if (mipLevel > mProperties.getNumMipmaps())
-		{
-			LOGERR("Invalid mip level: " + toString(mipLevel) + ". Min is 0, max is " + toString(mProperties.getNumMipmaps()));
-			return PixelData(0, 0, 0, PF_UNKNOWN);
-		}
-
-		if (face >= mProperties.getNumFaces())
-		{
-			LOGERR("Invalid face index: " + toString(face) + ". Min is 0, max is " + toString(mProperties.getNumFaces()));
-			return PixelData(0, 0, 0, PF_UNKNOWN);
-		}
-
-		return lockImpl(options, mipLevel, face, deviceIdx, queueIdx);
-	}
-
-	void TextureCore::unlock()
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		unlockImpl();
-	}
-
-	void TextureCore::copy(const SPtr<TextureCore>& target, UINT32 srcFace, UINT32 srcMipLevel, UINT32 dstFace,
-						   UINT32 dstMipLevel, UINT32 queueIdx)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		if (target->mProperties.getTextureType() != mProperties.getTextureType())
-		{
-			LOGERR("Source and destination textures must be of same type and must have the same usage and type.");
-			return;
-		}
-
-		if (mProperties.getFormat() != target->mProperties.getFormat()) // Note: It might be okay to use different formats of the same size
-		{
-			LOGERR("Source and destination texture formats must match.");
-			return;
-		}
-
-		if (target->mProperties.getNumSamples() > 0 && mProperties.getNumSamples() != target->mProperties.getNumSamples())
-		{
-			LOGERR("When copying to a multisampled texture, source texture must have the same number of samples.");
-			return;
-		}
-
-		if (dstFace >= mProperties.getNumFaces())
-		{
-			LOGERR("Invalid destination face index");
-			return;
-		}
-
-		if (srcFace >= target->mProperties.getNumFaces())
-		{
-			LOGERR("Invalid destination face index");
-			return;
-		}
-
-		if (srcMipLevel > mProperties.getNumMipmaps())
-		{
-			LOGERR("Source mip level out of range. Valid range is [0, " + toString(mProperties.getNumMipmaps()) + "]");
-			return;
-		}
-
-		if (dstMipLevel > target->mProperties.getNumMipmaps())
-		{
-			LOGERR("Destination mip level out of range. Valid range is [0, " + toString(target->mProperties.getNumMipmaps()) + "]");
-			return;
-		}
-
-		UINT32 srcMipWidth = mProperties.getWidth() >> srcMipLevel;
-		UINT32 srcMipHeight = mProperties.getHeight() >> srcMipLevel;
-		UINT32 srcMipDepth = mProperties.getDepth() >> srcMipLevel;
-
-		UINT32 dstMipWidth = target->mProperties.getWidth() >> dstMipLevel;
-		UINT32 dstMipHeight = target->mProperties.getHeight() >> dstMipLevel;
-		UINT32 dstMipDepth = target->mProperties.getDepth() >> dstMipLevel;
-
-		if (srcMipWidth != dstMipWidth || srcMipHeight != dstMipHeight || srcMipDepth != dstMipDepth)
-		{
-			LOGERR("Source and destination sizes must match");
-			return;
-		}
-
-		copyImpl(srcFace, srcMipLevel, dstFace, dstMipLevel, target, queueIdx);
-	}
-
-	/************************************************************************/
-	/* 								TEXTURE VIEW                      		*/
-	/************************************************************************/
-
-	SPtr<TextureView> TextureCore::createView(const SPtr<TextureCore>& texture, const TEXTURE_VIEW_DESC& desc)
-	{
-		return bs_shared_ptr<TextureView>(new (bs_alloc<TextureView>()) TextureView(texture, desc));
-	}
-
-	void TextureCore::clearBufferViews()
-	{
-		mTextureViews.clear();
-	}
-
-	SPtr<TextureView> TextureCore::requestView(const SPtr<TextureCore>& texture, UINT32 mostDetailMip, UINT32 numMips,
-											   UINT32 firstArraySlice, UINT32 numArraySlices, GpuViewUsage usage)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		assert(texture != nullptr);
-
-		TEXTURE_VIEW_DESC key;
-		key.mostDetailMip = mostDetailMip;
-		key.numMips = numMips;
-		key.firstArraySlice = firstArraySlice;
-		key.usage = usage;
-
-		const TextureProperties& texProps = texture->getProperties();
-		if(numArraySlices == 0) // Automatically determine slice count
-			key.numArraySlices = texProps.getNumFaces();
-		else
-			key.numArraySlices = numArraySlices;
-
-		auto iterFind = texture->mTextureViews.find(key);
-		if (iterFind == texture->mTextureViews.end())
-		{
-			SPtr<TextureView> newView = texture->createView(texture, key);
-			texture->mTextureViews[key] = new (bs_alloc<TextureViewReference>()) TextureViewReference(newView);
-
-			iterFind = texture->mTextureViews.find(key);
-		}
-
-		iterFind->second->refCount++;
-		return iterFind->second->view;
-	}
-
-	void TextureCore::releaseView(const SPtr<TextureView>& view)
-	{
-		THROW_IF_NOT_CORE_THREAD;
-
-		assert(view != nullptr);
-
-		SPtr<TextureCore> texture = view->getTexture();
-
-		auto iterFind = texture->mTextureViews.find(view->getDesc());
-		if (iterFind == texture->mTextureViews.end())
-		{
-			BS_EXCEPT(InternalErrorException, "Trying to release a texture view that doesn't exist!");
-		}
-
-		iterFind->second->refCount--;
-
-		if (iterFind->second->refCount == 0)
-		{
-			TextureViewReference* toRemove = iterFind->second;
-
-			texture->mTextureViews.erase(iterFind);
-
-			bs_delete(toRemove);
-		}
-	}
-
-	/************************************************************************/
-	/* 								STATICS	                      			*/
-	/************************************************************************/
-	SPtr<TextureCore> TextureCore::create(const TEXTURE_DESC& desc, GpuDeviceFlags deviceMask)
-	{
-		return TextureCoreManager::instance().createTexture(desc, deviceMask);
-	}
-
-	SPtr<TextureCore> TextureCore::create(const SPtr<PixelData>& pixelData, int usage, bool hwGammaCorrection, 
-		GpuDeviceFlags deviceMask)
-	{
-		TEXTURE_DESC desc;
-		desc.type = pixelData->getDepth() > 1 ? TEX_TYPE_3D : TEX_TYPE_2D;
-		desc.width = pixelData->getWidth();
-		desc.height = pixelData->getHeight();
-		desc.depth = pixelData->getDepth();
-		desc.format = pixelData->getFormat();
-		desc.usage = usage;
-		desc.hwGamma = hwGammaCorrection;
-
-		return TextureCoreManager::instance().createTextureInternal(desc, pixelData, deviceMask);
-	}
-
 	Texture::Texture()
 	{
 
@@ -344,11 +104,11 @@ namespace bs
 		Resource::initialize();
 	}
 
-	SPtr<CoreObjectCore> Texture::createCore() const
+	SPtr<ct::CoreObject> Texture::createCore() const
 	{
 		const TextureProperties& props = getProperties();
 
-		SPtr<CoreObjectCore> coreObj = TextureCoreManager::instance().createTextureInternal(props.mDesc, mInitData);
+		SPtr<ct::CoreObject> coreObj = ct::TextureManager::instance().createTextureInternal(props.mDesc, mInitData);
 
 		if ((mProperties.getUsage() & TU_CPUCACHED) == 0)
 			mInitData = nullptr;
@@ -363,11 +123,11 @@ namespace bs
 
 		data->_lock();
 
-		std::function<void(const SPtr<TextureCore>&, UINT32, UINT32, const SPtr<PixelData>&, bool, AsyncOp&)> func =
-			[&](const SPtr<TextureCore>& texture, UINT32 _face, UINT32 _mipLevel, const SPtr<PixelData>& _pixData, 
+		std::function<void(const SPtr<ct::Texture>&, UINT32, UINT32, const SPtr<PixelData>&, bool, AsyncOp&)> func =
+			[&](const SPtr<ct::Texture>& texture, UINT32 _face, UINT32 _mipLevel, const SPtr<PixelData>& _pixData,
 				bool _discardEntireBuffer, AsyncOp& asyncOp)
 		{
-			texture->writeData(*_pixData, _face, _mipLevel, _discardEntireBuffer);
+			texture->writeData(*_pixData, _mipLevel, _face, _discardEntireBuffer);
 			_pixData->_unlock();
 			asyncOp._completeOperation();
 
@@ -381,14 +141,14 @@ namespace bs
 	{
 		data->_lock();
 
-		std::function<void(const SPtr<TextureCore>&, UINT32, UINT32, const SPtr<PixelData>&, AsyncOp&)> func =
-			[&](const SPtr<TextureCore>& texture, UINT32 _face, UINT32 _mipLevel, const SPtr<PixelData>& _pixData, 
+		std::function<void(const SPtr<ct::Texture>&, UINT32, UINT32, const SPtr<PixelData>&, AsyncOp&)> func =
+			[&](const SPtr<ct::Texture>& texture, UINT32 _face, UINT32 _mipLevel, const SPtr<PixelData>& _pixData,
 				AsyncOp& asyncOp)
 		{
 			// Make sure any queued command start executing before reading
-			RenderAPICore::instance().submitCommandBuffer(nullptr);
+			ct::RenderAPI::instance().submitCommandBuffer(nullptr);
 
-			texture->readData(*_pixData, _face, _mipLevel);
+			texture->readData(*_pixData, _mipLevel, _face);
 			_pixData->_unlock();
 			asyncOp._completeOperation();
 
@@ -507,9 +267,9 @@ namespace bs
 		}
 	}
 
-	SPtr<TextureCore> Texture::getCore() const
+	SPtr<ct::Texture> Texture::getCore() const
 	{
-		return std::static_pointer_cast<TextureCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::Texture>(mCoreSpecific);
 	}
 
 	/************************************************************************/
@@ -560,5 +320,248 @@ namespace bs
 		desc.hwGamma = hwGammaCorrection;
 
 		return TextureManager::instance().createTexture(desc, pixelData);
+	}
+
+	namespace ct
+	{
+	SPtr<Texture> Texture::WHITE;
+	SPtr<Texture> Texture::BLACK;
+	SPtr<Texture> Texture::NORMAL;
+
+	Texture::Texture(const TEXTURE_DESC& desc, const SPtr<PixelData>& initData, GpuDeviceFlags deviceMask)
+		:mProperties(desc), mInitData(initData)
+	{ }
+
+	void Texture::initialize()
+	{
+		if (mInitData != nullptr)
+		{
+			writeData(*mInitData, 0, 0, true);
+			mInitData->_unlock();
+			mInitData = nullptr;
+		}
+	}
+
+	void Texture::writeData(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardEntireBuffer,
+		UINT32 queueIdx)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		if(discardEntireBuffer)
+		{
+			if((mProperties.getUsage() & TU_DYNAMIC) == 0)
+			{
+				// Buffer discard is enabled but buffer was not created as dynamic. Disabling discard.
+				discardEntireBuffer = false;
+			}
+		}
+
+		writeDataImpl(src, mipLevel, face, discardEntireBuffer, queueIdx);
+	}
+
+	void Texture::readData(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		PixelData& pixelData = static_cast<PixelData&>(dest);
+
+		UINT32 mipWidth, mipHeight, mipDepth;
+		PixelUtil::getSizeForMipLevel(mProperties.getWidth(), mProperties.getHeight(), mProperties.getDepth(),
+			mipLevel, mipWidth, mipHeight, mipDepth);
+
+		if (pixelData.getWidth() != mipWidth || pixelData.getHeight() != mipHeight ||
+			pixelData.getDepth() != mipDepth || pixelData.getFormat() != mProperties.getFormat())
+		{
+			LOGERR("Provided buffer is not of valid dimensions or format in order to read from this texture.");
+			return;
+		}
+
+		readDataImpl(pixelData, mipLevel, face, deviceIdx, queueIdx);
+	}
+
+	PixelData Texture::lock(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		if (mipLevel > mProperties.getNumMipmaps())
+		{
+			LOGERR("Invalid mip level: " + toString(mipLevel) + ". Min is 0, max is " + toString(mProperties.getNumMipmaps()));
+			return PixelData(0, 0, 0, PF_UNKNOWN);
+		}
+
+		if (face >= mProperties.getNumFaces())
+		{
+			LOGERR("Invalid face index: " + toString(face) + ". Min is 0, max is " + toString(mProperties.getNumFaces()));
+			return PixelData(0, 0, 0, PF_UNKNOWN);
+		}
+
+		return lockImpl(options, mipLevel, face, deviceIdx, queueIdx);
+	}
+
+	void Texture::unlock()
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		unlockImpl();
+	}
+
+	void Texture::copy(const SPtr<Texture>& target, UINT32 srcFace, UINT32 srcMipLevel, UINT32 dstFace,
+						   UINT32 dstMipLevel, UINT32 queueIdx)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		if (target->mProperties.getTextureType() != mProperties.getTextureType())
+		{
+			LOGERR("Source and destination textures must be of same type and must have the same usage and type.");
+			return;
+		}
+
+		if (mProperties.getFormat() != target->mProperties.getFormat()) // Note: It might be okay to use different formats of the same size
+		{
+			LOGERR("Source and destination texture formats must match.");
+			return;
+		}
+
+		if (target->mProperties.getNumSamples() > 0 && mProperties.getNumSamples() != target->mProperties.getNumSamples())
+		{
+			LOGERR("When copying to a multisampled texture, source texture must have the same number of samples.");
+			return;
+		}
+
+		if (dstFace >= mProperties.getNumFaces())
+		{
+			LOGERR("Invalid destination face index");
+			return;
+		}
+
+		if (srcFace >= target->mProperties.getNumFaces())
+		{
+			LOGERR("Invalid destination face index");
+			return;
+		}
+
+		if (srcMipLevel > mProperties.getNumMipmaps())
+		{
+			LOGERR("Source mip level out of range. Valid range is [0, " + toString(mProperties.getNumMipmaps()) + "]");
+			return;
+		}
+
+		if (dstMipLevel > target->mProperties.getNumMipmaps())
+		{
+			LOGERR("Destination mip level out of range. Valid range is [0, " + toString(target->mProperties.getNumMipmaps()) + "]");
+			return;
+		}
+
+		UINT32 srcMipWidth = mProperties.getWidth() >> srcMipLevel;
+		UINT32 srcMipHeight = mProperties.getHeight() >> srcMipLevel;
+		UINT32 srcMipDepth = mProperties.getDepth() >> srcMipLevel;
+
+		UINT32 dstMipWidth = target->mProperties.getWidth() >> dstMipLevel;
+		UINT32 dstMipHeight = target->mProperties.getHeight() >> dstMipLevel;
+		UINT32 dstMipDepth = target->mProperties.getDepth() >> dstMipLevel;
+
+		if (srcMipWidth != dstMipWidth || srcMipHeight != dstMipHeight || srcMipDepth != dstMipDepth)
+		{
+			LOGERR("Source and destination sizes must match");
+			return;
+		}
+
+		copyImpl(srcFace, srcMipLevel, dstFace, dstMipLevel, target, queueIdx);
+	}
+
+	/************************************************************************/
+	/* 								TEXTURE VIEW                      		*/
+	/************************************************************************/
+
+	SPtr<TextureView> Texture::createView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& desc)
+	{
+		return bs_shared_ptr<TextureView>(new (bs_alloc<TextureView>()) TextureView(texture, desc));
+	}
+
+	void Texture::clearBufferViews()
+	{
+		mTextureViews.clear();
+	}
+
+	SPtr<TextureView> Texture::requestView(const SPtr<Texture>& texture, UINT32 mostDetailMip, UINT32 numMips,
+											   UINT32 firstArraySlice, UINT32 numArraySlices, GpuViewUsage usage)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		assert(texture != nullptr);
+
+		TEXTURE_VIEW_DESC key;
+		key.mostDetailMip = mostDetailMip;
+		key.numMips = numMips;
+		key.firstArraySlice = firstArraySlice;
+		key.usage = usage;
+
+		const TextureProperties& texProps = texture->getProperties();
+		if(numArraySlices == 0) // Automatically determine slice count
+			key.numArraySlices = texProps.getNumFaces();
+		else
+			key.numArraySlices = numArraySlices;
+
+		auto iterFind = texture->mTextureViews.find(key);
+		if (iterFind == texture->mTextureViews.end())
+		{
+			SPtr<TextureView> newView = texture->createView(texture, key);
+			texture->mTextureViews[key] = new (bs_alloc<TextureViewReference>()) TextureViewReference(newView);
+
+			iterFind = texture->mTextureViews.find(key);
+		}
+
+		iterFind->second->refCount++;
+		return iterFind->second->view;
+	}
+
+	void Texture::releaseView(const SPtr<TextureView>& view)
+	{
+		THROW_IF_NOT_CORE_THREAD;
+
+		assert(view != nullptr);
+
+		SPtr<Texture> texture = view->getTexture();
+
+		auto iterFind = texture->mTextureViews.find(view->getDesc());
+		if (iterFind == texture->mTextureViews.end())
+		{
+			BS_EXCEPT(InternalErrorException, "Trying to release a texture view that doesn't exist!");
+		}
+
+		iterFind->second->refCount--;
+
+		if (iterFind->second->refCount == 0)
+		{
+			TextureViewReference* toRemove = iterFind->second;
+
+			texture->mTextureViews.erase(iterFind);
+
+			bs_delete(toRemove);
+		}
+	}
+
+	/************************************************************************/
+	/* 								STATICS	                      			*/
+	/************************************************************************/
+	SPtr<Texture> Texture::create(const TEXTURE_DESC& desc, GpuDeviceFlags deviceMask)
+	{
+		return TextureManager::instance().createTexture(desc, deviceMask);
+	}
+
+	SPtr<Texture> Texture::create(const SPtr<PixelData>& pixelData, int usage, bool hwGammaCorrection, 
+		GpuDeviceFlags deviceMask)
+	{
+		TEXTURE_DESC desc;
+		desc.type = pixelData->getDepth() > 1 ? TEX_TYPE_3D : TEX_TYPE_2D;
+		desc.width = pixelData->getWidth();
+		desc.height = pixelData->getHeight();
+		desc.depth = pixelData->getDepth();
+		desc.format = pixelData->getFormat();
+		desc.usage = usage;
+		desc.hwGamma = hwGammaCorrection;
+
+		return TextureManager::instance().createTextureInternal(desc, pixelData, deviceMask);
+	}
 	}
 }

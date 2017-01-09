@@ -6,15 +6,15 @@
 #include "BsRenderStats.h"
 #include "BsException.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
-	GLVertexBufferCore::GLVertexBufferCore(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
-		:VertexBufferCore(desc, deviceMask), mUsage(desc.usage)
+	GLVertexBuffer::GLVertexBuffer(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
+		:VertexBuffer(desc, deviceMask), mUsage(desc.usage)
     {
 		assert((deviceMask == GDF_DEFAULT || deviceMask == GDF_PRIMARY) && "Multiple GPUs not supported natively on OpenGL.");
     }
 
-	GLVertexBufferCore::~GLVertexBufferCore()
+	GLVertexBuffer::~GLVertexBuffer()
 	{
 		while (mVAObjects.size() > 0)
 			GLVertexArrayObjectManager::instance().notifyBufferDestroyed(mVAObjects[0]);
@@ -22,20 +22,20 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_VertexBuffer);
 	}
 
-	void GLVertexBufferCore::initialize()
+	void GLVertexBuffer::initialize()
 	{
 		mBuffer.initialize(GL_ARRAY_BUFFER, mSize, mUsage);
 		
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_VertexBuffer);
-		VertexBufferCore::initialize();
+		VertexBuffer::initialize();
 	}
 
-	void GLVertexBufferCore::registerVAO(const GLVertexArrayObject& vao)
+	void GLVertexBuffer::registerVAO(const GLVertexArrayObject& vao)
 	{
 		mVAObjects.push_back(vao);
 	}
 
-	void GLVertexBufferCore::unregisterVAO(const GLVertexArrayObject& vao)
+	void GLVertexBuffer::unregisterVAO(const GLVertexArrayObject& vao)
 	{
 		auto iterFind = std::find(mVAObjects.begin(), mVAObjects.end(), vao);
 
@@ -43,24 +43,24 @@ namespace bs
 			mVAObjects.erase(iterFind);
 	}
 
-	void* GLVertexBufferCore::map(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx, UINT32 queueIdx)
+	void* GLVertexBuffer::map(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx, UINT32 queueIdx)
     {
 		return mBuffer.lock(offset, length, options);
     }
 
-	void GLVertexBufferCore::unmap()
+	void GLVertexBuffer::unmap()
     {
 		mBuffer.unlock();
     }
 
-	void GLVertexBufferCore::readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx, UINT32 queueIdx)
+	void GLVertexBuffer::readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx, UINT32 queueIdx)
     {
 		mBuffer.readData(offset, length, dest);
     }
 
-	void GLVertexBufferCore::writeData(UINT32 offset, UINT32 length,
+	void GLVertexBuffer::writeData(UINT32 offset, UINT32 length,
 		const void* pSource, BufferWriteType writeFlags, UINT32 queueIdx)
     {
 		mBuffer.writeData(offset, length, pSource, writeFlags);
     }
-}
+}}

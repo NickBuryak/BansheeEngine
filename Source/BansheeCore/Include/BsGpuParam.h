@@ -20,23 +20,23 @@ namespace bs
 
 	template<bool Core> struct TGpuParamsPtrType { };
 	template<> struct TGpuParamsPtrType<false> { typedef SPtr<GpuParams> Type; };
-	template<> struct TGpuParamsPtrType<true> { typedef SPtr<GpuParamsCore> Type; };
+	template<> struct TGpuParamsPtrType<true> { typedef SPtr<ct::GpuParams> Type; };
 
 	template<bool Core> struct TGpuParamTextureType { };
 	template<> struct TGpuParamTextureType < false > { typedef HTexture Type; };
-	template<> struct TGpuParamTextureType < true > { typedef SPtr<TextureCore> Type; };
+	template<> struct TGpuParamTextureType < true > { typedef SPtr<ct::Texture> Type; };
 
 	template<bool Core> struct TGpuParamSamplerStateType { };
 	template<> struct TGpuParamSamplerStateType < false > { typedef SPtr<SamplerState> Type; };
-	template<> struct TGpuParamSamplerStateType < true > { typedef SPtr<SamplerStateCore> Type; };
+	template<> struct TGpuParamSamplerStateType < true > { typedef SPtr<ct::SamplerState> Type; };
 
 	template<bool Core> struct TGpuParamBufferType { };
 	template<> struct TGpuParamBufferType < false > { typedef SPtr<GpuParamBlockBuffer> Type; };
-	template<> struct TGpuParamBufferType < true > { typedef SPtr<GpuParamBlockBufferCore> Type; };
+	template<> struct TGpuParamBufferType < true > { typedef SPtr<ct::GpuParamBlockBuffer> Type; };
 
 	template<bool Core> struct TGpuBufferType { };
 	template<> struct TGpuBufferType < false > { typedef SPtr<GpuBuffer> Type; };
-	template<> struct TGpuBufferType < true > { typedef SPtr<GpuBufferCore> Type; };
+	template<> struct TGpuBufferType < true > { typedef SPtr<ct::GpuBuffer> Type; };
 
 	/**
 	 * Policy class that allows us to re-use this template class for matrices which might need transposing, and other 
@@ -172,7 +172,7 @@ namespace bs
 	{
 	private:
 		friend class GpuParams;
-		friend class GpuParamsCore;
+		friend class ct::GpuParams;
 
 		typedef typename TGpuParamsPtrType<Core>::Type GpuParamsType;
 		typedef typename TGpuParamTextureType<Core>::Type TextureType;
@@ -207,7 +207,7 @@ namespace bs
 	{
 	private:
 		friend class GpuParams;
-		friend class GpuParamsCore;
+		friend class ct::GpuParams;
 
 		typedef typename TGpuParamsPtrType<Core>::Type GpuParamsType;
 		typedef typename TGpuParamTextureType<Core>::Type TextureType;
@@ -242,7 +242,7 @@ namespace bs
 	{
 	private:
 		friend class GpuParams;
-		friend class GpuParamsCore;
+		friend class ct::GpuParams;
 
 		typedef typename TGpuParamsPtrType<Core>::Type GpuParamsType;
 		typedef typename TGpuBufferType<Core>::Type BufferType;
@@ -277,7 +277,7 @@ namespace bs
 	{
 	private:
 		friend class GpuParams;
-		friend class GpuParamsCore;
+		friend class ct::GpuParams;
 
 		typedef typename TGpuParamsPtrType<Core>::Type GpuParamsType;
 		typedef typename TGpuParamSamplerStateType<Core>::Type SamplerStateType;
@@ -324,32 +324,32 @@ namespace bs
 	typedef TGpuDataParam<Matrix4, false> GpuParamMat4;
 	typedef TGpuDataParam<Color, false> GpuParamColor;
 
-	typedef TGpuDataParam<float, true> GpuParamFloatCore;
-	typedef TGpuDataParam<Vector2, true> GpuParamVec2Core;
-	typedef TGpuDataParam<Vector3, true> GpuParamVec3Core;
-	typedef TGpuDataParam<Vector4, true> GpuParamVec4Core;
-	typedef TGpuDataParam<int, true> GpuParamIntCore;
-	typedef TGpuDataParam<Vector2I, true> GpuParamVec2ICore;
-	typedef TGpuDataParam<Vector3I, true> GpuParamVec3ICore;
-	typedef TGpuDataParam<Vector4I, true> GpuParamVec4ICore;
-	typedef TGpuDataParam<Matrix3, true> GpuParamMat3Core;
-	typedef TGpuDataParam<Matrix4, true> GpuParamMat4Core;
-	typedef TGpuDataParam<Color, true> GpuParamColorCore;
-
 	typedef TGpuParamStruct<false> GpuParamStruct;
-	typedef TGpuParamStruct<true> GpuParamStructCore;
-
 	typedef TGpuParamTexture<false> GpuParamTexture;
-	typedef TGpuParamTexture<true> GpuParamTextureCore;
-	
 	typedef TGpuParamBuffer<false> GpuParamBuffer;
-	typedef TGpuParamBuffer<true> GpuParamBufferCore;
-
 	typedef TGpuParamSampState<false> GpuParamSampState;
-	typedef TGpuParamSampState<true> GpuParamSampStateCore;
-
 	typedef TGpuParamLoadStoreTexture<false> GpuParamLoadStoreTexture;
-	typedef TGpuParamLoadStoreTexture<true> GpuParamLoadStoreTextureCore;
+
+	namespace ct
+	{
+		typedef TGpuDataParam<float, true> GpuParamFloat;
+		typedef TGpuDataParam<Vector2, true> GpuParamVec2;
+		typedef TGpuDataParam<Vector3, true> GpuParamVec3;
+		typedef TGpuDataParam<Vector4, true> GpuParamVec4;
+		typedef TGpuDataParam<int, true> GpuParamInt;
+		typedef TGpuDataParam<Vector2I, true> GpuParamVec2I;
+		typedef TGpuDataParam<Vector3I, true> GpuParamVec3I;
+		typedef TGpuDataParam<Vector4I, true> GpuParamVec4I;
+		typedef TGpuDataParam<Matrix3, true> GpuParamMat3;
+		typedef TGpuDataParam<Matrix4, true> GpuParamMat4;
+		typedef TGpuDataParam<Color, true> GpuParamColor;
+
+		typedef TGpuParamStruct<true> GpuParamStruct;
+		typedef TGpuParamTexture<true> GpuParamTexture;
+		typedef TGpuParamBuffer<true> GpuParamBuffer;
+		typedef TGpuParamSampState<true> GpuParamSampState;
+		typedef TGpuParamLoadStoreTexture<true> GpuParamLoadStoreTexture;
+	}
 
 	/** @} */
 }

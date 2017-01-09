@@ -4,7 +4,7 @@
 #include "BsGLSLGpuProgram.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	::std::size_t GLSLProgramPipelineManager::ProgramPipelineKeyHashFunction::operator()
 		(const GLSLProgramPipelineManager::ProgramPipelineKey &key) const
@@ -35,8 +35,8 @@ namespace bs
 		}
 	}
 
-	const GLSLProgramPipeline* GLSLProgramPipelineManager::getPipeline(GLSLGpuProgramCore* vertexProgram, GLSLGpuProgramCore* fragmentProgram,
-		GLSLGpuProgramCore* geometryProgram, GLSLGpuProgramCore* hullProgram, GLSLGpuProgramCore* domainProgram)
+	const GLSLProgramPipeline* GLSLProgramPipelineManager::getPipeline(GLSLGpuProgram* vertexProgram, GLSLGpuProgram* fragmentProgram,
+		GLSLGpuProgram* geometryProgram, GLSLGpuProgram* hullProgram, GLSLGpuProgram* domainProgram)
 	{
 		ProgramPipelineKey key;
 		key.vertexProgKey = vertexProgram != nullptr ? vertexProgram->getProgramID() : 0;
@@ -86,4 +86,4 @@ namespace bs
 		else
 			return &iterFind->second;
 	}
-}
+}}

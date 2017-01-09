@@ -4,7 +4,7 @@
 #include "BsDebug.h"
 #include "BsException.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	D3D11_TEXTURE_ADDRESS_MODE D3D11Mappings::get(TextureAddressingMode tam)
 	{
@@ -592,9 +592,6 @@ namespace bs
 		case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
 		case DXGI_FORMAT_B8G8R8A8_UNORM:
 			return PF_B8G8R8A8;
-		case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
-		case DXGI_FORMAT_B8G8R8X8_UNORM:
-			return PF_B8G8R8X8;
 		default:
 			return PF_UNKNOWN;
 		}
@@ -609,14 +606,7 @@ namespace bs
 		case PF_R8G8:
 			return DXGI_FORMAT_R8G8_UNORM; 
 		case PF_R8G8B8:
-			return DXGI_FORMAT_UNKNOWN;
-		case PF_A8R8G8B8:
-			return DXGI_FORMAT_UNKNOWN;
-		case PF_A8B8G8R8:
-			return DXGI_FORMAT_UNKNOWN;
-		case PF_X8R8G8B8:
-			return DXGI_FORMAT_UNKNOWN;
-		case PF_X8B8G8R8:
+		case PF_B8G8R8:
 			return DXGI_FORMAT_UNKNOWN;
 		case PF_R8G8B8A8:
 			if (gamma)
@@ -626,10 +616,6 @@ namespace bs
 			if (gamma)
 				return DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
 			return DXGI_FORMAT_B8G8R8A8_UNORM;
-		case PF_B8G8R8X8:
-			if (gamma)
-				return DXGI_FORMAT_B8G8R8X8_UNORM_SRGB;
-			return DXGI_FORMAT_B8G8R8X8_UNORM;
 		case PF_FLOAT16_R:
 			return DXGI_FORMAT_R16_FLOAT;
 		case PF_FLOAT16_RG:
@@ -668,8 +654,7 @@ namespace bs
 		case PF_BC7:
 			if (gamma)
 				return DXGI_FORMAT_BC7_UNORM_SRGB;
-			else
-				return DXGI_FORMAT_BC7_UNORM;
+			return DXGI_FORMAT_BC7_UNORM;
 		case PF_D32_S8X24:
 			return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
 		case PF_D24S8:
@@ -743,7 +728,7 @@ namespace bs
 		switch(format)
 		{
 		case PF_D32_S8X24:
-			return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+			return DXGI_FORMAT_R32G8X24_TYPELESS;
 		case PF_D24S8:
 			return DXGI_FORMAT_R24G8_TYPELESS;
 		case PF_D32:
@@ -772,34 +757,41 @@ namespace bs
 		}
 	}
 
-	PixelFormat D3D11Mappings::getClosestSupportedPF(PixelFormat pf, bool hwGamma)
+	PixelFormat D3D11Mappings::getClosestSupportedPF(PixelFormat pf, TextureType texType, int usage)
 	{
-		if (getPF(pf, hwGamma) != DXGI_FORMAT_UNKNOWN)
-		{
-			return pf;
-		}
+		// Check for any obvious issues first
+		PixelUtil::checkFormat(pf, texType, usage);
+
+		// Check for formats that are not supported at all by DX11
 		switch(pf)
 		{
-		case PF_FLOAT16_RGB:
-			return PF_FLOAT16_RGBA;
 		case PF_R8G8B8:
-			return PF_R8G8B8A8;
+			pf = PF_R8G8B8A8;
+			break;
 		case PF_B8G8R8:
-			return PF_R8G8B8A8;
-		case PF_A8R8G8B8:
-			return PF_R8G8B8A8;
-		case PF_A8B8G8R8:
-			return PF_B8G8R8A8;
-		case PF_X8R8G8B8:
-			return PF_R8G8B8A8;
-		case PF_X8B8G8R8:
-			return PF_B8G8R8X8;
-		case PF_R8G8B8X8:
-			return PF_B8G8R8X8;
-		case PF_UNKNOWN:
+			pf = PF_B8G8R8A8;
+			break;
+		case PF_FLOAT16_RGB:
+			pf = PF_FLOAT16_RGBA;
+			break;
 		default:
-			return PF_R8G8B8A8;
+			break;
 		}
+
+		// Check for usage specific format restrictions
+		if((usage & TU_LOADSTORE) != 0)
+		{
+			switch (pf)
+			{
+			case PF_B8G8R8A8:
+				pf = PF_R8G8B8A8;
+				break;
+			default:
+				break;
+			}
+		}
+
+		return pf;
 	}
 
 	D3D11_USAGE D3D11Mappings::getUsage(GpuBufferUsage usage)
@@ -911,4 +903,4 @@ namespace bs
 		BS_EXCEPT(RenderingAPIException, "Invalid lock option. No DX11 equivalent of: " + toString(lockOptions));
 		return D3D11_MAP_WRITE;
 	}
-}
+}}

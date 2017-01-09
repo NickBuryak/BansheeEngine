@@ -5,27 +5,27 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsIndexBuffer.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
 	 */
 
 	/**	Vulkan implementation of an index buffer. */
-	class VulkanIndexBufferCore : public IndexBufferCore
+	class VulkanIndexBuffer : public IndexBuffer
 	{
 	public:
-		VulkanIndexBufferCore(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
-		~VulkanIndexBufferCore();
+		VulkanIndexBuffer(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
+		~VulkanIndexBuffer();
 
-		/** @copydoc IndexBufferCore::readData */
+		/** @copydoc IndexBuffer::readData */
 		void readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx = 0, UINT32 queueIdx = 0) override;
 
-		/** @copydoc IndexBufferCore::writeData */
+		/** @copydoc IndexBuffer::writeData */
 		void writeData(UINT32 offset, UINT32 length, const void* source, 
 			BufferWriteType writeFlags = BWT_NORMAL, UINT32 queueIdx = 0) override;
 
-		/** @copydoc IndexBufferCore::copyData */
+		/** @copydoc IndexBuffer::copyData */
 		void copyData(HardwareBuffer& srcBuffer, UINT32 srcOffset, UINT32 dstOffset, UINT32 length, 
 			bool discardWholeBuffer = false, UINT32 queueIdx = 0) override;
 
@@ -36,13 +36,13 @@ namespace bs
 		VulkanBuffer* getResource(UINT32 deviceIdx) const;
 
 	protected:
-		/** @copydoc IndexBufferCore::map */
+		/** @copydoc IndexBuffer::map */
 		void* map(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx, UINT32 queueIdx) override;
 
-		/** @copydoc IndexBufferCore::unmap */
+		/** @copydoc IndexBuffer::unmap */
 		void unmap() override;
 
-		/** @copydoc IndexBufferCore::initialize */
+		/** @copydoc IndexBuffer::initialize */
 		void initialize() override;
 
 	private:
@@ -52,4 +52,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

@@ -53,11 +53,11 @@ namespace bs
 
 	protected:
 		friend class MeshBase;
-		friend class MeshCoreBase;
+		friend class ct::MeshBase;
 		friend class Mesh;
-		friend class MeshCore;
+		friend class ct::Mesh;
 		friend class TransientMesh;
-		friend class TransientMeshCore;
+		friend class ct::TransientMesh;
 		friend class MeshBaseRTTI;
 
 		Vector<SubMesh> mSubMeshes;
@@ -71,61 +71,6 @@ namespace bs
 	/** @addtogroup Implementation
 	 *  @{
 	 */
-
-	/**
-	 * Core version of a class used as a basis for all implemenations of meshes.
-	 *
-	 * @see		MeshBase
-	 *
-	 * @note	Core thread.
-	 */
-	class BS_CORE_EXPORT MeshCoreBase : public CoreObjectCore
-	{
-	public:
-		MeshCoreBase(UINT32 numVertices, UINT32 numIndices, const Vector<SubMesh>& subMeshes);
-		virtual ~MeshCoreBase() { }
-
-		/**	Get vertex data used for rendering. */
-		virtual SPtr<VertexData> getVertexData() const = 0;
-
-		/**	Get index data used for rendering. */
-		virtual SPtr<IndexBufferCore> getIndexBuffer() const = 0;
-
-		/**
-		 * Returns an offset into the vertex buffers that is returned by getVertexData() that signifies where this meshes
-		 * vertices begin.
-		 * 			
-		 * @note	Used when multiple meshes share the same buffers.
-		 */
-		virtual UINT32 getVertexOffset() const { return 0; }
-
-		/**
-		 * Returns an offset into the index buffer that is returned by getIndexData() that signifies where this meshes
-		 * indices begin.
-		 * 			
-		 * @note	Used when multiple meshes share the same buffers.
-		 */
-		virtual UINT32 getIndexOffset() const { return 0; }
-
-		/** Returns a structure that describes how are the vertices stored in the mesh's vertex buffer. */
-		virtual SPtr<VertexDataDesc> getVertexDesc() const = 0;
-
-		/**
-		 * Called whenever this mesh starts being used on the GPU.
-		 * 			
-		 * @note	Needs to be called after all commands referencing this mesh have been sent to the GPU.
-		 */
-		virtual void _notifyUsedOnGPU() { }
-
-		/**	Returns properties that contain information about the mesh. */
-		const MeshProperties& getProperties() const { return mProperties; }
-
-	protected:
-		/** @copydoc CoreObjectCore::syncToCore */
-		void syncToCore(const CoreSyncData& data) override;
-
-		MeshProperties mProperties;
-	};
 
 	/**
 	 * Base class all mesh implementations derive from. Meshes hold geometry information, normally in the form of one or 
@@ -163,7 +108,7 @@ namespace bs
 		const MeshProperties& getProperties() const { return mProperties; }
 
 		/**	Retrieves a core implementation of a mesh usable only from the core thread. */
-		SPtr<MeshCoreBase> getCore() const;
+		SPtr<ct::MeshBase> getCore() const;
 
 	protected:
 		/** @copydoc CoreObject::syncToCore */
@@ -182,6 +127,64 @@ namespace bs
 		static RTTITypeBase* getRTTIStatic();
 		RTTITypeBase* getRTTI() const override;
 	};
+
+	namespace ct
+	{
+	/**
+	 * Core version of a class used as a basis for all implemenations of meshes.
+	 *
+	 * @see		bs::MeshBase
+	 *
+	 * @note	Core thread.
+	 */
+	class BS_CORE_EXPORT MeshBase : public CoreObject
+	{
+	public:
+		MeshBase(UINT32 numVertices, UINT32 numIndices, const Vector<SubMesh>& subMeshes);
+		virtual ~MeshBase() { }
+
+		/**	Get vertex data used for rendering. */
+		virtual SPtr<VertexData> getVertexData() const = 0;
+
+		/**	Get index data used for rendering. */
+		virtual SPtr<IndexBuffer> getIndexBuffer() const = 0;
+
+		/**
+		 * Returns an offset into the vertex buffers that is returned by getVertexData() that signifies where this meshes
+		 * vertices begin.
+		 * 			
+		 * @note	Used when multiple meshes share the same buffers.
+		 */
+		virtual UINT32 getVertexOffset() const { return 0; }
+
+		/**
+		 * Returns an offset into the index buffer that is returned by getIndexData() that signifies where this meshes
+		 * indices begin.
+		 * 			
+		 * @note	Used when multiple meshes share the same buffers.
+		 */
+		virtual UINT32 getIndexOffset() const { return 0; }
+
+		/** Returns a structure that describes how are the vertices stored in the mesh's vertex buffer. */
+		virtual SPtr<VertexDataDesc> getVertexDesc() const = 0;
+
+		/**
+		 * Called whenever this mesh starts being used on the GPU.
+		 * 			
+		 * @note	Needs to be called after all commands referencing this mesh have been sent to the GPU.
+		 */
+		virtual void _notifyUsedOnGPU() { }
+
+		/**	Returns properties that contain information about the mesh. */
+		const MeshProperties& getProperties() const { return mProperties; }
+
+	protected:
+		/** @copydoc CoreObject::syncToCore */
+		void syncToCore(const CoreSyncData& data) override;
+
+		MeshProperties mProperties;
+	};
+	}
 
 	/** @} */
 }

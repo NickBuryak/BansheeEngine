@@ -3,7 +3,7 @@
 #include "BsGLSLProgramFactory.h"
 #include "BsGLSLGpuProgram.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
     const String GLSLProgramFactory::LANGUAGE_NAME = "glsl";
 
@@ -12,26 +12,26 @@ namespace bs
         return LANGUAGE_NAME;
     }
 
-	SPtr<GpuProgramCore> GLSLProgramFactory::create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
+	SPtr<GpuProgram> GLSLProgramFactory::create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
     {
-		GLSLGpuProgramCore* prog = new (bs_alloc<GLSLGpuProgramCore>()) GLSLGpuProgramCore(desc, deviceMask);
+		GLSLGpuProgram* prog = new (bs_alloc<GLSLGpuProgram>()) GLSLGpuProgram(desc, deviceMask);
 
-		SPtr<GLSLGpuProgramCore> gpuProg = bs_shared_ptr<GLSLGpuProgramCore>(prog);
+		SPtr<GLSLGpuProgram> gpuProg = bs_shared_ptr<GLSLGpuProgram>(prog);
 		gpuProg->_setThisPtr(gpuProg);
 
 		return gpuProg;
     }
 
-	SPtr<GpuProgramCore> GLSLProgramFactory::create(GpuProgramType type, GpuDeviceFlags deviceMask)
+	SPtr<GpuProgram> GLSLProgramFactory::create(GpuProgramType type, GpuDeviceFlags deviceMask)
 	{
 		GPU_PROGRAM_DESC desc;
 		desc.type = type;
 
-		GLSLGpuProgramCore* prog = new (bs_alloc<GLSLGpuProgramCore>()) GLSLGpuProgramCore(desc, deviceMask);
+		GLSLGpuProgram* prog = new (bs_alloc<GLSLGpuProgram>()) GLSLGpuProgram(desc, deviceMask);
 
-		SPtr<GLSLGpuProgramCore> gpuProg = bs_shared_ptr<GLSLGpuProgramCore>(prog);
+		SPtr<GLSLGpuProgram> gpuProg = bs_shared_ptr<GLSLGpuProgram>(prog);
 		gpuProg->_setThisPtr(gpuProg);
 
 		return gpuProg;
 	}
-}
+}}

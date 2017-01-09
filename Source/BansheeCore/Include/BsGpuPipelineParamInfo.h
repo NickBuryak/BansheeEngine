@@ -88,25 +88,6 @@ namespace bs
 		GroupAlloc mAlloc;
 	};
 
-	/** Core thread version of a GpuPipelineParamInfo. */
-	class BS_CORE_EXPORT GpuPipelineParamInfoCore : public CoreObjectCore, public GpuPipelineParamInfoBase
-	{
-	public:
-		virtual ~GpuPipelineParamInfoCore() { }
-
-		/** 
-		 * @copydoc GpuPipelineParamInfo::create 
-		 * @param[in]	deviceMask		Mask that determines on which GPU devices should the buffer be created on.
-		 */
-		static SPtr<GpuPipelineParamInfoCore> create(const GPU_PIPELINE_PARAMS_DESC& desc,
-													 GpuDeviceFlags deviceMask = GDF_DEFAULT);
-
-	protected:
-		friend class RenderStateCoreManager;
-
-		GpuPipelineParamInfoCore(const GPU_PIPELINE_PARAMS_DESC& desc, GpuDeviceFlags deviceMask);
-	};
-
 	/** Holds meta-data about a set of GPU parameters used by a single pipeline state. */
 	class BS_CORE_EXPORT GpuPipelineParamInfo : public CoreObject, public GpuPipelineParamInfoBase
 	{
@@ -118,7 +99,7 @@ namespace bs
 		 *
 		 * @note	Core thread only.
 		 */
-		SPtr<GpuPipelineParamInfoCore> getCore() const;
+		SPtr<ct::GpuPipelineParamInfo> getCore() const;
 
 		/** 
 		 * Constructs the object using the provided GPU parameter descriptors. 
@@ -131,8 +112,30 @@ namespace bs
 		GpuPipelineParamInfo(const GPU_PIPELINE_PARAMS_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 	};
+
+	namespace ct
+	{
+	/** Core thread version of a bs::GpuPipelineParamInfo. */
+	class BS_CORE_EXPORT GpuPipelineParamInfo : public CoreObject, public GpuPipelineParamInfoBase
+	{
+	public:
+		virtual ~GpuPipelineParamInfo() { }
+
+		/** 
+		 * @copydoc bs::GpuPipelineParamInfo::create 
+		 * @param[in]	deviceMask		Mask that determines on which GPU devices should the buffer be created on.
+		 */
+		static SPtr<GpuPipelineParamInfo> create(const GPU_PIPELINE_PARAMS_DESC& desc,
+													 GpuDeviceFlags deviceMask = GDF_DEFAULT);
+
+	protected:
+		friend class RenderStateManager;
+
+		GpuPipelineParamInfo(const GPU_PIPELINE_PARAMS_DESC& desc, GpuDeviceFlags deviceMask);
+	};
+	}
 
 	/** @} */
 }

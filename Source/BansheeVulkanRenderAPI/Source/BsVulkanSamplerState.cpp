@@ -5,7 +5,7 @@
 #include "BsVulkanUtility.h"
 #include "BsVulkanRenderAPI.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	VulkanSampler::VulkanSampler(VulkanResourceManager* owner, VkSampler sampler)
 		:VulkanResource(owner, true), mSampler(sampler)
@@ -16,11 +16,11 @@ namespace bs
 		vkDestroySampler(mOwner->getDevice().getLogical(), mSampler, gVulkanAllocator);
 	}
 
-	VulkanSamplerStateCore::VulkanSamplerStateCore(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask)
-		:SamplerStateCore(desc, deviceMask), mSamplers(), mDeviceMask(deviceMask)
+	VulkanSamplerState::VulkanSamplerState(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask)
+		:SamplerState(desc, deviceMask), mSamplers(), mDeviceMask(deviceMask)
 	{ }
 
-	VulkanSamplerStateCore::~VulkanSamplerStateCore()
+	VulkanSamplerState::~VulkanSamplerState()
 	{
 		for(UINT32 i = 0; i < BS_MAX_DEVICES; i++)
 		{
@@ -31,7 +31,7 @@ namespace bs
 		}
 	}
 
-	void VulkanSamplerStateCore::createInternal()
+	void VulkanSamplerState::createInternal()
 	{
 		FilterOptions minFilter = getProperties().getTextureFiltering(FT_MIN);
 		FilterOptions magFilter = getProperties().getTextureFiltering(FT_MAG);
@@ -62,7 +62,7 @@ namespace bs
 		samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 		samplerInfo.unnormalizedCoordinates = false;
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 		VulkanDevice* devices[BS_MAX_DEVICES];
 		VulkanUtility::getDevices(rapi, mDeviceMask, devices);
 
@@ -79,4 +79,4 @@ namespace bs
 			mSamplers[i] = devices[i]->getResourceManager().create<VulkanSampler>(sampler);
 		}
 	}
-}
+}}

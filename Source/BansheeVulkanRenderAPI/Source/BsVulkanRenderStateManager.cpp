@@ -5,41 +5,41 @@
 #include "BsVulkanGpuPipelineParamInfo.h"
 #include "BsVulkanSamplerState.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	SPtr<SamplerStateCore> VulkanRenderStateCoreManager::createSamplerStateInternal(const SAMPLER_STATE_DESC& desc,
+	SPtr<SamplerState> VulkanRenderStateManager::createSamplerStateInternal(const SAMPLER_STATE_DESC& desc,
 		GpuDeviceFlags deviceMask) const
 	{
-		SPtr<VulkanSamplerStateCore> samplerState =
-			bs_shared_ptr<VulkanSamplerStateCore>(new (bs_alloc<VulkanSamplerStateCore>()) VulkanSamplerStateCore(desc, deviceMask));
+		SPtr<VulkanSamplerState> samplerState =
+			bs_shared_ptr<VulkanSamplerState>(new (bs_alloc<VulkanSamplerState>()) VulkanSamplerState(desc, deviceMask));
 		samplerState->_setThisPtr(samplerState);
 
 		return samplerState;
 	}
 
-	SPtr<GraphicsPipelineStateCore> VulkanRenderStateCoreManager::_createGraphicsPipelineState(
-		const PIPELINE_STATE_CORE_DESC& desc, GpuDeviceFlags deviceMask) const
+	SPtr<GraphicsPipelineState> VulkanRenderStateManager::_createGraphicsPipelineState(
+		const PIPELINE_STATE_DESC& desc, GpuDeviceFlags deviceMask) const
 	{
-		SPtr<VulkanGraphicsPipelineStateCore> pipelineState =
-			bs_shared_ptr<VulkanGraphicsPipelineStateCore>(new (bs_alloc<VulkanGraphicsPipelineStateCore>()) 
-			VulkanGraphicsPipelineStateCore(desc, deviceMask));
+		SPtr<VulkanGraphicsPipelineState> pipelineState =
+			bs_shared_ptr<VulkanGraphicsPipelineState>(new (bs_alloc<VulkanGraphicsPipelineState>()) 
+			VulkanGraphicsPipelineState(desc, deviceMask));
 		pipelineState->_setThisPtr(pipelineState);
 
 		return pipelineState;
 	}
 
-	SPtr<ComputePipelineStateCore> VulkanRenderStateCoreManager::_createComputePipelineState(
-		const SPtr<GpuProgramCore>& program, GpuDeviceFlags deviceMask) const
+	SPtr<ComputePipelineState> VulkanRenderStateManager::_createComputePipelineState(
+		const SPtr<GpuProgram>& program, GpuDeviceFlags deviceMask) const
 	{
-		SPtr<VulkanComputePipelineStateCore> pipelineState =
-			bs_shared_ptr<VulkanComputePipelineStateCore>(new (bs_alloc<VulkanComputePipelineStateCore>())
-														  VulkanComputePipelineStateCore(program, deviceMask));
+		SPtr<VulkanComputePipelineState> pipelineState =
+			bs_shared_ptr<VulkanComputePipelineState>(new (bs_alloc<VulkanComputePipelineState>())
+														  VulkanComputePipelineState(program, deviceMask));
 		pipelineState->_setThisPtr(pipelineState);
 
 		return pipelineState;
 	}
 
-	SPtr<GpuPipelineParamInfoCore> VulkanRenderStateCoreManager::_createPipelineParamInfo(
+	SPtr<GpuPipelineParamInfo> VulkanRenderStateManager::_createPipelineParamInfo(
 		const GPU_PIPELINE_PARAMS_DESC& desc, GpuDeviceFlags deviceMask) const
 	{
 		SPtr<VulkanGpuPipelineParamInfo> paramInfo =
@@ -49,4 +49,4 @@ namespace bs
 
 		return paramInfo;
 	}
-}
+}}

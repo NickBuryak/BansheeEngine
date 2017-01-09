@@ -9,28 +9,6 @@
 
 namespace bs
 {
-	RenderTargetCore::RenderTargetCore()
-	{
-
-	}
-
-	void RenderTargetCore::setPriority(INT32 priority) 
-	{ 
-		RenderTargetProperties& props = const_cast<RenderTargetProperties&>(getProperties());
-
-		props.mPriority = priority;
-	}
-
-	const RenderTargetProperties& RenderTargetCore::getProperties() const
-	{ 
-		return getPropertiesInternal(); 
-	}
-
-	void RenderTargetCore::getCustomAttribute(const String& name, void* pData) const
-	{
-		BS_EXCEPT(InvalidParametersException, "Attribute not found.");
-	}
-
 	RenderTarget::RenderTarget()
 	{
 		// We never sync from sim to core, so mark it clean to avoid overwriting core thread changes
@@ -39,8 +17,8 @@ namespace bs
 
 	void RenderTarget::setPriority(INT32 priority)
 	{
-		std::function<void(SPtr<RenderTargetCore>, INT32)> windowedFunc =
-			[](SPtr<RenderTargetCore> renderTarget, INT32 priority)
+		std::function<void(SPtr<ct::RenderTarget>, INT32)> windowedFunc =
+			[](SPtr<ct::RenderTarget> renderTarget, INT32 priority)
 		{
 			renderTarget->setPriority(priority);
 		};
@@ -48,9 +26,9 @@ namespace bs
 		gCoreThread().queueCommand(std::bind(windowedFunc, getCore(), priority));
 	}
 
-	SPtr<RenderTargetCore> RenderTarget::getCore() const
+	SPtr<ct::RenderTarget> RenderTarget::getCore() const
 	{
-		return std::static_pointer_cast<RenderTargetCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::RenderTarget>(mCoreSpecific);
 	}
 
 	const RenderTargetProperties& RenderTarget::getProperties() const
@@ -65,4 +43,28 @@ namespace bs
 		BS_EXCEPT(InvalidParametersException, "Attribute not found.");
 	}
 
+	namespace ct
+	{
+		RenderTarget::RenderTarget()
+		{
+
+		}
+
+		void RenderTarget::setPriority(INT32 priority)
+		{
+			RenderTargetProperties& props = const_cast<RenderTargetProperties&>(getProperties());
+
+			props.mPriority = priority;
+		}
+
+		const RenderTargetProperties& RenderTarget::getProperties() const
+		{
+			return getPropertiesInternal();
+		}
+
+		void RenderTarget::getCustomAttribute(const String& name, void* pData) const
+		{
+			BS_EXCEPT(InvalidParametersException, "Attribute not found.");
+		}
+	}
 }        

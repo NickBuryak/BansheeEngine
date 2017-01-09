@@ -11,19 +11,19 @@
 #include "BsRenderStats.h"
 #include "BsMath.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	D3D11TextureCore::D3D11TextureCore(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData, 
+	D3D11Texture::D3D11Texture(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData, 
 		GpuDeviceFlags deviceMask)
-		: TextureCore(desc, initialData, deviceMask),
+		: Texture(desc, initialData, deviceMask),
 		m1DTex(nullptr), m2DTex(nullptr), m3DTex(nullptr), mDXGIFormat(DXGI_FORMAT_UNKNOWN), mDXGIColorFormat(DXGI_FORMAT_UNKNOWN),
-		mTex(nullptr), mStagingBuffer(nullptr), mDXGIDepthStencilFormat(DXGI_FORMAT_UNKNOWN),
+		mTex(nullptr), mInternalFormat(PF_UNKNOWN), mStagingBuffer(nullptr), mDXGIDepthStencilFormat(DXGI_FORMAT_UNKNOWN),
 		mLockedSubresourceIdx(-1), mLockedForReading(false), mStaticBuffer(nullptr)
 	{
 		assert((deviceMask == GDF_DEFAULT || deviceMask == GDF_PRIMARY) && "Multiple GPUs not supported natively on DirectX 11.");
 	}
 
-	D3D11TextureCore::~D3D11TextureCore()
+	D3D11Texture::~D3D11Texture()
 	{ 
 		SAFE_RELEASE(mTex);
 		SAFE_RELEASE(m1DTex);
@@ -34,7 +34,7 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_Texture);
 	}
 
-	void D3D11TextureCore::initialize()
+	void D3D11Texture::initialize()
 	{
 		THROW_IF_NOT_CORE_THREAD;
 
@@ -55,18 +55,18 @@ namespace bs
 		}
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_Texture);
-		TextureCore::initialize();
+		Texture::initialize();
 	}
 
-	void D3D11TextureCore::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-									const SPtr<TextureCore>& target, UINT32 queueIdx)
+	void D3D11Texture::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
+									const SPtr<Texture>& target, UINT32 queueIdx)
 	{
-		D3D11TextureCore* other = static_cast<D3D11TextureCore*>(target.get());
+		D3D11Texture* other = static_cast<D3D11Texture*>(target.get());
 
 		UINT32 srcResIdx = D3D11CalcSubresource(srcMipLevel, srcFace, mProperties.getNumMipmaps() + 1);
 		UINT32 destResIdx = D3D11CalcSubresource(destMipLevel, destFace, target->getProperties().getNumMipmaps() + 1);
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 
 		bool srcHasMultisample = mProperties.getNumSamples() > 1;
@@ -94,7 +94,7 @@ namespace bs
 		}
 	}
 
-	PixelData D3D11TextureCore::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,
+	PixelData D3D11Texture::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,
 										 UINT32 queueIdx)
 	{
 		if (mProperties.getNumSamples() > 1)
@@ -116,12 +116,10 @@ namespace bs
 		UINT32 mipHeight = std::max(1u, mProperties.getHeight() >> mipLevel);
 		UINT32 mipDepth = std::max(1u, mProperties.getDepth() >> mipLevel);
 
-		PixelData lockedArea(mipWidth, mipHeight, mipDepth, mProperties.getFormat());
+		PixelData lockedArea(mipWidth, mipHeight, mipDepth, mInternalFormat);
 
 		D3D11_MAP flags = D3D11Mappings::getLockOptions(options);
-
 		UINT32 rowPitch, slicePitch;
-
 		if(flags == D3D11_MAP_READ || flags == D3D11_MAP_READ_WRITE)
 		{
 			UINT8* data = (UINT8*)mapstagingbuffer(flags, face, mipLevel, rowPitch, slicePitch);
@@ -148,7 +146,7 @@ namespace bs
 		return lockedArea;
 	}
 
-	void D3D11TextureCore::unlockImpl()
+	void D3D11Texture::unlockImpl()
 	{
 		if(mLockedForReading)
 			unmapstagingbuffer();
@@ -161,7 +159,7 @@ namespace bs
 		}
 	}
 
-	void D3D11TextureCore::readDataImpl(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
+	void D3D11Texture::readDataImpl(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
 	{
 		if (mProperties.getNumSamples() > 1)
 		{
@@ -170,21 +168,11 @@ namespace bs
 		}
 
 		PixelData myData = lock(GBL_READ_ONLY, mipLevel, face, deviceIdx, queueIdx);
-
-#if BS_DEBUG_MODE
-		if(dest.getConsecutiveSize() != myData.getConsecutiveSize())
-		{
-			unlock();
-			BS_EXCEPT(InternalErrorException, "Buffer sizes don't match");
-		}
-#endif
-
 		PixelUtil::bulkPixelConversion(myData, dest);
-
 		unlock();
 	}
 
-	void D3D11TextureCore::writeDataImpl(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardWholeBuffer,
+	void D3D11Texture::writeDataImpl(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardWholeBuffer,
 									 UINT32 queueIdx)
 	{
 		PixelFormat format = mProperties.getFormat();
@@ -212,7 +200,7 @@ namespace bs
 		}
 		else if ((mProperties.getUsage() & TU_DEPTHSTENCIL) == 0)
 		{
-			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 			D3D11Device& device = rs->getPrimaryDevice();
 
 			UINT subresourceIdx = D3D11CalcSubresource(mipLevel, face, mProperties.getNumMipmaps() + 1);
@@ -235,14 +223,14 @@ namespace bs
 		}
 	}
 
-	void D3D11TextureCore::create1DTex()
+	void D3D11Texture::create1DTex()
 	{
 		UINT32 width = mProperties.getWidth();
 		int usage = mProperties.getUsage();
 		UINT32 numMips = mProperties.getNumMipmaps();
 		PixelFormat format = mProperties.getFormat();
 		bool hwGamma = mProperties.isHardwareGammaEnabled();
-		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, hwGamma);
+		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, TEX_TYPE_1D, usage);
 		UINT32 numFaces = mProperties.getNumFaces();
 
 		// We must have those defined here
@@ -252,11 +240,13 @@ namespace bs
 		HRESULT hr;
 		DXGI_FORMAT d3dPF = D3D11Mappings::getPF(closestFormat, hwGamma);
 
-		if (format != D3D11Mappings::getPF(d3dPF))
+		if (format != closestFormat)
 		{
-			BS_EXCEPT(RenderingAPIException, "Provided pixel format is not supported by the driver: " + toString(format));
+			LOGWRN(StringUtil::format("Provided pixel format is not supported by the driver: {0}. Falling back on: {1}.",
+									  format, closestFormat));
 		}
 
+		mInternalFormat = closestFormat;
 		mDXGIColorFormat = d3dPF;
 		mDXGIDepthStencilFormat = d3dPF;
 
@@ -306,7 +296,7 @@ namespace bs
 			desc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 
 		// Create the texture
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		hr = device.getD3D11Device()->CreateTexture1D(&desc, nullptr, &m1DTex);
 
@@ -345,12 +335,12 @@ namespace bs
 			viewDesc.numArraySlices = desc.ArraySize;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<TextureCore> thisPtr = std::static_pointer_cast<TextureCore>(getThisPtr());
+			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
 			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
 		}
 	}
 
-	void D3D11TextureCore::create2DTex()
+	void D3D11Texture::create2DTex()
 	{
 		UINT32 width = mProperties.getWidth();
 		UINT32 height = mProperties.getHeight();
@@ -360,7 +350,7 @@ namespace bs
 		bool hwGamma = mProperties.isHardwareGammaEnabled();
 		UINT32 sampleCount = mProperties.getNumSamples();
 		TextureType texType = mProperties.getTextureType();
-		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, hwGamma);
+		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, texType, usage);
 		UINT32 numFaces = mProperties.getNumFaces();
 
 		// TODO - Consider making this a parameter eventually
@@ -373,11 +363,13 @@ namespace bs
 		HRESULT hr;
 		DXGI_FORMAT d3dPF = D3D11Mappings::getPF(closestFormat, hwGamma);
 
-		if (format != D3D11Mappings::getPF(d3dPF))
+		if (format != closestFormat)
 		{
-			BS_EXCEPT(RenderingAPIException, "Provided pixel format is not supported by the driver: " + toString(format));
+			LOGWRN(StringUtil::format("Provided pixel format is not supported by the driver: {0}. Falling back on: {1}.",
+									  format, closestFormat));
 		}
 
+		mInternalFormat = closestFormat;
 		mDXGIColorFormat = d3dPF;
 		mDXGIDepthStencilFormat = d3dPF;
 
@@ -396,7 +388,7 @@ namespace bs
 			desc.MipLevels		= 1;
 
 			DXGI_SAMPLE_DESC sampleDesc;
-			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 			rs->determineMultisampleSettings(sampleCount, d3dPF, &sampleDesc);
 			desc.SampleDesc		= sampleDesc;
 
@@ -418,7 +410,7 @@ namespace bs
 				desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 
 			DXGI_SAMPLE_DESC sampleDesc;
-			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 			rs->determineMultisampleSettings(sampleCount, d3dPF, &sampleDesc);
 			desc.SampleDesc		= sampleDesc;
 
@@ -452,7 +444,7 @@ namespace bs
 			desc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 
 		// Create the texture
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		hr = device.getD3D11Device()->CreateTexture2D(&desc, nullptr, &m2DTex);
 
@@ -491,12 +483,12 @@ namespace bs
 			viewDesc.numArraySlices = desc.ArraySize;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<TextureCore> thisPtr = std::static_pointer_cast<TextureCore>(getThisPtr());
+			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
 			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
 		}
 	}
 
-	void D3D11TextureCore::create3DTex()
+	void D3D11Texture::create3DTex()
 	{
 		UINT32 width = mProperties.getWidth();
 		UINT32 height = mProperties.getHeight();
@@ -505,7 +497,7 @@ namespace bs
 		UINT32 numMips = mProperties.getNumMipmaps();
 		PixelFormat format = mProperties.getFormat();
 		bool hwGamma = mProperties.isHardwareGammaEnabled();
-		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, hwGamma);
+		PixelFormat closestFormat = D3D11Mappings::getClosestSupportedPF(format, TEX_TYPE_3D, usage);
 
 		// TODO - Consider making this a parameter eventually
 		bool readableDepth = true;
@@ -517,11 +509,13 @@ namespace bs
 		HRESULT hr;
 		DXGI_FORMAT d3dPF = D3D11Mappings::getPF(closestFormat, hwGamma);
 		
-		if (format != D3D11Mappings::getPF(d3dPF))
+		if (format != closestFormat)
 		{
-			BS_EXCEPT(RenderingAPIException, "Provided pixel format is not supported by the driver: " + toString(format));
+			LOGWRN(StringUtil::format("Provided pixel format is not supported by the driver: {0}. Falling back on: {1}.",
+									  format, closestFormat));
 		}
 
+		mInternalFormat = closestFormat;
 		mDXGIColorFormat = d3dPF;
 		mDXGIDepthStencilFormat = d3dPF;
 
@@ -568,7 +562,7 @@ namespace bs
 			desc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
 
 		// Create the texture
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		hr = device.getD3D11Device()->CreateTexture3D(&desc, nullptr, &m3DTex);
 
@@ -607,12 +601,12 @@ namespace bs
 			viewDesc.numArraySlices = 1;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<TextureCore> thisPtr = std::static_pointer_cast<TextureCore>(getThisPtr());
+			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
 			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
 		}
 	}
 
-	void* D3D11TextureCore::map(ID3D11Resource* res, D3D11_MAP flags, UINT32 mipLevel, UINT32 face, UINT32& rowPitch, UINT32& slicePitch)
+	void* D3D11Texture::map(ID3D11Resource* res, D3D11_MAP flags, UINT32 mipLevel, UINT32 face, UINT32& rowPitch, UINT32& slicePitch)
 	{
 		D3D11_MAPPED_SUBRESOURCE pMappedResource;
 		pMappedResource.pData = nullptr;
@@ -623,7 +617,7 @@ namespace bs
 		if (mProperties.getTextureType() == TEX_TYPE_3D)
 			face = 0;
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 
 		mLockedSubresourceIdx = D3D11CalcSubresource(mipLevel, face, mProperties.getNumMipmaps() + 1);
@@ -642,9 +636,9 @@ namespace bs
 		return pMappedResource.pData;
 	}
 
-	void D3D11TextureCore::unmap(ID3D11Resource* res)
+	void D3D11Texture::unmap(ID3D11Resource* res)
 	{
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		device.getImmediateContext()->Unmap(res, mLockedSubresourceIdx);
 
@@ -655,7 +649,7 @@ namespace bs
 		}
 	}
 
-	void* D3D11TextureCore::mapstagingbuffer(D3D11_MAP flags, UINT32 mipLevel, UINT32 face, UINT32& rowPitch, UINT32& slicePitch)
+	void* D3D11Texture::mapstagingbuffer(D3D11_MAP flags, UINT32 mipLevel, UINT32 face, UINT32& rowPitch, UINT32& slicePitch)
 	{
 		// Note: I am creating and destroying a staging resource every time a texture is read. 
 		// Consider offering a flag on init that will keep this active all the time (at the cost of double memory).
@@ -664,20 +658,20 @@ namespace bs
 		if(!mStagingBuffer)
 			createStagingBuffer(); 
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		device.getImmediateContext()->CopyResource(mStagingBuffer, mTex);
 
 		return map(mStagingBuffer, flags, face, mipLevel, rowPitch, slicePitch);
 	}
 
-	void D3D11TextureCore::unmapstagingbuffer()
+	void D3D11Texture::unmapstagingbuffer()
 	{
 		unmap(mStagingBuffer);
 		SAFE_RELEASE(mStagingBuffer);
 	}
 
-	void* D3D11TextureCore::mapstaticbuffer(PixelData lock, UINT32 mipLevel, UINT32 face)
+	void* D3D11Texture::mapstaticbuffer(PixelData lock, UINT32 mipLevel, UINT32 face)
 	{
 		UINT32 sizeOfImage = lock.getConsecutiveSize();
 		mLockedSubresourceIdx = D3D11CalcSubresource(mipLevel, face, mProperties.getNumMipmaps()+1);
@@ -688,12 +682,12 @@ namespace bs
 		return mStaticBuffer->getData();
 	}
 
-	void D3D11TextureCore::unmapstaticbuffer()
+	void D3D11Texture::unmapstaticbuffer()
 	{
 		UINT32 rowWidth = D3D11Mappings::getSizeInBytes(mStaticBuffer->getFormat(), mStaticBuffer->getWidth());
 		UINT32 sliceWidth = D3D11Mappings::getSizeInBytes(mStaticBuffer->getFormat(), mStaticBuffer->getWidth(), mStaticBuffer->getHeight());
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		device.getImmediateContext()->UpdateSubresource(mTex, mLockedSubresourceIdx, nullptr, mStaticBuffer->getData(), rowWidth, sliceWidth);
 
@@ -707,14 +701,14 @@ namespace bs
 			bs_delete(mStaticBuffer);
 	}
 
-	ID3D11ShaderResourceView* D3D11TextureCore::getSRV() const
+	ID3D11ShaderResourceView* D3D11Texture::getSRV() const
 	{
 		return mShaderResourceView->getSRV();
 	}
 
-	void D3D11TextureCore::createStagingBuffer()
+	void D3D11Texture::createStagingBuffer()
 	{
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		switch (mProperties.getTextureType())
 		{
@@ -761,8 +755,8 @@ namespace bs
 		}
 	}
 
-	SPtr<TextureView> D3D11TextureCore::createView(const SPtr<TextureCore>& texture, const TEXTURE_VIEW_DESC& desc)
+	SPtr<TextureView> D3D11Texture::createView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& desc)
 	{
 		return bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(texture, desc));
 	}
-}
+}}

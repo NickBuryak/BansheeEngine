@@ -19,9 +19,11 @@ namespace bs
 		return PF_R8G8B8A8;;
 	}
 
-	void VulkanTextureCoreManager::onStartUp()
+	namespace ct
 	{
-		TextureCoreManager::onStartUp();
+	void VulkanTextureManager::onStartUp()
+	{
+		TextureManager::onStartUp();
 
 		SPtr<PixelData> whitePixelData = PixelData::create(2, 2, 1, PF_R8G8B8A8);
 		whitePixelData->setColorAt(Color::White, 0, 0);
@@ -37,41 +39,42 @@ namespace bs
 		desc.usage = TU_STATIC;
 
 		// Note: When multi-GPU is properly tested, make sure to create these textures on all GPUs
-		mDummyReadTexture = std::static_pointer_cast<VulkanTextureCore>(createTexture(desc));
+		mDummyReadTexture = std::static_pointer_cast<VulkanTexture>(createTexture(desc));
 		mDummyReadTexture->writeData(*whitePixelData);
 
 		desc.usage = TU_LOADSTORE;
 
-		mDummyStorageTexture = std::static_pointer_cast<VulkanTextureCore>(createTexture(desc));
+		mDummyStorageTexture = std::static_pointer_cast<VulkanTexture>(createTexture(desc));
 	}
 
-	VkImageView VulkanTextureCoreManager::getDummyReadImageView(UINT32 deviceIdx) const
+	VkImageView VulkanTextureManager::getDummyReadImageView(UINT32 deviceIdx) const
 	{
 		return mDummyReadTexture->getResource(deviceIdx)->getView(false);
 	}
 
-	VkImageView VulkanTextureCoreManager::getDummyStorageImageView(UINT32 deviceIdx) const
+	VkImageView VulkanTextureManager::getDummyStorageImageView(UINT32 deviceIdx) const
 	{
 		return mDummyStorageTexture->getResource(deviceIdx)->getView(false);
 	}
 
-	SPtr<TextureCore> VulkanTextureCoreManager::createTextureInternal(const TEXTURE_DESC& desc,
+	SPtr<Texture> VulkanTextureManager::createTextureInternal(const TEXTURE_DESC& desc,
 		const SPtr<PixelData>& initialData, GpuDeviceFlags deviceMask)
 	{
-		VulkanTextureCore* tex = new (bs_alloc<VulkanTextureCore>()) VulkanTextureCore(desc, initialData, deviceMask);
+		VulkanTexture* tex = new (bs_alloc<VulkanTexture>()) VulkanTexture(desc, initialData, deviceMask);
 
-		SPtr<VulkanTextureCore> texPtr = bs_shared_ptr<VulkanTextureCore>(tex);
+		SPtr<VulkanTexture> texPtr = bs_shared_ptr<VulkanTexture>(tex);
 		texPtr->_setThisPtr(texPtr);
 
 		return texPtr;
 	}
 
-	SPtr<RenderTextureCore> VulkanTextureCoreManager::createRenderTextureInternal(const RENDER_TEXTURE_DESC_CORE& desc,
+	SPtr<RenderTexture> VulkanTextureManager::createRenderTextureInternal(const RENDER_TEXTURE_DESC& desc,
 																				  UINT32 deviceIdx)
 	{
-		SPtr<VulkanRenderTextureCore> texPtr = bs_shared_ptr_new<VulkanRenderTextureCore>(desc, deviceIdx);
+		SPtr<VulkanRenderTexture> texPtr = bs_shared_ptr_new<VulkanRenderTexture>(desc, deviceIdx);
 		texPtr->_setThisPtr(texPtr);
 
 		return texPtr;
+	}
 	}
 }

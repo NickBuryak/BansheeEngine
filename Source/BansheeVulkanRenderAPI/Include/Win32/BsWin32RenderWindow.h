@@ -11,8 +11,6 @@ namespace bs
 	 *  @{
 	 */
 
-	class Win32RenderWindow;
-
 	/**	Contains various properties that describe a render window. */
 	class Win32RenderWindowProperties : public RenderWindowProperties
 	{
@@ -21,106 +19,8 @@ namespace bs
 		virtual ~Win32RenderWindowProperties() { }
 
 	private:
-		friend class Win32RenderWindowCore;
+		friend class ct::Win32RenderWindow;
 		friend class Win32RenderWindow;
-	};
-
-	/**
-	 * Render window implementation for Windows and Vulkan.
-	 *
-	 * @note	Core thread only.
-	 */
-	class Win32RenderWindowCore : public RenderWindowCore
-	{
-	public:
-		Win32RenderWindowCore(const RENDER_WINDOW_DESC& desc, UINT32 windowId, VulkanRenderAPI& renderAPI);
-		~Win32RenderWindowCore();
-
-		/** @copydoc RenderWindowCore::move */
-		void move(INT32 left, INT32 top) override;
-
-		/** @copydoc RenderWindowCore::resize */
-		void resize(UINT32 width, UINT32 height) override;
-
-		/** @copydoc RenderWindowCore::setHidden */
-		void setHidden(bool hidden) override;
-
-		/** @copydoc RenderWindowCore::setActive */
-		void setActive(bool state) override;
-
-		/** @copydoc RenderWindowCore::minimize */
-		void minimize() override;
-
-		/** @copydoc RenderWindowCore::maximize */
-		void maximize() override;
-
-		/** @copydoc RenderWindowCore::restore */
-		void restore() override;
-
-		/** @copydoc RenderWindowCore::setFullscreen(UINT32, UINT32, float, UINT32) */
-		void setFullscreen(UINT32 width, UINT32 height, float refreshRate = 60.0f, UINT32 monitorIdx = 0) override;
-
-		/** @copydoc RenderWindowCore::setFullscreen(const VideoMode&) */
-		void setFullscreen(const VideoMode& videoMode) override;
-
-		/** @copydoc RenderWindowCore::setWindowed */
-		void setWindowed(UINT32 width, UINT32 height) override;
-
-		/** 
-		 * Copies the contents of a frame buffer into the pre-allocated buffer. 
-		 *
-		 * @param[out]	dst		Previously allocated buffer to read the contents into. Must be of valid size.
-		 * @param[in]	buffer	Frame buffer to read the contents from.
-		 */
-		void copyToMemory(PixelData &dst, FrameBuffer buffer);
-
-		/** Prepares the back buffer for rendering. Should be called before it is bound to the GPU. */
-		void acquireBackBuffer();
-
-		/** @copydoc RenderWindowCore::swapBuffers */
-		void swapBuffers(UINT32 syncMask = 0xFFFFFFFF) override;
-
-		/** @copydoc RenderWindowCore::getCustomAttribute */
-		void getCustomAttribute(const String& name, void* data) const override;
-
-		/** @copydoc RenderWindowCore::_windowMovedOrResized */
-		void _windowMovedOrResized() override;
-
-		/**	Returns internal window handle. */
-		HWND _getWindowHandle() const;
-	protected:
-		friend class Win32RenderWindow;
-
-		/** @copydoc CoreObjectCore::initialize */
-		void initialize() override;
-
-		/** @copydoc RenderWindowCore::getProperties */
-		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
-
-		/** @copydoc RenderWindowCore::getSyncedProperties */
-		RenderWindowProperties& getSyncedProperties() override { return mSyncedProperties; }
-
-		/** @copydoc RenderWindowCore::syncProperties */
-		void syncProperties() override;
-
-	protected:
-		Win32Window* mWindow;
-		bool mIsChild;
-		bool mShowOnSwap;
-		INT32 mDisplayFrequency;
-
-		VulkanRenderAPI& mRenderAPI;
-		VkSurfaceKHR mSurface;
-		VkColorSpaceKHR mColorSpace;
-		VkFormat mColorFormat;
-		VkFormat mDepthFormat;
-		UINT32 mPresentQueueFamily;
-		SPtr<VulkanSwapChain> mSwapChain;
-		VulkanSemaphore* mSemaphoresTemp[BS_MAX_UNIQUE_QUEUES + 1]; // +1 for present semaphore
-		bool mRequiresNewBackBuffer;
-
-		Win32RenderWindowProperties mProperties;
-		Win32RenderWindowProperties mSyncedProperties;
 	};
 
 	/**
@@ -143,18 +43,18 @@ namespace bs
 		Vector2I windowToScreenPos(const Vector2I& windowPos) const override;
 
 		/** @copydoc RenderWindow::getCore */
-		SPtr<Win32RenderWindowCore> getCore() const;
+		SPtr<ct::Win32RenderWindow> getCore() const;
 
 		/**	Retrieves internal window handle. */
 		HWND getHWnd() const;
 
 	protected:
 		friend class VulkanRenderWindowManager;
-		friend class Win32RenderWindowCore;
+		friend class ct::Win32RenderWindow;
 
 		Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId);
 
-		/** @copydoc RenderWindowCore::getProperties */
+		/** @copydoc RenderWindow::getProperties */
 		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
 
 		/** @copydoc RenderWindow::syncProperties */
@@ -163,6 +63,107 @@ namespace bs
 	private:
 		Win32RenderWindowProperties mProperties;
 	};
+
+	namespace ct
+	{
+	/**
+	 * Render window implementation for Windows and Vulkan.
+	 *
+	 * @note	Core thread only.
+	 */
+	class Win32RenderWindow : public RenderWindow
+	{
+	public:
+		Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, VulkanRenderAPI& renderAPI);
+		~Win32RenderWindow();
+
+		/** @copydoc RenderWindow::move */
+		void move(INT32 left, INT32 top) override;
+
+		/** @copydoc RenderWindow::resize */
+		void resize(UINT32 width, UINT32 height) override;
+
+		/** @copydoc RenderWindow::setHidden */
+		void setHidden(bool hidden) override;
+
+		/** @copydoc RenderWindow::setActive */
+		void setActive(bool state) override;
+
+		/** @copydoc RenderWindow::minimize */
+		void minimize() override;
+
+		/** @copydoc RenderWindow::maximize */
+		void maximize() override;
+
+		/** @copydoc RenderWindow::restore */
+		void restore() override;
+
+		/** @copydoc RenderWindow::setFullscreen(UINT32, UINT32, float, UINT32) */
+		void setFullscreen(UINT32 width, UINT32 height, float refreshRate = 60.0f, UINT32 monitorIdx = 0) override;
+
+		/** @copydoc RenderWindow::setFullscreen(const VideoMode&) */
+		void setFullscreen(const VideoMode& videoMode) override;
+
+		/** @copydoc RenderWindow::setWindowed */
+		void setWindowed(UINT32 width, UINT32 height) override;
+
+		/** 
+		 * Copies the contents of a frame buffer into the pre-allocated buffer. 
+		 *
+		 * @param[out]	dst		Previously allocated buffer to read the contents into. Must be of valid size.
+		 * @param[in]	buffer	Frame buffer to read the contents from.
+		 */
+		void copyToMemory(PixelData &dst, FrameBuffer buffer);
+
+		/** Prepares the back buffer for rendering. Should be called before it is bound to the GPU. */
+		void acquireBackBuffer();
+
+		/** @copydoc RenderWindow::swapBuffers */
+		void swapBuffers(UINT32 syncMask = 0xFFFFFFFF) override;
+
+		/** @copydoc RenderWindow::getCustomAttribute */
+		void getCustomAttribute(const String& name, void* data) const override;
+
+		/** @copydoc RenderWindow::_windowMovedOrResized */
+		void _windowMovedOrResized() override;
+
+		/**	Returns internal window handle. */
+		HWND _getWindowHandle() const;
+	protected:
+		friend class bs::Win32RenderWindow;
+
+		/** @copydoc CoreObject::initialize */
+		void initialize() override;
+
+		/** @copydoc RenderWindow::getProperties */
+		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
+
+		/** @copydoc RenderWindow::getSyncedProperties */
+		RenderWindowProperties& getSyncedProperties() override { return mSyncedProperties; }
+
+		/** @copydoc RenderWindow::syncProperties */
+		void syncProperties() override;
+
+	protected:
+		Win32Window* mWindow;
+		bool mIsChild;
+		bool mShowOnSwap;
+		INT32 mDisplayFrequency;
+
+		VulkanRenderAPI& mRenderAPI;
+		VkSurfaceKHR mSurface;
+		VkColorSpaceKHR mColorSpace;
+		VkFormat mColorFormat;
+		VkFormat mDepthFormat;
+		UINT32 mPresentQueueFamily;
+		SPtr<VulkanSwapChain> mSwapChain;
+		VulkanSemaphore* mSemaphoresTemp[BS_MAX_UNIQUE_QUEUES + 1]; // +1 for present semaphore
+		bool mRequiresNewBackBuffer;
+
+		Win32RenderWindowProperties mProperties;
+		Win32RenderWindowProperties mSyncedProperties;
+	};	
+	}
 	
 	/** @} */
 }

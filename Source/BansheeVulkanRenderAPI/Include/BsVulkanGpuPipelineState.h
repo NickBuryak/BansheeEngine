@@ -6,7 +6,7 @@
 #include "BsVulkanResource.h"
 #include "BsGpuPipelineState.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -37,16 +37,16 @@ namespace bs
 	};
 
 	/**	Vulkan implementation of a graphics pipeline state. */
-	class VulkanGraphicsPipelineStateCore : public GraphicsPipelineStateCore
+	class VulkanGraphicsPipelineState : public GraphicsPipelineState
 	{
 	public:
-		~VulkanGraphicsPipelineStateCore();
+		~VulkanGraphicsPipelineState();
 
 		/** Checks does the pipeline enable scissor tests. */
 		bool isScissorEnabled() const { return mScissorEnabled; }
 
 		/** Returns the vertex input declaration from the vertex GPU program bound on the pipeline. */
-		SPtr<VertexDeclarationCore> getInputDeclaration() const { return mVertexDecl; }
+		SPtr<VertexDeclaration> getInputDeclaration() const { return mVertexDecl; }
 
 		/** 
 		 * Attempts to find an existing pipeline matching the provided parameters, or creates a new one if one cannot be 
@@ -77,11 +77,11 @@ namespace bs
 		void registerPipelineResources(VulkanCmdBuffer* cmdBuffer);
 
 	protected:
-		friend class VulkanRenderStateCoreManager;
+		friend class VulkanRenderStateManager;
 
-		VulkanGraphicsPipelineStateCore(const PIPELINE_STATE_CORE_DESC& desc, GpuDeviceFlags deviceMask);
+		VulkanGraphicsPipelineState(const PIPELINE_STATE_DESC& desc, GpuDeviceFlags deviceMask);
 
-		/**	@copydoc GraphicsPipelineStateCore::initialize */
+		/**	@copydoc GraphicsPipelineState::initialize */
 		void initialize() override;
 
 		/** 
@@ -145,7 +145,7 @@ namespace bs
 		VkDynamicState mDynamicStates[3];
 		VkGraphicsPipelineCreateInfo mPipelineInfo;
 		bool mScissorEnabled;
-		SPtr<VertexDeclarationCore> mVertexDecl;
+		SPtr<VertexDeclaration> mVertexDecl;
 
 		GpuDeviceFlags mDeviceMask;
 		PerDeviceData mPerDeviceData[BS_MAX_DEVICES];
@@ -154,10 +154,10 @@ namespace bs
 	};
 
 	/**	Vulkan implementation of a compute pipeline state. */
-	class VulkanComputePipelineStateCore : public ComputePipelineStateCore
+	class VulkanComputePipelineState : public ComputePipelineState
 	{
 	public:
-		~VulkanComputePipelineStateCore();
+		~VulkanComputePipelineState();
 
 		/** 
 		 * Returns a pipeline object for the specified device index. If the device index doesn't match a bit in the
@@ -178,11 +178,11 @@ namespace bs
 		void registerPipelineResources(VulkanCmdBuffer* cmdBuffer);
 
 	protected:
-		friend class VulkanRenderStateCoreManager;
+		friend class VulkanRenderStateManager;
 
-		VulkanComputePipelineStateCore(const SPtr<GpuProgramCore>& program, GpuDeviceFlags deviceMask);
+		VulkanComputePipelineState(const SPtr<GpuProgram>& program, GpuDeviceFlags deviceMask);
 
-		/**	@copydoc ComputePipelineStateCore::initialize */
+		/**	@copydoc ComputePipelineState::initialize */
 		void initialize() override;
 
 		/** Contains pipeline data specific to a single Vulkan device. */
@@ -198,4 +198,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

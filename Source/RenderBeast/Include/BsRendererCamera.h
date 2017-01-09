@@ -9,7 +9,7 @@
 #include "BsRendererObject.h"
 #include "BsBounds.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup RenderBeast
 	 *  @{
@@ -30,12 +30,29 @@ namespace bs
 
 	extern PerCameraParamDef gPerCameraParamDef;
 
+	/** Shader that renders a skybox using a cubemap. */
+	class SkyboxMat : public RendererMaterial<SkyboxMat>
+	{
+		RMAT_DEF("Skybox.bsl");
+
+	public:
+		SkyboxMat();
+
+		/** Binds the material for rendering and sets up any global parameters. */
+		void bind(const SPtr<GpuParamBlockBuffer>& perCamera);
+
+		/** Updates the skybox texture used by the material. */
+		void setParams(const SPtr<Texture>& texture);
+	private:
+		GpuParamTexture mSkyTextureParam;
+	};
+
 	/** Contains information about a Camera, used by the Renderer. */
 	class RendererCamera
 	{
 	public:
 		RendererCamera();
-		RendererCamera(const CameraCore* camera, StateReduction reductionMode);
+		RendererCamera(const Camera* camera, StateReduction reductionMode);
 
 		/** Updates the internal camera data, usually called after source camera changes. */
 		void update(StateReduction reductionMode);
@@ -99,7 +116,7 @@ namespace bs
 		void updatePerCameraBuffer();
 
 		/** Returns a buffer that stores per-camera parameters. */
-		SPtr<GpuParamBlockBufferCore> getPerCameraBuffer() const { return mParamBuffer; }
+		SPtr<GpuParamBlockBuffer> getPerCameraBuffer() const { return mParamBuffer; }
 
 	private:
 		/**
@@ -112,7 +129,7 @@ namespace bs
 		 */
 		Vector2 getDeviceZTransform(const Matrix4& projMatrix) const;
 
-		const CameraCore* mCamera;
+		const Camera* mCamera;
 		SPtr<RenderQueue> mOpaqueQueue;
 		SPtr<RenderQueue> mTransparentQueue;
 
@@ -120,9 +137,9 @@ namespace bs
 		PostProcessInfo mPostProcessInfo;
 		bool mUsingRenderTargets;
 
-		SPtr<GpuParamBlockBufferCore> mParamBuffer;
+		SPtr<GpuParamBlockBuffer> mParamBuffer;
 		Vector<bool> mVisibility;
 	};
 
 	/** @} */
-}
+}}

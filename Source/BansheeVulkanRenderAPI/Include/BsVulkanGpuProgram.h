@@ -6,7 +6,7 @@
 #include "BsVulkanResource.h"
 #include "BsGpuProgram.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -27,11 +27,10 @@ namespace bs
 	};
 
 	/**	Abstraction of a Vulkan shader object. */
-	class 
-	VulkanGpuProgramCore : public GpuProgramCore
+	class VulkanGpuProgram : public GpuProgram
 	{
 	public:
-		virtual ~VulkanGpuProgramCore();
+		virtual ~VulkanGpuProgram();
 
 		/** 
 		 * Returns the shader module for the specified device. If program device mask doesn't include the provided device, 
@@ -42,9 +41,9 @@ namespace bs
 	protected:
 		friend class VulkanGLSLProgramFactory;
 
-		VulkanGpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
+		VulkanGpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
 
-		/** @copydoc GpuProgramCore::initialize */
+		/** @copydoc GpuProgram::initialize */
 		void initialize() override;
 
 	private:
@@ -53,4 +52,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

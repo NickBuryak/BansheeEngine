@@ -31,27 +31,30 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup Material-Internal
 	 *  @{
 	 */
 
 	/** Descriptor structure used for initializing a core thread variant of a shader pass. */
-	struct PASS_DESC_CORE
+	struct PASS_DESC
 	{
-		SPtr<BlendStateCore> blendState;
-		SPtr<RasterizerStateCore> rasterizerState;
-		SPtr<DepthStencilStateCore> depthStencilState;
+		SPtr<BlendState> blendState;
+		SPtr<RasterizerState> rasterizerState;
+		SPtr<DepthStencilState> depthStencilState;
 		UINT32 stencilRefValue;
 
-		SPtr<GpuProgramCore> vertexProgram;
-		SPtr<GpuProgramCore> fragmentProgram;
-		SPtr<GpuProgramCore> geometryProgram;
-		SPtr<GpuProgramCore> hullProgram;
-		SPtr<GpuProgramCore> domainProgram;
-		SPtr<GpuProgramCore> computeProgram;
+		SPtr<GpuProgram> vertexProgram;
+		SPtr<GpuProgram> fragmentProgram;
+		SPtr<GpuProgram> geometryProgram;
+		SPtr<GpuProgram> hullProgram;
+		SPtr<GpuProgram> domainProgram;
+		SPtr<GpuProgram> computeProgram;
 	};
 
 	/** @} */
+	}
 
 	/** @addtogroup Implementation
 	 *  @{
@@ -77,13 +80,13 @@ namespace bs
 	template<>
 	struct TPassTypes < true >
 	{
-		typedef SPtr<BlendStateCore> BlendStateType;
-		typedef SPtr<RasterizerStateCore> RasterizerStateType;
-		typedef SPtr<DepthStencilStateCore> DepthStencilStateType;
-		typedef SPtr<GpuProgramCore> GpuProgramType;
-		typedef SPtr<GraphicsPipelineStateCore> GraphicsPipelineStateType;
-		typedef SPtr<ComputePipelineStateCore> ComputePipelineStateType;
-		typedef PASS_DESC_CORE PassDescType;
+		typedef SPtr<ct::BlendState> BlendStateType;
+		typedef SPtr<ct::RasterizerState> RasterizerStateType;
+		typedef SPtr<ct::DepthStencilState> DepthStencilStateType;
+		typedef SPtr<ct::GpuProgram> GpuProgramType;
+		typedef SPtr<ct::GraphicsPipelineState> GraphicsPipelineStateType;
+		typedef SPtr<ct::ComputePipelineState> ComputePipelineStateType;
+		typedef ct::PASS_DESC PassDescType;
 	};
 
 	/**
@@ -145,40 +148,6 @@ namespace bs
 
 	/** @} */
 
-	/** @addtogroup Material-Internal
-	 *  @{
-	 */
-
-	/**
-	 * @copydoc	TPass
-	 *
-	 * @note	Core thread.
-	 */
-	class BS_CORE_EXPORT PassCore : public CoreObjectCore, public TPass<true>
-    {
-    public:
-		virtual ~PassCore() { }
-
-		/**	Creates a new empty pass. */
-		static SPtr<PassCore> create(const PASS_DESC_CORE& desc);
-
-	protected:
-		friend class Pass;
-		friend class TechniqueCore;
-
-		/** @copydoc CoreObjectCore::initialize */
-		void initialize() override;
-
-		PassCore() { }
-		PassCore(const PASS_DESC_CORE& desc);
-		PassCore(const PASS_DESC_CORE& desc, const SPtr<GraphicsPipelineStateCore>& pipelineState);
-		PassCore(const PASS_DESC_CORE& desc, const SPtr<ComputePipelineStateCore>& pipelineState);
-
-		/** @copydoc CoreObjectCore::syncToCore */
-		void syncToCore(const CoreSyncData& data) override;
-    };
-
-	/** @} */
 	/** @addtogroup Material
 	 *  @{
 	 */
@@ -194,7 +163,7 @@ namespace bs
 		virtual ~Pass() { }
 
 		/** Retrieves an implementation of a pass usable only from the core thread. */
-		SPtr<PassCore> getCore() const;
+		SPtr<ct::Pass> getCore() const;
 
 		/**	Creates a new empty pass. */
 		static SPtr<Pass> create(const PASS_DESC& desc);
@@ -212,7 +181,7 @@ namespace bs
 		CoreSyncData syncToCore(FrameAlloc* allocator) override;
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 		/** @copydoc CoreObject::syncToCore */
 		void getCoreDependencies(Vector<CoreObject*>& dependencies) override;
@@ -230,4 +199,42 @@ namespace bs
     };
 
 	/** @} */
+
+	namespace ct
+	{
+	/** @addtogroup Material-Internal
+	 *  @{
+	 */
+
+	/**
+	 * @copydoc	TPass
+	 *
+	 * @note	Core thread.
+	 */
+	class BS_CORE_EXPORT Pass : public CoreObject, public TPass<true>
+    {
+    public:
+		virtual ~Pass() { }
+
+		/**	Creates a new empty pass. */
+		static SPtr<Pass> create(const PASS_DESC& desc);
+
+	protected:
+		friend class bs::Pass;
+		friend class Technique;
+
+		/** @copydoc CoreObject::initialize */
+		void initialize() override;
+
+		Pass() { }
+		Pass(const PASS_DESC& desc);
+		Pass(const PASS_DESC& desc, const SPtr<GraphicsPipelineState>& pipelineState);
+		Pass(const PASS_DESC& desc, const SPtr<ComputePipelineState>& pipelineState);
+
+		/** @copydoc CoreObject::syncToCore */
+		void syncToCore(const CoreSyncData& data) override;
+    };
+
+	/** @} */
+	}
 }

@@ -6,20 +6,20 @@
 #include "BsD3D11Mappings.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	D3D11DepthStencilStateCore::D3D11DepthStencilStateCore(const DEPTH_STENCIL_STATE_DESC& desc, UINT32 id)
-		:DepthStencilStateCore(desc, id), mDepthStencilState(nullptr)
+	D3D11DepthStencilState::D3D11DepthStencilState(const DEPTH_STENCIL_STATE_DESC& desc, UINT32 id)
+		:DepthStencilState(desc, id), mDepthStencilState(nullptr)
 	{ }
 
-	D3D11DepthStencilStateCore::~D3D11DepthStencilStateCore()
+	D3D11DepthStencilState::~D3D11DepthStencilState()
 	{
 		SAFE_RELEASE(mDepthStencilState);
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_DepthStencilState);
 	}
 
-	void D3D11DepthStencilStateCore::createInternal()
+	void D3D11DepthStencilState::createInternal()
 	{
 		D3D11_DEPTH_STENCIL_DESC depthStencilState;
 		ZeroMemory(&depthStencilState, sizeof(D3D11_DEPTH_STENCIL_DESC));
@@ -39,7 +39,7 @@ namespace bs
 		depthStencilState.StencilReadMask = mProperties.getStencilReadMask();
 		depthStencilState.StencilWriteMask = mProperties.getStencilWriteMask();
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		HRESULT hr = device.getD3D11Device()->CreateDepthStencilState(&depthStencilState, &mDepthStencilState);
 
@@ -51,6 +51,6 @@ namespace bs
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_DepthStencilState);
 
-		DepthStencilStateCore::createInternal();
+		DepthStencilState::createInternal();
 	}
-}
+}}

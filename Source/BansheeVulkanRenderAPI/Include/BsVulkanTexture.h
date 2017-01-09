@@ -6,7 +6,7 @@
 #include "BsVulkanResource.h"
 #include "BsTexture.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -135,8 +135,12 @@ namespace bs
 		/** 
 		 * Determines a set of access flags based on the current image and provided image layout. This method makes 
 		 * certain assumptions about image usage, so it might not be valid in all situations. 
+		 * 
+		 * @param[in]	layout		Layout the image is currently in.
+		 * @param[in]	readOnly	True if the image is only going to be read without writing, allows the system to
+		 *							set less general access flags. If unsure, set to false.
 		 */
-		VkAccessFlags getAccessFlags(VkImageLayout layout);
+		VkAccessFlags getAccessFlags(VkImageLayout layout, bool readOnly = false);
 
 	private:
 		/** Creates a new view of the provided part (or entirety) of surface. */
@@ -174,10 +178,10 @@ namespace bs
 	};
 
 	/**	Vulkan implementation of a texture. */
-	class VulkanTextureCore : public TextureCore
+	class VulkanTexture : public Texture
 	{
 	public:
-		~VulkanTextureCore();
+		~VulkanTexture();
 
 		/** 
 		 * Gets the resource wrapping the Vulkan image object, on the specified device. If texture device mask doesn't 
@@ -186,35 +190,35 @@ namespace bs
 		VulkanImage* getResource(UINT32 deviceIdx) const { return mImages[deviceIdx]; }
 
 	protected:
-		friend class VulkanTextureCoreManager;
+		friend class VulkanTextureManager;
 
-		VulkanTextureCore(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData, GpuDeviceFlags deviceMask);
+		VulkanTexture(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData, GpuDeviceFlags deviceMask);
 
-		/** @copydoc CoreObjectCore::initialize() */
+		/** @copydoc CoreObject::initialize() */
 		void initialize() override;
 
-		/** @copydoc TextureCore::lockImpl */
+		/** @copydoc Texture::lockImpl */
 		PixelData lockImpl(GpuLockOptions options, UINT32 mipLevel = 0, UINT32 face = 0, UINT32 deviceIdx = 0,
 						   UINT32 queueIdx = 0) override;
 
-		/** @copydoc TextureCore::unlockImpl */
+		/** @copydoc Texture::unlockImpl */
 		void unlockImpl() override;
 
-		/** @copydoc TextureCore::copyImpl */
+		/** @copydoc Texture::copyImpl */
 		void copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-					  const SPtr<TextureCore>& target, UINT32 queueIdx = 0) override;
+					  const SPtr<Texture>& target, UINT32 queueIdx = 0) override;
 
-		/** @copydoc TextureCore::readData */
+		/** @copydoc Texture::readData */
 		void readDataImpl(PixelData& dest, UINT32 mipLevel = 0, UINT32 face = 0, UINT32 deviceIdx = 0,
 					  UINT32 queueIdx = 0) override;
 
-		/** @copydoc TextureCore::writeData */
+		/** @copydoc Texture::writeData */
 		void writeDataImpl(const PixelData& src, UINT32 mipLevel = 0, UINT32 face = 0, bool discardWholeBuffer = false,
 					   UINT32 queueIdx = 0) override;
 
 	private:
 		/** Creates a new image for the specified device, matching the current properties. */
-		VulkanImage* createImage(VulkanDevice& device);
+		VulkanImage* createImage(VulkanDevice& device, PixelFormat format);
 
 		/** 
 		 * Creates a staging buffer that can be used for texture transfer operations.
@@ -235,6 +239,7 @@ namespace bs
 			VkImageLayout srcFinalLayout, VkImageLayout dstFinalLayout);
 
 		VulkanImage* mImages[BS_MAX_DEVICES];
+		PixelFormat mInternalFormats[BS_MAX_DEVICES];
 		GpuDeviceFlags mDeviceMask;
 
 		VulkanBuffer* mStagingBuffer;
@@ -253,4 +258,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

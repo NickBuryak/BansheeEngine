@@ -7,7 +7,7 @@
 #include "BsRenderStats.h"
 #include "BsDebug.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	D3D11TimerQuery::D3D11TimerQuery(UINT32 deviceIdx)
 		:mFinalized(false), mContext(nullptr), mBeginQuery(nullptr), 
@@ -15,7 +15,7 @@ namespace bs
 	{
 		assert(deviceIdx == 0 && "Multiple GPUs not supported natively on DirectX 11.");
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 
 		D3D11_QUERY_DESC queryDesc;
@@ -143,4 +143,4 @@ namespace bs
 			LOGWRN_VERBOSE("Unrealiable GPU timer query detected.");
 		}
 	}
-}
+}}

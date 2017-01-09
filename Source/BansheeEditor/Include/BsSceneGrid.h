@@ -14,7 +14,7 @@ namespace bs
 	 *  @{
 	 */
 
-	class SceneGridRenderer;
+	namespace ct { class SceneGridRenderer; }
 
 	/** Determines how is the scene grid drawn. */
 	enum class GridMode
@@ -66,9 +66,11 @@ namespace bs
 
 		HMesh mGridMesh;
 		SPtr<VertexDataDesc> mVertexDesc;
-		SPtr<SceneGridRenderer> mRenderer;
+		SPtr<ct::SceneGridRenderer> mRenderer;
 	};
 
+	namespace ct
+	{
 	/** Handles scene grid rendering on the core thread. */
 	class SceneGridRenderer : public RendererExtension
 	{
@@ -76,8 +78,8 @@ namespace bs
 		/** Structure used for initializing the renderer. */
 		struct InitData
 		{
-			SPtr<CameraCore> camera;
-			SPtr<MaterialCore> material;
+			SPtr<Camera> camera;
+			SPtr<Material> material;
 		};
 
 		SceneGridRenderer();
@@ -89,10 +91,10 @@ namespace bs
 		void initialize(const Any& data) override;
 
 		/**	@copydoc RendererExtension::check */
-		bool check(const CameraCore& camera) override;
+		bool check(const Camera& camera) override;
 
 		/**	@copydoc RendererExtension::render */
-		void render(const CameraCore& camera) override;
+		void render(const Camera& camera) override;
 
 		/**
 		 * Updates the grid mesh to render.
@@ -103,24 +105,24 @@ namespace bs
 		 * @param[in]	gridPlaneNormal	Normal to the plane to render the grid on. Must be one of the basis vectors
 		 *								(can't be arbitrary).						
 		 */
-		void updateData(const SPtr<MeshCore>& mesh, float spacing, bool fadeGrid, const Vector3& gridPlaneNormal);
+		void updateData(const SPtr<Mesh>& mesh, float spacing, bool fadeGrid, const Vector3& gridPlaneNormal);
 
-		SPtr<CameraCore> mCamera;
-		SPtr<MeshCore> mGridMesh;
-		SPtr<MaterialCore> mGridMaterial;
-		SPtr<GpuParamsSetCore> mMaterialParams;
+		SPtr<Camera> mCamera;
+		SPtr<Mesh> mGridMesh;
+		SPtr<Material> mGridMaterial;
+		SPtr<GpuParamsSet> mMaterialParams;
 		float mSpacing = 1.0f;
 		bool mFadeGrid = true;
 		Vector3 mGridPlaneNormal = Vector3::ZERO;
 
-		MaterialParamMat4Core mViewProjParam;
-		MaterialParamVec4Core mWorldCameraPosParam;
-		MaterialParamColorCore mGridColorParam;
-		MaterialParamFloatCore mGridSpacingParam;
-		MaterialParamFloatCore mGridBorderWidthParam;
-		MaterialParamFloatCore mGridFadeOutStartParam;
-		MaterialParamFloatCore mGridFadeOutEndParam;
-		MaterialParamVec3Core mGridPlaneNormalParam;
+		MaterialParamMat4 mViewProjParam;
+		MaterialParamVec4 mWorldCameraPosParam;
+		MaterialParamColor mGridColorParam;
+		MaterialParamFloat mGridSpacingParam;
+		MaterialParamFloat mGridBorderWidthParam;
+		MaterialParamFloat mGridFadeOutStartParam;
+		MaterialParamFloat mGridFadeOutEndParam;
+		MaterialParamVec3 mGridPlaneNormalParam;
 
 		static const Color GRID_LINE_COLOR;
 		static const float LINE_WIDTH;
@@ -128,6 +130,7 @@ namespace bs
 		static const float FADE_OUT_START;
 		static const float FADE_OUT_END;
 	};
+	}
 
 	/** @} */
 }

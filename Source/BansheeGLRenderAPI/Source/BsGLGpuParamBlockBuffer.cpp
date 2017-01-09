@@ -4,22 +4,22 @@
 #include "BsRenderStats.h"
 #include "BsException.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	GLGpuParamBlockBufferCore::GLGpuParamBlockBufferCore(UINT32 size, GpuParamBlockUsage usage, GpuDeviceFlags deviceMask)
-		:GpuParamBlockBufferCore(size, usage, deviceMask), mGLHandle(0)
+	GLGpuParamBlockBuffer::GLGpuParamBlockBuffer(UINT32 size, GpuParamBlockUsage usage, GpuDeviceFlags deviceMask)
+		:GpuParamBlockBuffer(size, usage, deviceMask), mGLHandle(0)
 	{
 		assert((deviceMask == GDF_DEFAULT || deviceMask == GDF_PRIMARY) && "Multiple GPUs not supported natively on OpenGL.");
 	}
 
-	GLGpuParamBlockBufferCore::~GLGpuParamBlockBufferCore()
+	GLGpuParamBlockBuffer::~GLGpuParamBlockBuffer()
 	{
 		glDeleteBuffers(1, &mGLHandle);
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_GpuParamBuffer);
 	}
 
-	void GLGpuParamBlockBufferCore::initialize()
+	void GLGpuParamBlockBuffer::initialize()
 	{
 		glGenBuffers(1, &mGLHandle);
 		glBindBuffer(GL_UNIFORM_BUFFER, mGLHandle);
@@ -33,10 +33,10 @@ namespace bs
 		glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_GpuParamBuffer);
-		GpuParamBlockBufferCore::initialize();
+		GpuParamBlockBuffer::initialize();
 	}
 
-	void GLGpuParamBlockBufferCore::writeToGPU(const UINT8* data, UINT32 queueIdx)
+	void GLGpuParamBlockBuffer::writeToGPU(const UINT8* data, UINT32 queueIdx)
 	{
 		glBindBuffer(GL_UNIFORM_BUFFER, mGLHandle);
 		glBufferSubData(GL_UNIFORM_BUFFER, 0 , mSize, data);
@@ -44,4 +44,4 @@ namespace bs
 
 		BS_INC_RENDER_STAT_CAT(ResWrite, RenderStatObject_GpuParamBuffer);
 	}
-}
+}}

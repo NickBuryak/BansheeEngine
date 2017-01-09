@@ -9,7 +9,7 @@
 #include "BsRenderStats.h"
 #include "BsDebug.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	size_t D3D11InputLayoutManager::HashFunc::operator()
 		(const D3D11InputLayoutManager::VertexDeclarationKey &key) const
@@ -54,8 +54,8 @@ namespace bs
 		}
 	}
 
-	ID3D11InputLayout* D3D11InputLayoutManager::retrieveInputLayout(const SPtr<VertexDeclarationCore>& vertexShaderDecl, 
-		const SPtr<VertexDeclarationCore>& vertexBufferDecl, D3D11GpuProgramCore& vertexProgram)
+	ID3D11InputLayout* D3D11InputLayoutManager::retrieveInputLayout(const SPtr<VertexDeclaration>& vertexShaderDecl, 
+		const SPtr<VertexDeclaration>& vertexBufferDecl, D3D11GpuProgram& vertexProgram)
 	{
 		VertexDeclarationKey pair;
 		pair.vertxDeclId = vertexBufferDecl->getId();
@@ -79,8 +79,8 @@ namespace bs
 		return iterFind->second->inputLayout;
 	}
 
-	void D3D11InputLayoutManager::addNewInputLayout(const SPtr<VertexDeclarationCore>& vertexShaderDecl, 
-		const SPtr<VertexDeclarationCore>& vertexBufferDecl, D3D11GpuProgramCore& vertexProgram)
+	void D3D11InputLayoutManager::addNewInputLayout(const SPtr<VertexDeclaration>& vertexShaderDecl, 
+		const SPtr<VertexDeclaration>& vertexBufferDecl, D3D11GpuProgram& vertexProgram)
 	{
 		const VertexDeclarationProperties& bufferDeclProps = vertexBufferDecl->getProperties();
 		const VertexDeclarationProperties& shaderDeclProps = vertexShaderDecl->getProperties();
@@ -144,7 +144,7 @@ namespace bs
 			}
 		}
 
-		D3D11RenderAPI* d3d11rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* d3d11rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = d3d11rs->getPrimaryDevice();
 
 		const HLSLMicroCode& microcode = vertexProgram.getMicroCode();
@@ -203,4 +203,4 @@ namespace bs
 				break;
 		}
 	}
-}
+}}

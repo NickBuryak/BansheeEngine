@@ -14,7 +14,7 @@ namespace bs
 	 *  @{
 	 */
 
-	class SelectionRendererCore;
+	namespace ct { class SelectionRendererCore; }
 
 	/**	Handles rendering of the selected SceneObject%s overlay. */
 	class BS_ED_EXPORT SelectionRenderer
@@ -27,11 +27,13 @@ namespace bs
 		void update(const SPtr<Camera>& camera);
 
 	private:
-		friend class SelectionRendererCore;
+		friend class ct::SelectionRendererCore;
 
-		SPtr<SelectionRendererCore> mRenderer;
+		SPtr<ct::SelectionRendererCore> mRenderer;
 	};
 
+	namespace ct
+	{
 	/** Core thread version of the selection renderer, that handles actual rendering. */
 	class SelectionRendererCore : public RendererExtension
 	{
@@ -45,10 +47,10 @@ namespace bs
 		void initialize(const Any& data) override;
 
 		/** @copydoc RendererExtension::check */
-		bool check(const CameraCore& camera) override;
+		bool check(const Camera& camera) override;
 
 		/** @copydoc RendererExtension::render */
-		void render(const CameraCore& camera) override;
+		void render(const Camera& camera) override;
 
 		/**
 		 * Updates the internal data that determines what will be rendered on the next render() call.
@@ -56,22 +58,23 @@ namespace bs
 		 * @param[in]	camera		Camera to render the selection overlay in.
 		 * @param[in]	objects		A set of objects to render with the selection overlay.
 		 */
-		void updateData(const SPtr<CameraCore>& camera, const Vector<SPtr<RenderableCore>>& objects);
+		void updateData(const SPtr<Camera>& camera, const Vector<SPtr<Renderable>>& objects);
 
-		Vector<SPtr<RenderableCore>> mObjects;
-		SPtr<CameraCore> mCamera;
+		Vector<SPtr<Renderable>> mObjects;
+		SPtr<Camera> mCamera;
 
 		// Immutable
-		SPtr<MaterialCore> mMaterial;
-		SPtr<GpuParamsSetCore> mParams[4];
-		GpuParamMat4Core mMatWorldViewProj[4];
-		GpuParamColorCore mColor[4];
-		GpuParamBufferCore mBoneMatrices[4];
+		SPtr<Material> mMaterial;
+		SPtr<GpuParamsSet> mParams[4];
+		GpuParamMat4 mMatWorldViewProj[4];
+		GpuParamColor mColor[4];
+		GpuParamBuffer mBoneMatrices[4];
 
 		UINT32 mTechniqueIndices[4];
 
 		static const Color SELECTION_COLOR;
 	};
+	}
 
 	/** @} */
 }

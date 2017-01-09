@@ -15,29 +15,33 @@ namespace bs
 	class BS_D3D11_EXPORT D3D11RenderWindowManager : public RenderWindowManager
 	{
 	public:
-		D3D11RenderWindowManager(D3D11RenderAPI* renderSystem);
+		D3D11RenderWindowManager(ct::D3D11RenderAPI* renderSystem);
 
 	protected:
 		/** @copydoc RenderWindowManager::createImpl */
-		SPtr<RenderWindow> createImpl(RENDER_WINDOW_DESC& desc, UINT32 windowId, const SPtr<RenderWindow>& parentWindow) override;
+		SPtr<RenderWindow> createImpl(RENDER_WINDOW_DESC& desc, UINT32 windowId, 
+			const SPtr<RenderWindow>& parentWindow) override;
 
 	private:
-		D3D11RenderAPI* mRenderSystem;
+		ct::D3D11RenderAPI* mRenderSystem;
 	};
 
-	/** @copydoc RenderWindowCoreManager */
-	class BS_D3D11_EXPORT D3D11RenderWindowCoreManager : public RenderWindowCoreManager
+	namespace ct
+	{
+	/** @copydoc RenderWindowManager */
+	class BS_D3D11_EXPORT D3D11RenderWindowManager : public RenderWindowManager
 	{
 	public:
-		D3D11RenderWindowCoreManager(D3D11RenderAPI* renderSystem);
+		D3D11RenderWindowManager(D3D11RenderAPI* renderSystem);
 
 	protected:
-		/** @copydoc RenderWindowCoreManager::createInternal */
-		virtual SPtr<RenderWindowCore> createInternal(RENDER_WINDOW_DESC& desc, UINT32 windowId) override;
+		/** @copydoc RenderWindowManager::createInternal */
+		SPtr<RenderWindow> createInternal(RENDER_WINDOW_DESC& desc, UINT32 windowId) override;
 
 	private:
 		D3D11RenderAPI* mRenderSystem;
 	};
+	}
 
 	/** @} */
 }

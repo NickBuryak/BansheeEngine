@@ -331,6 +331,15 @@ namespace bs
 		GPDT_UNKNOWN = 0xffff
 	};
 
+	/**	Available texture types. */
+	enum TextureType
+	{
+		TEX_TYPE_1D = 1, /**< One dimensional texture. Just a row of pixels. */
+		TEX_TYPE_2D = 2, /**< Two dimensional texture. */
+		TEX_TYPE_3D = 3, /**< Three dimensional texture. */
+		TEX_TYPE_CUBE_MAP = 4 /**< Texture consisting out of six 2D textures describing an inside of a cube. Allows special sampling. */
+	};
+
 	/**	Contains data about a type used for GPU data parameters. */
 	struct GpuParamDataTypeInfo
 	{
@@ -594,11 +603,15 @@ namespace bs
 
 	template<bool Core> struct TMeshType {};
 	template<> struct TMeshType < false > { typedef HMesh Type; };
-	template<> struct TMeshType < true > { typedef SPtr<MeshCore> Type; };
+	template<> struct TMeshType < true > { typedef SPtr<ct::Mesh> Type; };
 
 	template<bool Core> struct TMaterialPtrType {};
 	template<> struct TMaterialPtrType < false > { typedef HMaterial Type; };
-	template<> struct TMaterialPtrType < true > { typedef SPtr<MaterialCore> Type; };
+	template<> struct TMaterialPtrType < true > { typedef SPtr<ct::Material> Type; };
+
+	template<bool Core> struct TTextureType {};
+	template<> struct TTextureType < false > { typedef HTexture Type; };
+	template<> struct TTextureType < true > { typedef SPtr<ct::Texture> Type; };
 
 	/** @cond SPECIALIZATIONS */
 	BS_ALLOW_MEMCPY_SERIALIZATION(TextureSurface);

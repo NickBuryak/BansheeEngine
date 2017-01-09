@@ -44,6 +44,17 @@ namespace bs
 		Kaiser
 	};
 
+	/** Determines on which axes to mirror an image. */
+	enum class MirrorModeBits
+	{
+		X = 1 << 0,
+		Y = 1 << 1, 
+		Z = 1 << 2
+	};
+
+	typedef Flags<MirrorModeBits> MirrorMode;
+	BS_FLAGS_OPERATORS(MirrorModeBits);
+
 	/**	Options used to control texture compression. */
 	struct CompressionOptions
 	{
@@ -117,6 +128,25 @@ namespace bs
 		/**	Checks is the provided format in native endian format. */
         static bool isNativeEndian(PixelFormat format);
 		
+		/** 
+		 * Checks is the provided format valid for the texture type and usage. 
+		 * 
+		 * @param[in, out]	format	Format to check. If format is not valid the method will update this with the closest
+		 *							relevant format.
+		 * @param[in]		texType	Type of the texture the format will be used for.
+		 * @param[in]		usage	A set of TextureUsage flags that define how will a texture be used.
+		 * @return					True if the format is valid, false if not.
+		 * 
+		 * @note	This method checks only for obvious format mismatches:
+		 *			- Using depth format for anything but a depth-stencil buffer
+		 *			- Using anything but a depth format for a depth-stencil-buffer
+		 *			- Using compressed format for anything but normal textures
+		 *			- Using compressed format for 1D textures
+		 *			
+		 *			Caller should still check for platform-specific unsupported formats.
+		 */
+		static bool checkFormat(PixelFormat& format, TextureType texType, int usage);
+
 		/**
 		 * Checks are the provided dimensions valid for the specified pixel format. Some formats (like BC) require 
 		 * width/height to be multiples of four and some formats dont allow depth larger than 1.
@@ -127,7 +157,7 @@ namespace bs
 		 * Returns the number of bits per each element in the provided pixel format. This will return all zero for 
 		 * compressed and depth/stencil formats.
 		 */
-        static void getBitDepths(PixelFormat format, int rgba[4]);
+        static void getBitDepths(PixelFormat format, int (&rgba)[4]);
 
 		/**
 		 * Returns bit masks that determine in what bit range is each channel stored.
@@ -136,7 +166,7 @@ namespace bs
 		 * For example if your color is stored in an UINT32 and you want to extract the red channel you should AND the color
 		 * UINT32 with the bit-mask for the red channel and then right shift it by the red channel bit shift amount.
 		 */
-        static void getBitMasks(PixelFormat format, UINT32 rgba[4]);
+        static void getBitMasks(PixelFormat format, UINT32 (&rgba)[4]);
 
 		/**
 		 * Returns number of bits you need to shift a pixel element in order to move it to the start of the data type.
@@ -145,7 +175,7 @@ namespace bs
 		 * For example if your color is stored in an UINT32 and you want to extract the red channel you should AND the color 
 		 * UINT32 with the bit-mask for the red channel and then right shift it by the red channel bit shift amount.
 		 */
-		static void getBitShifts(PixelFormat format, UINT8 rgba[4]);
+		static void getBitShifts(PixelFormat format, UINT8 (&rgba)[4]);
 
 		/**	Returns the name of the pixel format. */
         static String getFormatName(PixelFormat srcformat);
@@ -228,6 +258,17 @@ namespace bs
 		 * when scaling.
 		 */
 		static void scale(const PixelData& src, PixelData& dst, Filter filter = FILTER_LINEAR);
+
+		/** 
+		 * Mirrors the contents of the provided object along the X, Y and/or Z axes. */
+		static void mirror(PixelData& pixelData, MirrorMode mode);
+
+		/**
+		 * Copies the contents of the @p src buffer into the @p dst buffer. The size of the copied contents is determined
+		 * by the size of the @p dst buffer. First pixel copied from @p src is determined by offset provided in
+		 * @p offsetX, @p offsetY and @p offsetZ parameters.
+		 */
+		static void copy(const PixelData& src, PixelData& dst, UINT32 offsetX = 0, UINT32 offsetY = 0, UINT32 offsetZ = 0);
 
 		/**
 		 * Applies gamma correction to the pixels in the provided buffer.

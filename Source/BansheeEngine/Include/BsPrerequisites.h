@@ -180,7 +180,6 @@ namespace bs
 	class ProfilerOverlayInternal;
 	class DrawHelper;
 	class Renderable;
-	class RenderableCore;
 	class PlainText;
 	class ScriptCode;
 	class ScriptCodeImportOptions;
@@ -198,6 +197,11 @@ namespace bs
 	class CLight;
 	class CAnimation;
 	class CBone;
+
+	namespace ct
+	{
+		class Renderable;
+	}
 
 	typedef GameObjectHandle<CGUIWidget> HGUIWidget;
 	typedef GameObjectHandle<CRenderable> HRenderable;

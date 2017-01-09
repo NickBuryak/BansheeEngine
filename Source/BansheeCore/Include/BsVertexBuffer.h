@@ -35,7 +35,7 @@ namespace bs
 
 	protected:
 		friend class VertexBuffer;
-		friend class VertexBufferCore;
+		friend class ct::VertexBuffer;
 
 		UINT32 mNumVertices;
 		UINT32 mVertexSize;
@@ -52,7 +52,7 @@ namespace bs
 		 *
 		 * @note	Core thread only.
 		 */
-		SPtr<VertexBufferCore> getCore() const;
+		SPtr<ct::VertexBuffer> getCore() const;
 
 		/** @copydoc HardwareBufferManager::createVertexBuffer */
 		static SPtr<VertexBuffer> create(const VERTEX_BUFFER_DESC& desc);
@@ -64,7 +64,7 @@ namespace bs
 		VertexBuffer(const VERTEX_BUFFER_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		virtual SPtr<CoreObjectCore> createCore() const;
+		virtual SPtr<ct::CoreObject> createCore() const;
 
 	protected:
 		VertexBufferProperties mProperties;
@@ -74,26 +74,29 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
-	/** Core thread specific implementation of a VertexBuffer. */
-	class BS_CORE_EXPORT VertexBufferCore : public CoreObjectCore, public HardwareBuffer
+	/** Core thread specific implementation of a bs::VertexBuffer. */
+	class BS_CORE_EXPORT VertexBuffer : public CoreObject, public HardwareBuffer
 	{
 	public:
-		VertexBufferCore(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
-		virtual ~VertexBufferCore() { }
+		VertexBuffer(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		virtual ~VertexBuffer() { }
 
 		/**	Returns information about the vertex buffer. */
 		const VertexBufferProperties& getProperties() const { return mProperties; }
 
-		/** @copydoc HardwareBufferCoreManager::createVertexBuffer */
-		static SPtr<VertexBufferCore> create(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		/** @copydoc HardwareBufferManager::createVertexBuffer */
+		static SPtr<VertexBuffer> create(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
 
 	protected:
 		VertexBufferProperties mProperties;
 	};
 
 	/** @} */
+		}
 }

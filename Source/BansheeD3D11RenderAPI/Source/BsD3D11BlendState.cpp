@@ -6,20 +6,20 @@
 #include "BsD3D11Device.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	D3D11BlendStateCore::D3D11BlendStateCore(const BLEND_STATE_DESC& desc, UINT32 id)
-		:BlendStateCore(desc, id), mBlendState(nullptr)
+	D3D11BlendState::D3D11BlendState(const BLEND_STATE_DESC& desc, UINT32 id)
+		:BlendState(desc, id), mBlendState(nullptr)
 	{ }
 
-	D3D11BlendStateCore::~D3D11BlendStateCore()
+	D3D11BlendState::~D3D11BlendState()
 	{
 		SAFE_RELEASE(mBlendState);
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_BlendState);
 	}
 
-	void D3D11BlendStateCore::createInternal()
+	void D3D11BlendState::createInternal()
 	{
 		D3D11_BLEND_DESC blendStateDesc;
 		ZeroMemory(&blendStateDesc, sizeof(D3D11_BLEND_DESC));
@@ -39,7 +39,7 @@ namespace bs
 			blendStateDesc.RenderTarget[i].SrcBlendAlpha = D3D11Mappings::get(mProperties.getAlphaSrcBlend(i));
 		}
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		HRESULT hr = device.getD3D11Device()->CreateBlendState(&blendStateDesc, &mBlendState);
 
@@ -51,6 +51,6 @@ namespace bs
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_BlendState);
 
-		BlendStateCore::createInternal();
+		BlendState::createInternal();
 	}
-}
+}}

@@ -7,7 +7,7 @@
 #include "BsGLSupport.h"
 #include "BsTextureManager.h"
 
-namespace bs 
+namespace bs
 {
 	/** @addtogroup GL
 	 *  @{
@@ -17,7 +17,7 @@ namespace bs
     class BS_RSGL_EXPORT GLTextureManager : public TextureManager
     {
     public:
-        GLTextureManager(GLSupport& support);
+        GLTextureManager(ct::GLSupport& support);
         virtual ~GLTextureManager();
 
 		/**
@@ -29,26 +29,29 @@ namespace bs
 		/** @copydoc TextureManager::createRenderTextureImpl */
 		SPtr<RenderTexture> createRenderTextureImpl(const RENDER_TEXTURE_DESC& desc) override;
 
-        GLSupport& mGLSupport;
+		ct::GLSupport& mGLSupport;
     };
 
+	namespace ct
+	{
 	/** Handles creation of OpenGL textures. */
-	class BS_RSGL_EXPORT GLTextureCoreManager : public TextureCoreManager
+	class BS_RSGL_EXPORT GLTextureManager : public TextureManager
 	{
 	public:
-		GLTextureCoreManager(GLSupport& support);
+		GLTextureManager(GLSupport& support);
 
 	protected:		
-		/** @copydoc TextureCoreManager::createTextureInternal */
-		SPtr<TextureCore> createTextureInternal(const TEXTURE_DESC& desc,
+		/** @copydoc TextureManager::createTextureInternal */
+		SPtr<Texture> createTextureInternal(const TEXTURE_DESC& desc,
 			const SPtr<PixelData>& initialData = nullptr, GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc TextureCoreManager::createRenderTextureInternal */
-		SPtr<RenderTextureCore> createRenderTextureInternal(const RENDER_TEXTURE_DESC_CORE& desc, 
+		/** @copydoc TextureManager::createRenderTextureInternal */
+		SPtr<RenderTexture> createRenderTextureInternal(const RENDER_TEXTURE_DESC& desc, 
 			UINT32 deviceIdx = 0) override;
 
 		GLSupport& mGLSupport;
 	};
+	}
 
 	/** @} */
 }

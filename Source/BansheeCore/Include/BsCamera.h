@@ -506,42 +506,34 @@ namespace bs
 		mutable AABox mBoundingBox; /**< Frustum bounding box. */
      };
 
+	 /** @copydoc CameraBase */
+	 template<bool Core>
+	 class TCamera : public CameraBase
+	 {
+	 public:
+		 typedef typename TTextureType<Core>::Type TextureType;
+
+		/** 
+		 * Sets a texture that will be used for rendering areas of the camera's render target not covered by any geometry. 
+		 * If not set a clear color will be used instead.
+		 */
+		void setSkybox(const TextureType& texture) { mSkyTexture = texture; _markCoreDirty(); }
+
+		/** @see setSkybox() */
+		TextureType getSkybox() const { return mSkyTexture; }
+
+	 protected:
+		 TextureType mSkyTexture;
+	 };
+
 	/** @} */
+
 	/** @addtogroup Renderer-Engine-Internal
 	 *  @{
 	 */
 
 	/** @copydoc CameraBase */
-	class BS_CORE_EXPORT CameraCore : public CoreObjectCore, public CameraBase
-	{
-	public:
-		~CameraCore();
-
-		/**	Returns the viewport used by the camera. */	
-		SPtr<ViewportCore> getViewport() const { return mViewport; }
-
-	protected:
-		friend class Camera;
-
-		CameraCore(SPtr<RenderTargetCore> target = nullptr,
-			float left = 0.0f, float top = 0.0f, float width = 1.0f, float height = 1.0f);
-
-		CameraCore(const SPtr<ViewportCore>& viewport);
-
-		/** @copydoc CoreObjectCore::initialize */
-		void initialize() override;
-
-		/** @copydoc CameraBase */
-		Rect2I getViewportRect() const override;
-
-		/** @copydoc CoreObject::syncToCore */
-		void syncToCore(const CoreSyncData& data) override;
-
-		SPtr<ViewportCore> mViewport;
-	};
-
-	/** @copydoc CameraBase */
-	class BS_CORE_EXPORT Camera : public IReflectable, public CoreObject, public CameraBase
+	class BS_CORE_EXPORT Camera : public IReflectable, public CoreObject, public TCamera<false>
     {
     public:
 		/**	Returns the viewport used by the camera. */	
@@ -560,7 +552,7 @@ namespace bs
 		void setMain(bool main) { mMain = main; }
 
 		/** Retrieves an implementation of a camera handler usable only from the core thread. */
-		SPtr<CameraCore> getCore() const;
+		SPtr<ct::Camera> getCore() const;
 
 		/**	Creates a new camera that renders to the specified portion of the provided render target. */
 		static SPtr<Camera> create(SPtr<RenderTarget> target = nullptr,
@@ -586,7 +578,7 @@ namespace bs
 		Rect2I getViewportRect() const override;
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 		/** @copydoc CameraBase::_markCoreDirty */
 		void _markCoreDirty(CameraDirtyFlag flag = CameraDirtyFlag::Everything) override;
@@ -612,6 +604,38 @@ namespace bs
 		static RTTITypeBase* getRTTIStatic();
 		RTTITypeBase* getRTTI() const override;
      };
+
+	namespace ct
+	{
+	/** @copydoc CameraBase */
+	class BS_CORE_EXPORT Camera : public CoreObject, public TCamera<true>
+	{
+	public:
+		~Camera();
+
+		/**	Returns the viewport used by the camera. */	
+		SPtr<Viewport> getViewport() const { return mViewport; }
+
+	protected:
+		friend class bs::Camera;
+
+		Camera(SPtr<RenderTarget> target = nullptr,
+			float left = 0.0f, float top = 0.0f, float width = 1.0f, float height = 1.0f);
+
+		Camera(const SPtr<Viewport>& viewport);
+
+		/** @copydoc CoreObject::initialize */
+		void initialize() override;
+
+		/** @copydoc CameraBase */
+		Rect2I getViewportRect() const override;
+
+		/** @copydoc CoreObject::syncToCore */
+		void syncToCore(const CoreSyncData& data) override;
+
+		SPtr<Viewport> mViewport;
+	};
+	}
 
 	/** @} */
 }

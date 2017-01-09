@@ -113,9 +113,9 @@ namespace bs
 	VertexElementType VertexElement::getBestColorVertexElementType()
 	{
 		// Use the current render system to determine if possible
-		if (RenderAPICore::instancePtr() != nullptr)
+		if (ct::RenderAPI::instancePtr() != nullptr)
 		{
-			return RenderAPICore::instance().getAPIInfo().getColorVertexElementType();
+			return ct::RenderAPI::instance().getAPIInfo().getColorVertexElementType();
 		}
 		else
 		{
@@ -248,89 +248,20 @@ namespace bs
 		return size;
 	}
 
-	UINT32 VertexDeclarationCore::NextFreeId = 0;
-
-	VertexDeclarationCore::VertexDeclarationCore(const List<VertexElement>& elements, GpuDeviceFlags deviceMask)
-		:mProperties(elements)
-	{
-		
-	}
-
-	void VertexDeclarationCore::initialize()
-	{
-		mId = NextFreeId++;
-		CoreObjectCore::initialize();
-	}
-
-	SPtr<VertexDeclarationCore> VertexDeclarationCore::create(const SPtr<VertexDataDesc>& desc, GpuDeviceFlags deviceMask)
-	{
-		return HardwareBufferCoreManager::instance().createVertexDeclaration(desc, deviceMask);
-	}
-
-	bool VertexDeclarationCore::isCompatible(const SPtr<VertexDeclarationCore>& shaderDecl)
-	{
-		const List<VertexElement>& shaderElems = shaderDecl->getProperties().getElements();
-		const List<VertexElement>& bufferElems = getProperties().getElements();
-
-		for (auto shaderIter = shaderElems.begin(); shaderIter != shaderElems.end(); ++shaderIter)
-		{
-			const VertexElement* foundElement = nullptr;
-			for (auto bufferIter = bufferElems.begin(); bufferIter != bufferElems.end(); ++bufferIter)
-			{
-				if (shaderIter->getSemantic() == bufferIter->getSemantic() && shaderIter->getSemanticIdx() == bufferIter->getSemanticIdx())
-				{
-					foundElement = &(*bufferIter);
-					break;
-				}
-			}
-
-			if (foundElement == nullptr)
-				return false;
-		}
-
-		return true;
-	}
-
-	Vector<VertexElement> VertexDeclarationCore::getMissingElements(const SPtr<VertexDeclarationCore>& shaderDecl)
-	{
-		Vector<VertexElement> missingElements;
-
-		const List<VertexElement>& shaderElems = shaderDecl->getProperties().getElements();
-		const List<VertexElement>& bufferElems = getProperties().getElements();
-
-		for (auto shaderIter = shaderElems.begin(); shaderIter != shaderElems.end(); ++shaderIter)
-		{
-			const VertexElement* foundElement = nullptr;
-			for (auto bufferIter = bufferElems.begin(); bufferIter != bufferElems.end(); ++bufferIter)
-			{
-				if (shaderIter->getSemantic() == bufferIter->getSemantic() && shaderIter->getSemanticIdx() == bufferIter->getSemanticIdx())
-				{
-					foundElement = &(*bufferIter);
-					break;
-				}
-			}
-
-			if (foundElement == nullptr)
-				missingElements.push_back(*shaderIter);
-		}
-
-		return missingElements;
-	}
-
 	VertexDeclaration::VertexDeclaration(const List<VertexElement>& elements)
 		:mProperties(elements)
 	{
 
 	}
 
-	SPtr<VertexDeclarationCore> VertexDeclaration::getCore() const
+	SPtr<ct::VertexDeclaration> VertexDeclaration::getCore() const
 	{
-		return std::static_pointer_cast<VertexDeclarationCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::VertexDeclaration>(mCoreSpecific);
 	}
 
-	SPtr<CoreObjectCore> VertexDeclaration::createCore() const
+	SPtr<ct::CoreObject> VertexDeclaration::createCore() const
 	{
-		return HardwareBufferCoreManager::instance().createVertexDeclarationInternal(mProperties.mElementList);
+		return ct::HardwareBufferManager::instance().createVertexDeclarationInternal(mProperties.mElementList);
 	}
 
 	SPtr<VertexDeclaration> VertexDeclaration::create(const SPtr<VertexDataDesc>& desc)
@@ -383,5 +314,77 @@ namespace bs
 	WString toWString(const VertexElementSemantic& val)
 	{
 		return toWString(toString(val));
+	}
+
+	namespace ct
+	{
+	UINT32 VertexDeclaration::NextFreeId = 0;
+
+	VertexDeclaration::VertexDeclaration(const List<VertexElement>& elements, GpuDeviceFlags deviceMask)
+		:mProperties(elements)
+	{
+		
+	}
+
+	void VertexDeclaration::initialize()
+	{
+		mId = NextFreeId++;
+		CoreObject::initialize();
+	}
+
+	SPtr<VertexDeclaration> VertexDeclaration::create(const SPtr<VertexDataDesc>& desc, GpuDeviceFlags deviceMask)
+	{
+		return HardwareBufferManager::instance().createVertexDeclaration(desc, deviceMask);
+	}
+
+	bool VertexDeclaration::isCompatible(const SPtr<VertexDeclaration>& shaderDecl)
+	{
+		const List<VertexElement>& shaderElems = shaderDecl->getProperties().getElements();
+		const List<VertexElement>& bufferElems = getProperties().getElements();
+
+		for (auto shaderIter = shaderElems.begin(); shaderIter != shaderElems.end(); ++shaderIter)
+		{
+			const VertexElement* foundElement = nullptr;
+			for (auto bufferIter = bufferElems.begin(); bufferIter != bufferElems.end(); ++bufferIter)
+			{
+				if (shaderIter->getSemantic() == bufferIter->getSemantic() && shaderIter->getSemanticIdx() == bufferIter->getSemanticIdx())
+				{
+					foundElement = &(*bufferIter);
+					break;
+				}
+			}
+
+			if (foundElement == nullptr)
+				return false;
+		}
+
+		return true;
+	}
+
+	Vector<VertexElement> VertexDeclaration::getMissingElements(const SPtr<VertexDeclaration>& shaderDecl)
+	{
+		Vector<VertexElement> missingElements;
+
+		const List<VertexElement>& shaderElems = shaderDecl->getProperties().getElements();
+		const List<VertexElement>& bufferElems = getProperties().getElements();
+
+		for (auto shaderIter = shaderElems.begin(); shaderIter != shaderElems.end(); ++shaderIter)
+		{
+			const VertexElement* foundElement = nullptr;
+			for (auto bufferIter = bufferElems.begin(); bufferIter != bufferElems.end(); ++bufferIter)
+			{
+				if (shaderIter->getSemantic() == bufferIter->getSemantic() && shaderIter->getSemanticIdx() == bufferIter->getSemanticIdx())
+				{
+					foundElement = &(*bufferIter);
+					break;
+				}
+			}
+
+			if (foundElement == nullptr)
+				missingElements.push_back(*shaderIter);
+		}
+
+		return missingElements;
+	}
 	}
 }

@@ -22,7 +22,7 @@ namespace bs
 	 *  @{
 	 */
 
-	class GUIRenderer;
+	namespace ct { class GUIRenderer; }
 
 	/**
 	 * Manages the rendering and input of all GUI widgets in the scene. 
@@ -73,8 +73,8 @@ namespace bs
 		/**	Render data for a single GUI group used for notifying the core GUI renderer. */
 		struct GUICoreRenderData
 		{
-			SPtr<TransientMeshCore> mesh;
-			SPtr<TextureCore> texture;
+			SPtr<ct::TransientMesh> mesh;
+			SPtr<ct::Texture> texture;
 			SpriteMaterial* material;
 			Color tint;
 			Matrix4 worldTransform;
@@ -222,7 +222,7 @@ namespace bs
 		SPtr<RenderWindow> getBridgeWindow(const SPtr<RenderTexture>& target) const;
 
 	private:
-		friend class GUIRenderer;
+		friend class ct::GUIRenderer;
 
 		/**	Recreates all dirty GUI meshes and makes them ready for rendering. */
 		void updateMeshes();
@@ -238,7 +238,7 @@ namespace bs
 		 *
 		 * @param[in]	core	Previously constructed core thread GUI manager instance.
 		 */
-		void destroyCore(GUIRenderer* core);
+		void destroyCore(ct::GUIRenderer* core);
 
 		/**
 		 * Destroys any elements or widgets queued for destruction.
@@ -349,7 +349,7 @@ namespace bs
 		SPtr<MeshHeap> mTriangleMeshHeap;
 		SPtr<MeshHeap> mLineMeshHeap;
 
-		SPtr<GUIRenderer> mRenderer;
+		SPtr<ct::GUIRenderer> mRenderer;
 		bool mCoreDirty;
 
 		SPtr<VertexDataDesc> mTriangleVertexDesc;
@@ -419,6 +419,8 @@ namespace bs
 		HEvent mMouseLeftWindowConn;
 	};
 
+	namespace ct
+	{
 	BS_PARAM_BLOCK_BEGIN(GUISpriteParamBlockDef)
 		BS_PARAM_BLOCK_ENTRY(Matrix4, gWorldTransform)
 		BS_PARAM_BLOCK_ENTRY(float, gInvViewportWidth)
@@ -441,10 +443,10 @@ namespace bs
 		void initialize(const Any& data) override;
 
 		/**	@copydoc RendererExtension::check */
-		bool check(const CameraCore& camera) override;
+		bool check(const Camera& camera) override;
 
 		/**	@copydoc RendererExtension::render */
-		void render(const CameraCore& camera) override;
+		void render(const Camera& camera) override;
 
 	private:
 		/**
@@ -452,13 +454,14 @@ namespace bs
 		 *
 		 * @param[in]	perCameraData	GUI mesh/material per viewport.
 		 */
-		void updateData(const UnorderedMap<SPtr<CameraCore>, Vector<GUIManager::GUICoreRenderData>>& perCameraData);
+		void updateData(const UnorderedMap<SPtr<Camera>, Vector<GUIManager::GUICoreRenderData>>& perCameraData);
 
-		UnorderedMap<const CameraCore*, Vector<GUIManager::GUICoreRenderData>> mPerCameraData;
-		Set<SPtr<CameraCore>> mReferencedCameras;
-		Vector<SPtr<GpuParamBlockBufferCore>> mParamBlocks;
-		SPtr<SamplerStateCore> mSamplerState;
+		UnorderedMap<const Camera*, Vector<GUIManager::GUICoreRenderData>> mPerCameraData;
+		Set<SPtr<Camera>> mReferencedCameras;
+		Vector<SPtr<GpuParamBlockBuffer>> mParamBlocks;
+		SPtr<SamplerState> mSamplerState;
 	};
+	}
 
 	/** Provides easier access to GUIManager. */
 	BS_EXPORT GUIManager& gGUIManager();

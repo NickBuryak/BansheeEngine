@@ -34,13 +34,13 @@ namespace bs
 		HMaterial textMaterial = BuiltinEditorResources::instance().createTextGizmoMat();
 		HMaterial clearMaterial = BuiltinEditorResources::instance().createHandleClearAlphaMat();
 
-		HandleRenderer::InitData rendererInitData;
+		ct::HandleRenderer::InitData rendererInitData;
 		rendererInitData.solidMat = solidMaterial->getCore();
 		rendererInitData.lineMat = lineMaterial->getCore();
 		rendererInitData.textMat = textMaterial->getCore();
 		rendererInitData.clearMat = clearMaterial->getCore();
 
-		mRenderer = RendererExtension::create<HandleRenderer>(rendererInitData);
+		mRenderer = RendererExtension::create<ct::HandleRenderer>(rendererInitData);
 	}
 
 	HandleDrawManager::~HandleDrawManager()
@@ -166,13 +166,13 @@ namespace bs
 
 	void HandleDrawManager::draw(const SPtr<Camera>& camera)
 	{
-		HandleRenderer* renderer = mRenderer.get();
+		ct::HandleRenderer* renderer = mRenderer.get();
 
 		// Clear meshes from previous frame
 		UINT64 frameIdx = gTime().getFrameIdx();
 		if(frameIdx != mLastFrameIdx)
 		{
-			gCoreThread().queueCommand(std::bind(&HandleRenderer::clearQueued, renderer));
+			gCoreThread().queueCommand(std::bind(&ct::HandleRenderer::clearQueued, renderer));
 
 			clearMeshes();
 			mLastFrameIdx = frameIdx;
@@ -183,31 +183,31 @@ namespace bs
 		const Vector<DrawHelper::ShapeMeshData>& meshes = mDrawHelper->getMeshes();
 		mActiveMeshes.push_back(meshes);
 
-		Vector<HandleRenderer::MeshData> proxyData;
+		Vector<ct::HandleRenderer::MeshData> proxyData;
 		for (auto& meshData : meshes)
 		{
-			SPtr<TextureCore> tex;
+			SPtr<ct::Texture> tex;
 			if (meshData.texture.isLoaded())
 				tex = meshData.texture->getCore();
 
 			if (meshData.type == DrawHelper::MeshType::Solid)
 			{
-				proxyData.push_back(HandleRenderer::MeshData(
-					meshData.mesh->getCore(), tex, HandleRenderer::MeshType::Solid));
+				proxyData.push_back(ct::HandleRenderer::MeshData(
+					meshData.mesh->getCore(), tex, ct::HandleRenderer::MeshType::Solid));
 			}
 			else if (meshData.type == DrawHelper::MeshType::Line)
 			{
-				proxyData.push_back(HandleRenderer::MeshData(
-					meshData.mesh->getCore(), tex, HandleRenderer::MeshType::Line));
+				proxyData.push_back(ct::HandleRenderer::MeshData(
+					meshData.mesh->getCore(), tex, ct::HandleRenderer::MeshType::Line));
 			}
 			else // Text
 			{
-				proxyData.push_back(HandleRenderer::MeshData(
-					meshData.mesh->getCore(), tex, HandleRenderer::MeshType::Text));
+				proxyData.push_back(ct::HandleRenderer::MeshData(
+					meshData.mesh->getCore(), tex, ct::HandleRenderer::MeshType::Text));
 			}
 		}
 
-		gCoreThread().queueCommand(std::bind(&HandleRenderer::queueForDraw, renderer, camera->getCore(), proxyData));
+		gCoreThread().queueCommand(std::bind(&ct::HandleRenderer::queueForDraw, renderer, camera->getCore(), proxyData));
 	}
 
 	void HandleDrawManager::clear()
@@ -223,6 +223,8 @@ namespace bs
 		mActiveMeshes.clear();
 	}
 
+	namespace ct
+	{
 	HandleParamBlockDef gHandleParamBlockDef;
 
 	HandleRenderer::HandleRenderer()
@@ -247,7 +249,7 @@ namespace bs
 		clearQueued();
 	}
 
-	void HandleRenderer::queueForDraw(const SPtr<CameraCore>& camera, Vector<MeshData>& meshes)
+	void HandleRenderer::queueForDraw(const SPtr<Camera>& camera, Vector<MeshData>& meshes)
 	{
 		SPtr<CoreRenderer> activeRenderer = RendererManager::instance().getActive();
 		if (camera != nullptr)
@@ -259,7 +261,7 @@ namespace bs
 
 				entry.paramIdx = paramsIdx;
 
-				SPtr<GpuParamsSetCore> paramsSet;
+				SPtr<GpuParamsSet> paramsSet;
 				if (paramsIdx >= mParamSets[typeIdx].size())
 				{
 					paramsSet = mMaterials[typeIdx]->createParamsSet();
@@ -272,7 +274,7 @@ namespace bs
 
 				if(entry.type == MeshType::Text)
 				{
-					GpuParamTextureCore texture;
+					GpuParamTexture texture;
 
 					paramsSet->getGpuParams()->getTextureParam(GPT_FRAGMENT_PROGRAM, "gMainTexture", texture);
 					texture.set(entry.texture);
@@ -291,7 +293,7 @@ namespace bs
 		bs_zero_out(mTypeCounters);
 	}
 
-	bool HandleRenderer::check(const CameraCore& camera)
+	bool HandleRenderer::check(const Camera& camera)
 	{
 		for(auto& entry : mQueuedData)
 		{
@@ -302,7 +304,7 @@ namespace bs
 		return false;
 	}
 
-	void HandleRenderer::render(const CameraCore& camera)
+	void HandleRenderer::render(const Camera& camera)
 	{
 		THROW_IF_NOT_CORE_THREAD;
 
@@ -314,7 +316,7 @@ namespace bs
 			const QueuedData& queueData = entry;
 			const Vector<MeshData>& meshes = queueData.meshes;
 
-			SPtr<RenderTargetCore> renderTarget = camera.getViewport()->getTarget();
+			SPtr<RenderTarget> renderTarget = camera.getViewport()->getTarget();
 
 			float width = (float)renderTarget->getProperties().getWidth();
 			float height = (float)renderTarget->getProperties().getHeight();
@@ -350,5 +352,6 @@ namespace bs
 			gRendererUtility().setPass(mClearMaterial, 0);
 			gRendererUtility().drawScreenQuad();
 		}
+	}
 	}
 }

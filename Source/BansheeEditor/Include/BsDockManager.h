@@ -13,7 +13,7 @@ namespace bs
 	 *  @{
 	 */
 
-	class DockOverlayRenderer;
+	namespace ct { class DockOverlayRenderer; }
 
 	/**
 	 * GUI element that allows editor widgets to be docked in it using arbitrary layouts. Docked widgets can be resized,
@@ -234,7 +234,7 @@ namespace bs
 		/** @copydoc GUIElementBase::_mouseEvent */
 		bool _mouseEvent(const GUIMouseEvent& event) override;
 
-		SPtr<DockOverlayRenderer> mRenderer;
+		SPtr<ct::DockOverlayRenderer> mRenderer;
 
 		EditorWindowBase* mParentWindow;
 		DockContainer mRootContainer;
@@ -256,6 +256,8 @@ namespace bs
 		Vector2* mRightDropPolygon;
 	};
 
+	namespace ct
+	{
 	/** Handles rendering of the dock overlay on the core thread. */
 	class DockOverlayRenderer : public RendererExtension
 	{
@@ -269,10 +271,10 @@ namespace bs
 		void initialize(const Any& data) override;
 
 		/**	@copydoc RendererExtension::check */
-		bool check(const CameraCore& camera) override;
+		bool check(const Camera& camera) override;
 
 		/**	@copydoc RendererExtension::render */
-		void render(const CameraCore& camera) override;
+		void render(const Camera& camera) override;
 
 		/**
 		 * Updates the grid mesh to render.
@@ -282,19 +284,20 @@ namespace bs
 		 * @param[in]	active		Should the overlay be shown or not.
 		 * @param[in]	location	Highlighted location of the overlay.
 		 */
-		void updateData(const SPtr<CameraCore>& camera, const SPtr<MeshCore>& mesh, bool active,
+		void updateData(const SPtr<Camera>& camera, const SPtr<Mesh>& mesh, bool active,
 			DockManager::DockLocation location);
 
-		SPtr<CameraCore> mCamera;
-		SPtr<MaterialCore> mMaterial;
-		SPtr<GpuParamsSetCore> mParams;
-		SPtr<MeshCore> mMesh;
+		SPtr<Camera> mCamera;
+		SPtr<Material> mMaterial;
+		SPtr<GpuParamsSet> mParams;
+		SPtr<Mesh> mMesh;
 		DockManager::DockLocation mHighlightedDropLoc;
 		bool mShowOverlay;
 
 		static const Color TINT_COLOR;
 		static const Color HIGHLIGHT_COLOR;
 	};
+	}
 
 	/** @} */
 }

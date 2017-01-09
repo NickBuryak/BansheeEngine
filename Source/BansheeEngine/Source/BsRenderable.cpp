@@ -24,7 +24,7 @@ namespace bs
 	bool isMeshValid(const HMesh& mesh) { return mesh.isLoaded(); }
 
 	template<>
-	bool isMeshValid(const SPtr<MeshCore>& mesh) { return mesh != nullptr; }
+	bool isMeshValid(const SPtr<ct::Mesh>& mesh) { return mesh != nullptr; }
 
 	template<bool Core>
 	TRenderable<Core>::TRenderable()
@@ -148,238 +148,6 @@ namespace bs
 	template class TRenderable < false >;
 	template class TRenderable < true >;
 
-	RenderableCore::RenderableCore() 
-		:mRendererId(0), mAnimationId((UINT64)-1), mMorphShapeVersion(0)
-	{
-	}
-
-	RenderableCore::~RenderableCore()
-	{
-		if (mIsActive)
-			gRenderer()->notifyRenderableRemoved(this);
-	}
-
-	void RenderableCore::initialize()
-	{
-		gRenderer()->notifyRenderableAdded(this);
-
-		CoreObjectCore::initialize();
-	}
-
-	Bounds RenderableCore::getBounds() const
-	{
-		if (mUseOverrideBounds)
-		{
-			Sphere sphere(mOverrideBounds.getCenter(), mOverrideBounds.getRadius());
-
-			Bounds bounds(mOverrideBounds, sphere);
-			bounds.transformAffine(mTransform);
-
-			return bounds;
-		}
-
-		SPtr<MeshCore> mesh = getMesh();
-
-		if (mesh == nullptr)
-		{
-			AABox box(mPosition, mPosition);
-			Sphere sphere(mPosition, 0.0f);
-
-			return Bounds(box, sphere);
-		}
-		else
-		{
-			Bounds bounds = mesh->getProperties().getBounds();
-			bounds.transformAffine(mTransform);
-
-			return bounds;
-		}
-	}
-
-	void RenderableCore::createAnimationBuffers()
-	{
-		if (mAnimType == RenderableAnimType::Skinned || mAnimType == RenderableAnimType::SkinnedMorph)
-		{
-			SPtr<Skeleton> skeleton = mMesh->getSkeleton();
-			UINT32 numBones = skeleton != nullptr ? skeleton->getNumBones() : 0;
-
-			if (numBones > 0)
-			{
-				GPU_BUFFER_DESC desc;
-				desc.elementCount = numBones * 3;
-				desc.elementSize = 0;
-				desc.type = GBT_STANDARD;
-				desc.format = BF_32X4F;
-				desc.usage = GBU_DYNAMIC;
-
-				SPtr<GpuBufferCore> buffer = GpuBufferCore::create(desc);
-				UINT8* dest = (UINT8*)buffer->lock(0, numBones * 3 * sizeof(Vector4), GBL_WRITE_ONLY_DISCARD);
-
-				// Initialize bone transforms to identity, so the object renders properly even if no animation is animating it
-				for (UINT32 i = 0; i < numBones; i++)
-				{
-					memcpy(dest, &Matrix4::IDENTITY, 12 * sizeof(float)); // Assuming row-major format
-
-					dest += 12 * sizeof(float);
-				}
-
-				buffer->unlock();
-
-				mBoneMatrixBuffer = buffer;
-			}
-			else
-				mBoneMatrixBuffer = nullptr;
-		}
-		else
-			mBoneMatrixBuffer = nullptr;
-
-		if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
-		{
-			SPtr<MorphShapes> morphShapes = mMesh->getMorphShapes();
-
-			UINT32 vertexSize = sizeof(Vector3) + sizeof(UINT32);
-			UINT32 numVertices = morphShapes->getNumVertices();
-
-			VERTEX_BUFFER_DESC desc;
-			desc.vertexSize = vertexSize;
-			desc.numVerts = numVertices;
-			desc.usage = GBU_DYNAMIC;
-
-			SPtr<VertexBufferCore> vertexBuffer = VertexBufferCore::create(desc);
-
-			UINT32 totalSize = vertexSize * numVertices;
-			UINT8* dest = (UINT8*)vertexBuffer->lock(0, totalSize, GBL_WRITE_ONLY_DISCARD);
-			memset(dest, 0, totalSize);
-			vertexBuffer->unlock();
-
-			mMorphShapeBuffer = vertexBuffer;
-		}
-		else
-			mMorphShapeBuffer = nullptr;
-
-		mMorphShapeVersion = 0;
-	}
-
-	void RenderableCore::updateAnimationBuffers(const RendererAnimationData& animData)
-	{
-		if (mAnimationId == (UINT64)-1)
-			return;
-
-		const RendererAnimationData::AnimInfo* animInfo = nullptr;
-
-		auto iterFind = animData.infos.find(mAnimationId);
-		if (iterFind != animData.infos.end())
-			animInfo = &iterFind->second;
-
-		if (animInfo == nullptr)
-			return;
-
-		if (mAnimType == RenderableAnimType::Skinned || mAnimType == RenderableAnimType::SkinnedMorph)
-		{
-			const RendererAnimationData::PoseInfo& poseInfo = animInfo->poseInfo;
-
-			// Note: If multiple elements are using the same animation (not possible atm), this buffer should be shared by
-			// all such elements
-			UINT8* dest = (UINT8*)mBoneMatrixBuffer->lock(0, poseInfo.numBones * 3 * sizeof(Vector4), GBL_WRITE_ONLY_DISCARD);
-			for (UINT32 j = 0; j < poseInfo.numBones; j++)
-			{
-				const Matrix4& transform = animData.transforms[poseInfo.startIdx + j];
-				memcpy(dest, &transform, 12 * sizeof(float)); // Assuming row-major format
-
-				dest += 12 * sizeof(float);
-			}
-
-			mBoneMatrixBuffer->unlock();
-		}
-
-		if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
-		{
-			if (mMorphShapeVersion < animInfo->morphShapeInfo.version)
-			{
-				SPtr<MeshData> meshData = animInfo->morphShapeInfo.meshData;
-
-				UINT32 bufferSize = meshData->getSize();
-				UINT8* data = meshData->getData();
-
-				mMorphShapeBuffer->writeData(0, bufferSize, data, BWT_DISCARD);
-				mMorphShapeVersion = animInfo->morphShapeInfo.version;
-			}
-		}
-	}
-
-	void RenderableCore::syncToCore(const CoreSyncData& data)
-	{
-		char* dataPtr = (char*)data.getBuffer();
-
-		mMaterials.clear();
-
-		UINT32 numMaterials = 0;
-		UINT32 dirtyFlags = 0;
-		bool oldIsActive = mIsActive;
-
-		dataPtr = rttiReadElem(mLayer, dataPtr);
-		dataPtr = rttiReadElem(mOverrideBounds, dataPtr);
-		dataPtr = rttiReadElem(mUseOverrideBounds, dataPtr);
-		dataPtr = rttiReadElem(numMaterials, dataPtr);
-		dataPtr = rttiReadElem(mTransform, dataPtr);
-		dataPtr = rttiReadElem(mTransformNoScale, dataPtr);
-		dataPtr = rttiReadElem(mPosition, dataPtr);
-		dataPtr = rttiReadElem(mIsActive, dataPtr);
-		dataPtr = rttiReadElem(mAnimationId, dataPtr);
-		dataPtr = rttiReadElem(mAnimType, dataPtr);
-		dataPtr = rttiReadElem(dirtyFlags, dataPtr);
-
-		SPtr<MeshCore>* mesh = (SPtr<MeshCore>*)dataPtr;
-		mMesh = *mesh;
-		mesh->~SPtr<MeshCore>();
-		dataPtr += sizeof(SPtr<MeshCore>);
-
-		for (UINT32 i = 0; i < numMaterials; i++)
-		{
-			SPtr<MaterialCore>* material = (SPtr<MaterialCore>*)dataPtr;
-			mMaterials.push_back(*material);
-			material->~SPtr<MaterialCore>();
-			dataPtr += sizeof(SPtr<MaterialCore>);
-		}
-
-		if (dirtyFlags == (UINT32)RenderableDirtyFlag::Transform)
-		{
-			if (mIsActive)
-				gRenderer()->notifyRenderableUpdated(this);
-		}
-		else
-		{
-			createAnimationBuffers();
-
-			// Create special vertex declaration if using morph shapes
-			if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
-			{
-				SPtr<VertexDataDesc> vertexDesc = VertexDataDesc::create();
-				*vertexDesc = * mMesh->getVertexDesc();
-
-				vertexDesc->addVertElem(VET_FLOAT3, VES_POSITION, 1, 1);
-				vertexDesc->addVertElem(VET_UBYTE4_NORM, VES_NORMAL, 1, 1);
-
-				mMorphVertexDeclaration = VertexDeclarationCore::create(vertexDesc);
-			}
-			else
-				mMorphVertexDeclaration = nullptr;
-
-			if (oldIsActive != mIsActive)
-			{
-				if (mIsActive)
-					gRenderer()->notifyRenderableAdded(this);
-				else
-					gRenderer()->notifyRenderableRemoved(this);
-			}
-			else
-			{
-				gRenderer()->notifyRenderableRemoved(this);
-				gRenderer()->notifyRenderableAdded(this);
-			}
-		}
-	}
-
 	Renderable::Renderable()
 		:mLastUpdateHash(0)
 	{
@@ -424,15 +192,15 @@ namespace bs
 		}
 	}
 
-	SPtr<RenderableCore> Renderable::getCore() const
+	SPtr<ct::Renderable> Renderable::getCore() const
 	{
-		return std::static_pointer_cast<RenderableCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::Renderable>(mCoreSpecific);
 	}
 
-	SPtr<CoreObjectCore> Renderable::createCore() const
+	SPtr<ct::CoreObject> Renderable::createCore() const
 	{
-		RenderableCore* handler = new (bs_alloc<RenderableCore>()) RenderableCore();
-		SPtr<RenderableCore> handlerPtr = bs_shared_ptr<RenderableCore>(handler);
+		ct::Renderable* handler = new (bs_alloc<ct::Renderable>()) ct::Renderable();
+		SPtr<ct::Renderable> handlerPtr = bs_shared_ptr<ct::Renderable>(handler);
 		handlerPtr->_setThisPtr(handlerPtr);
 
 		return handlerPtr;
@@ -549,8 +317,8 @@ namespace bs
 			rttiGetElemSize(animationId) +
 			rttiGetElemSize(mAnimType) + 
 			rttiGetElemSize(getCoreDirtyFlags()) +
-			sizeof(SPtr<MeshCore>) + 
-			numMaterials * sizeof(SPtr<MaterialCore>);
+			sizeof(SPtr<ct::Mesh>) +
+			numMaterials * sizeof(SPtr<ct::Material>);
 
 		UINT8* data = allocator->alloc(size);
 		char* dataPtr = (char*)data;
@@ -566,19 +334,19 @@ namespace bs
 		dataPtr = rttiWriteElem(mAnimType, dataPtr);
 		dataPtr = rttiWriteElem(getCoreDirtyFlags(), dataPtr);
 
-		SPtr<MeshCore>* mesh = new (dataPtr) SPtr<MeshCore>();
+		SPtr<ct::Mesh>* mesh = new (dataPtr) SPtr<ct::Mesh>();
 		if (mMesh.isLoaded())
 			*mesh = mMesh->getCore();
 
-		dataPtr += sizeof(SPtr<MeshCore>);
+		dataPtr += sizeof(SPtr<ct::Mesh>);
 
 		for (UINT32 i = 0; i < numMaterials; i++)
 		{
-			SPtr<MaterialCore>* material = new (dataPtr)SPtr<MaterialCore>();
+			SPtr<ct::Material>* material = new (dataPtr)SPtr<ct::Material>();
 			if (mMaterials[i].isLoaded())
 				*material = mMaterials[i]->getCore();
 
-			dataPtr += sizeof(SPtr<MaterialCore>);
+			dataPtr += sizeof(SPtr<ct::Material>);
 		}
 
 		return CoreSyncData(data, size);
@@ -651,5 +419,240 @@ namespace bs
 	RTTITypeBase* Renderable::getRTTI() const
 	{
 		return Renderable::getRTTIStatic();
+	}
+
+	namespace ct
+	{
+	Renderable::Renderable() 
+		:mRendererId(0), mAnimationId((UINT64)-1), mMorphShapeVersion(0)
+	{
+	}
+
+	Renderable::~Renderable()
+	{
+		if (mIsActive)
+			gRenderer()->notifyRenderableRemoved(this);
+	}
+
+	void Renderable::initialize()
+	{
+		gRenderer()->notifyRenderableAdded(this);
+
+		CoreObject::initialize();
+	}
+
+	Bounds Renderable::getBounds() const
+	{
+		if (mUseOverrideBounds)
+		{
+			Sphere sphere(mOverrideBounds.getCenter(), mOverrideBounds.getRadius());
+
+			Bounds bounds(mOverrideBounds, sphere);
+			bounds.transformAffine(mTransform);
+
+			return bounds;
+		}
+
+		SPtr<Mesh> mesh = getMesh();
+
+		if (mesh == nullptr)
+		{
+			AABox box(mPosition, mPosition);
+			Sphere sphere(mPosition, 0.0f);
+
+			return Bounds(box, sphere);
+		}
+		else
+		{
+			Bounds bounds = mesh->getProperties().getBounds();
+			bounds.transformAffine(mTransform);
+
+			return bounds;
+		}
+	}
+
+	void Renderable::createAnimationBuffers()
+	{
+		if (mAnimType == RenderableAnimType::Skinned || mAnimType == RenderableAnimType::SkinnedMorph)
+		{
+			SPtr<Skeleton> skeleton = mMesh->getSkeleton();
+			UINT32 numBones = skeleton != nullptr ? skeleton->getNumBones() : 0;
+
+			if (numBones > 0)
+			{
+				GPU_BUFFER_DESC desc;
+				desc.elementCount = numBones * 3;
+				desc.elementSize = 0;
+				desc.type = GBT_STANDARD;
+				desc.format = BF_32X4F;
+				desc.usage = GBU_DYNAMIC;
+
+				SPtr<GpuBuffer> buffer = GpuBuffer::create(desc);
+				UINT8* dest = (UINT8*)buffer->lock(0, numBones * 3 * sizeof(Vector4), GBL_WRITE_ONLY_DISCARD);
+
+				// Initialize bone transforms to identity, so the object renders properly even if no animation is animating it
+				for (UINT32 i = 0; i < numBones; i++)
+				{
+					memcpy(dest, &Matrix4::IDENTITY, 12 * sizeof(float)); // Assuming row-major format
+
+					dest += 12 * sizeof(float);
+				}
+
+				buffer->unlock();
+
+				mBoneMatrixBuffer = buffer;
+			}
+			else
+				mBoneMatrixBuffer = nullptr;
+		}
+		else
+			mBoneMatrixBuffer = nullptr;
+
+		if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
+		{
+			SPtr<MorphShapes> morphShapes = mMesh->getMorphShapes();
+
+			UINT32 vertexSize = sizeof(Vector3) + sizeof(UINT32);
+			UINT32 numVertices = morphShapes->getNumVertices();
+
+			VERTEX_BUFFER_DESC desc;
+			desc.vertexSize = vertexSize;
+			desc.numVerts = numVertices;
+			desc.usage = GBU_DYNAMIC;
+
+			SPtr<VertexBuffer> vertexBuffer = VertexBuffer::create(desc);
+
+			UINT32 totalSize = vertexSize * numVertices;
+			UINT8* dest = (UINT8*)vertexBuffer->lock(0, totalSize, GBL_WRITE_ONLY_DISCARD);
+			memset(dest, 0, totalSize);
+			vertexBuffer->unlock();
+
+			mMorphShapeBuffer = vertexBuffer;
+		}
+		else
+			mMorphShapeBuffer = nullptr;
+
+		mMorphShapeVersion = 0;
+	}
+
+	void Renderable::updateAnimationBuffers(const RendererAnimationData& animData)
+	{
+		if (mAnimationId == (UINT64)-1)
+			return;
+
+		const RendererAnimationData::AnimInfo* animInfo = nullptr;
+
+		auto iterFind = animData.infos.find(mAnimationId);
+		if (iterFind != animData.infos.end())
+			animInfo = &iterFind->second;
+
+		if (animInfo == nullptr)
+			return;
+
+		if (mAnimType == RenderableAnimType::Skinned || mAnimType == RenderableAnimType::SkinnedMorph)
+		{
+			const RendererAnimationData::PoseInfo& poseInfo = animInfo->poseInfo;
+
+			// Note: If multiple elements are using the same animation (not possible atm), this buffer should be shared by
+			// all such elements
+			UINT8* dest = (UINT8*)mBoneMatrixBuffer->lock(0, poseInfo.numBones * 3 * sizeof(Vector4), GBL_WRITE_ONLY_DISCARD);
+			for (UINT32 j = 0; j < poseInfo.numBones; j++)
+			{
+				const Matrix4& transform = animData.transforms[poseInfo.startIdx + j];
+				memcpy(dest, &transform, 12 * sizeof(float)); // Assuming row-major format
+
+				dest += 12 * sizeof(float);
+			}
+
+			mBoneMatrixBuffer->unlock();
+		}
+
+		if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
+		{
+			if (mMorphShapeVersion < animInfo->morphShapeInfo.version)
+			{
+				SPtr<MeshData> meshData = animInfo->morphShapeInfo.meshData;
+
+				UINT32 bufferSize = meshData->getSize();
+				UINT8* data = meshData->getData();
+
+				mMorphShapeBuffer->writeData(0, bufferSize, data, BWT_DISCARD);
+				mMorphShapeVersion = animInfo->morphShapeInfo.version;
+			}
+		}
+	}
+
+	void Renderable::syncToCore(const CoreSyncData& data)
+	{
+		char* dataPtr = (char*)data.getBuffer();
+
+		mMaterials.clear();
+
+		UINT32 numMaterials = 0;
+		UINT32 dirtyFlags = 0;
+		bool oldIsActive = mIsActive;
+
+		dataPtr = rttiReadElem(mLayer, dataPtr);
+		dataPtr = rttiReadElem(mOverrideBounds, dataPtr);
+		dataPtr = rttiReadElem(mUseOverrideBounds, dataPtr);
+		dataPtr = rttiReadElem(numMaterials, dataPtr);
+		dataPtr = rttiReadElem(mTransform, dataPtr);
+		dataPtr = rttiReadElem(mTransformNoScale, dataPtr);
+		dataPtr = rttiReadElem(mPosition, dataPtr);
+		dataPtr = rttiReadElem(mIsActive, dataPtr);
+		dataPtr = rttiReadElem(mAnimationId, dataPtr);
+		dataPtr = rttiReadElem(mAnimType, dataPtr);
+		dataPtr = rttiReadElem(dirtyFlags, dataPtr);
+
+		SPtr<Mesh>* mesh = (SPtr<Mesh>*)dataPtr;
+		mMesh = *mesh;
+		mesh->~SPtr<Mesh>();
+		dataPtr += sizeof(SPtr<Mesh>);
+
+		for (UINT32 i = 0; i < numMaterials; i++)
+		{
+			SPtr<Material>* material = (SPtr<Material>*)dataPtr;
+			mMaterials.push_back(*material);
+			material->~SPtr<Material>();
+			dataPtr += sizeof(SPtr<Material>);
+		}
+
+		if (dirtyFlags == (UINT32)RenderableDirtyFlag::Transform)
+		{
+			if (mIsActive)
+				gRenderer()->notifyRenderableUpdated(this);
+		}
+		else
+		{
+			createAnimationBuffers();
+
+			// Create special vertex declaration if using morph shapes
+			if (mAnimType == RenderableAnimType::Morph || mAnimType == RenderableAnimType::SkinnedMorph)
+			{
+				SPtr<VertexDataDesc> vertexDesc = VertexDataDesc::create();
+				*vertexDesc = * mMesh->getVertexDesc();
+
+				vertexDesc->addVertElem(VET_FLOAT3, VES_POSITION, 1, 1);
+				vertexDesc->addVertElem(VET_UBYTE4_NORM, VES_NORMAL, 1, 1);
+
+				mMorphVertexDeclaration = VertexDeclaration::create(vertexDesc);
+			}
+			else
+				mMorphVertexDeclaration = nullptr;
+
+			if (oldIsActive != mIsActive)
+			{
+				if (mIsActive)
+					gRenderer()->notifyRenderableAdded(this);
+				else
+					gRenderer()->notifyRenderableRemoved(this);
+			}
+			else
+			{
+				gRenderer()->notifyRenderableRemoved(this);
+				gRenderer()->notifyRenderableAdded(this);
+			}
+		}
+	}
 	}
 }

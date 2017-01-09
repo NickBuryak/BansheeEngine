@@ -8,7 +8,7 @@
 #include "BsParamBlocks.h"
 #include "BsMaterialParam.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup RenderBeast
 	 *  @{
@@ -47,7 +47,7 @@ namespace bs
 		MaterialSamplerOverrides* samplerOverrides;
 
 		/** All GPU parameters from the material used by the renderable. */
-		SPtr<GpuParamsSetCore> params;
+		SPtr<GpuParamsSet> params;
 
 		/**	Identifier of the owner renderable. */
 		UINT32 renderableId;
@@ -65,13 +65,13 @@ namespace bs
 		UINT32 perCameraBindingIdx;
 
 		/** GPU buffer containing element's bone matrices, if it requires any. */
-		SPtr<GpuBufferCore> boneMatrixBuffer;
+		SPtr<GpuBuffer> boneMatrixBuffer;
 
 		/** Vertex buffer containing element's morph shape vertices, if it has any. */
-		SPtr<VertexBufferCore> morphShapeBuffer;
+		SPtr<VertexBuffer> morphShapeBuffer;
 
 		/** Vertex declaration used for rendering meshes containing morph shape information. */
-		SPtr<VertexDeclarationCore> morphVertexDeclaration;
+		SPtr<VertexDeclaration> morphVertexDeclaration;
 
 		/** Version of the morph shape vertices in the buffer. */
 		mutable UINT32 morphShapeVersion;
@@ -93,12 +93,12 @@ namespace bs
 		 */
 		void updatePerCallBuffer(const Matrix4& viewProj, bool flush = true);
 
-		RenderableCore* renderable;
+		Renderable* renderable;
 		Vector<BeastRenderableElement> elements;
 
-		SPtr<GpuParamBlockBufferCore> perObjectParamBuffer;
-		SPtr<GpuParamBlockBufferCore> perCallParamBuffer;
+		SPtr<GpuParamBlockBuffer> perObjectParamBuffer;
+		SPtr<GpuParamBlockBuffer> perCallParamBuffer;
 	};
 
 	/** @} */
-}
+}}

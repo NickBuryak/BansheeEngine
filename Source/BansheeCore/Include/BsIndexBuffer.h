@@ -37,7 +37,7 @@ namespace bs
 
 	protected:
 		friend class IndexBuffer;
-		friend class IndexBufferCore;
+		friend class ct::IndexBuffer;
 
 		IndexType mIndexType;
 		UINT32 mNumIndices;
@@ -58,7 +58,7 @@ namespace bs
 		 *
 		 * @note	Core thread only.
 		 */
-		SPtr<IndexBufferCore> getCore() const;
+		SPtr<ct::IndexBuffer> getCore() const;
 
 		/** @copydoc HardwareBufferManager::createIndexBuffer */
 		static SPtr<IndexBuffer> create(const INDEX_BUFFER_DESC& desc);
@@ -69,7 +69,7 @@ namespace bs
 		IndexBuffer(const INDEX_BUFFER_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		virtual SPtr<CoreObjectCore> createCore() const;
+		virtual SPtr<ct::CoreObject> createCore() const;
 
 		IndexBufferProperties mProperties;
 		GpuBufferUsage mUsage;
@@ -77,26 +77,29 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
-	/** Core thread specific implementation of an IndexBuffer. */
-	class BS_CORE_EXPORT IndexBufferCore : public CoreObjectCore, public HardwareBuffer
+	/** Core thread specific implementation of an bs::IndexBuffer. */
+	class BS_CORE_EXPORT IndexBuffer : public CoreObject, public HardwareBuffer
 	{
 	public:
-		IndexBufferCore(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
-		virtual ~IndexBufferCore() { }
+		IndexBuffer(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		virtual ~IndexBuffer() { }
 
 		/**	Returns information about the index buffer. */
 		const IndexBufferProperties& getProperties() const { return mProperties; }
 
-		/** @copydoc HardwareBufferCoreManager::createIndexBuffer */
-		static SPtr<IndexBufferCore> create(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		/** @copydoc HardwareBufferManager::createIndexBuffer */
+		static SPtr<IndexBuffer> create(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
 
 	protected:
 		IndexBufferProperties mProperties;
 	};
 
 	/** @} */
+		}
 }

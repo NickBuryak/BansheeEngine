@@ -9,7 +9,7 @@
 
 using namespace std::placeholders;
 
-namespace bs
+namespace bs { namespace ct
 {
 	RenderQueue::RenderQueue(StateReduction mode)
 		:mStateReductionMode(mode)
@@ -28,8 +28,8 @@ namespace bs
 
 	void RenderQueue::add(RenderableElement* element, float distFromCamera)
 	{
-		SPtr<MaterialCore> material = element->material;
-		SPtr<ShaderCore> shader = material->getShader();
+		SPtr<Material> material = element->material;
+		SPtr<Shader> shader = material->getShader();
 
 		mElements.push_back(element);
 		
@@ -208,4 +208,4 @@ namespace bs
 	{
 		return mSortedRenderElements;
 	}
-}
+}}

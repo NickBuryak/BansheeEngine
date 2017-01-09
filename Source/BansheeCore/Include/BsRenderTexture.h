@@ -19,20 +19,20 @@ namespace bs
 		RENDER_SURFACE_DESC depthStencilSurface;
 	};
 
-	struct RENDER_TEXTURE_DESC_CORE;
+	namespace ct { struct RENDER_TEXTURE_DESC; }
 
 	/**	Contains various properties that describe a render texture. */
 	class BS_CORE_EXPORT RenderTextureProperties : public RenderTargetProperties
 	{
 	public:
 		RenderTextureProperties(const RENDER_TEXTURE_DESC& desc, bool requiresFlipping);
-		RenderTextureProperties(const RENDER_TEXTURE_DESC_CORE& desc, bool requiresFlipping);
+		RenderTextureProperties(const ct::RENDER_TEXTURE_DESC& desc, bool requiresFlipping);
 		virtual ~RenderTextureProperties() { }
 
 	private:
 		void construct(const TextureProperties* textureProps, UINT32 numSlices, bool requiresFlipping);
 
-		friend class RenderTextureCore;
+		friend class ct::RenderTexture;
 		friend class RenderTexture;
 	};
 
@@ -49,7 +49,7 @@ namespace bs
 
 		/** @copydoc TextureManager::createRenderTexture(const TEXTURE_DESC&, bool, PixelFormat) */
 		static SPtr<RenderTexture> create(const TEXTURE_DESC& colorDesc, 
-			bool createDepth = true, PixelFormat depthStencilFormat = PF_D24S8);
+			bool createDepth = true, PixelFormat depthStencilFormat = PF_D32);
 
 		/** @copydoc TextureManager::createRenderTexture(const RENDER_TEXTURE_DESC&) */
 		static SPtr<RenderTexture> create(const RENDER_TEXTURE_DESC& desc);
@@ -73,7 +73,7 @@ namespace bs
 		 *
 		 * @note	Core thread only.
 		 */
-		SPtr<RenderTextureCore> getCore() const;
+		SPtr<ct::RenderTexture> getCore() const;
 
 		/**	Returns properties that describe the render texture. */
 		const RenderTextureProperties& getProperties() const;
@@ -84,7 +84,7 @@ namespace bs
 		RenderTexture(const RENDER_TEXTURE_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 		/** @copydoc CoreObject::syncToCore */
 		CoreSyncData syncToCore(FrameAlloc* allocator) override;
@@ -98,19 +98,21 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
 	/**
-	 * @see		RENDER_TEXTURE_DESC
+	 * @see		bs::RENDER_TEXTURE_DESC
 	 *
 	 * @note	References core textures instead of texture handles.
 	 */
-	struct BS_CORE_EXPORT RENDER_TEXTURE_DESC_CORE
+	struct BS_CORE_EXPORT RENDER_TEXTURE_DESC
 	{
-		RENDER_SURFACE_DESC_CORE colorSurfaces[BS_MAX_MULTIPLE_RENDER_TARGETS];
-		RENDER_SURFACE_DESC_CORE depthStencilSurface;
+		RENDER_SURFACE_DESC colorSurfaces[BS_MAX_MULTIPLE_RENDER_TARGETS];
+		RENDER_SURFACE_DESC depthStencilSurface;
 	};
 
 	/**
@@ -118,37 +120,37 @@ namespace bs
 	 *
 	 * @note	Core thread only.
 	 */
-	class BS_CORE_EXPORT RenderTextureCore : public RenderTargetCore
+	class BS_CORE_EXPORT RenderTexture : public RenderTarget
 	{
 	public:
-		RenderTextureCore(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx);
-		virtual ~RenderTextureCore();
+		RenderTexture(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx);
+		virtual ~RenderTexture();
 
-		/** @copydoc CoreObjectCore::initialize */
+		/** @copydoc CoreObject::initialize */
 		void initialize() override;
 
-		/** @copydoc TextureCoreManager::createRenderTexture(const RENDER_TEXTURE_DESC_CORE&, UINT32) */
-		static SPtr<RenderTextureCore> create(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx = 0);
+		/** @copydoc TextureManager::createRenderTexture(const RENDER_TEXTURE_DESC&, UINT32) */
+		static SPtr<RenderTexture> create(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx = 0);
 
 		/**
 		 * Returns a color surface texture you may bind as an input to an GPU program.
 		 *
 		 * @note	Be aware that you cannot bind a render texture for reading and writing at the same time.
 		 */
-		SPtr<TextureCore> getColorTexture(UINT32 idx) const { return mDesc.colorSurfaces[idx].texture; }
+		SPtr<Texture> getColorTexture(UINT32 idx) const { return mDesc.colorSurfaces[idx].texture; }
 
 		/**
 		 * Returns a depth/stencil surface texture you may bind as an input to an GPU program.
 		 *
 		 * @note	Be aware that you cannot bind a render texture for reading and writing at the same time.
 		 */
-		SPtr<TextureCore> getDepthStencilTexture() const { return mDesc.depthStencilSurface.texture; }
+		SPtr<Texture> getDepthStencilTexture() const { return mDesc.depthStencilSurface.texture; }
 
 		/**	Returns properties that describe the render texture. */
 		const RenderTextureProperties& getProperties() const;
 
 	protected:
-		/** @copydoc CoreObjectCore::syncToCore */
+		/** @copydoc CoreObject::syncToCore */
 		void syncToCore(const CoreSyncData& data) override;
 
 	private:
@@ -156,13 +158,14 @@ namespace bs
 		void throwIfBuffersDontMatch() const;
 
 	protected:
-		friend class RenderTexture;
+		friend class bs::RenderTexture;
 
 		SPtr<TextureView> mColorSurfaces[BS_MAX_MULTIPLE_RENDER_TARGETS];
 		SPtr<TextureView> mDepthStencilSurface;
 
-		RENDER_TEXTURE_DESC_CORE mDesc;
+		RENDER_TEXTURE_DESC mDesc;
 	};
 
 	/** @} */
+	}
 }

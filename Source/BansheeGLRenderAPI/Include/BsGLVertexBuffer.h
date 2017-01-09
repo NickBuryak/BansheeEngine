@@ -7,23 +7,23 @@
 #include "BsGLBuffer.h"
 #include "BsGLVertexArrayObjectManager.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
 	/** @addtogroup GL
 	 *  @{
 	 */
 
 	/**	OpenGL implementation of a vertex buffer. */
-    class BS_RSGL_EXPORT GLVertexBufferCore : public VertexBufferCore
+    class BS_RSGL_EXPORT GLVertexBuffer : public VertexBuffer
     {
     public:
-		GLVertexBufferCore(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
-		~GLVertexBufferCore();
+		GLVertexBuffer(const VERTEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
+		~GLVertexBuffer();
 
-		/** @copydoc VertexBufferCore::readData */
+		/** @copydoc VertexBuffer::readData */
         void readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx = 0, UINT32 queueIdx = 0) override;
 
-		/** @copydoc VertexBufferCore::writeData */
+		/** @copydoc VertexBuffer::writeData */
         void writeData(UINT32 offset, UINT32 length, const void* source, 
 			BufferWriteType writeFlags = BWT_NORMAL, UINT32 queueIdx = 0) override;
 
@@ -37,13 +37,13 @@ namespace bs
 		void unregisterVAO(const GLVertexArrayObject& vao);
 
 	protected:
-		/** @copydoc VertexBufferCore::initialize */
+		/** @copydoc VertexBuffer::initialize */
 		void initialize() override;
 
-		/** @copydoc VertexBufferCore::map */
+		/** @copydoc VertexBuffer::map */
 		void* map(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx, UINT32 queueIdx) override;
 
-		/** @copydoc VertexBufferCore::unmap */
+		/** @copydoc VertexBuffer::unmap */
 		void unmap() override;
 
 	private:
@@ -54,4 +54,4 @@ namespace bs
     };
 
 	/** @} */
-}
+}}

@@ -69,21 +69,19 @@
 
 /** @} */
 
-namespace bs 
+namespace bs { namespace ct
 {
 	extern const char* MODULE_NAME;
 
     class GLSupport;
     class GLRenderAPI;
-    class GLTextureCore;
+    class GLTexture;
 	class GLVertexBuffer;
-	class GLVertexBufferCore;
-    class GLTextureManager;
     class GLContext;
     class GLRTTManager;
     class GLPixelBuffer;
 	class GLGpuParamBlock;
-	class GLSLGpuProgramCore;
+	class GLSLGpuProgram;
 	class GLVertexArrayObject;
 	struct GLSLProgramPipeline;
 	class GLSLProgramPipelineManager;
@@ -101,4 +99,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

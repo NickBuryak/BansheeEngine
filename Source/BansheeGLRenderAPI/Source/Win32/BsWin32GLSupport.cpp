@@ -10,9 +10,9 @@
 #include "GL/wglew.h"
 #include <algorithm>
 
-GLenum __stdcall wglewContextInit (bs::GLSupport *glSupport);
+GLenum __stdcall wglewContextInit (bs::ct::GLSupport* glSupport);
 
-namespace bs 
+namespace bs { namespace ct
 {
 	template<class C> void remove_duplicates(C& c)
 	{
@@ -28,7 +28,7 @@ namespace bs
 		initialiseWGL();
     } 
 
-	SPtr<RenderWindow> Win32GLSupport::newWindow(RENDER_WINDOW_DESC& desc, UINT32 windowId, SPtr<RenderWindow> parentWindow)
+	SPtr<bs::RenderWindow> Win32GLSupport::newWindow(RENDER_WINDOW_DESC& desc, UINT32 windowId, SPtr<bs::RenderWindow> parentWindow)
 	{		
 		if(parentWindow != nullptr)
 		{
@@ -37,18 +37,18 @@ namespace bs
 			desc.platformSpecific["parentWindowHandle"] = toString(hWnd);
 		}
 
-		Win32RenderWindow* window = new (bs_alloc<Win32RenderWindow>()) Win32RenderWindow(desc, windowId, *this);
-		return SPtr<RenderWindow>(window, &CoreObject::_delete<Win32RenderWindow, GenAlloc>);
+		bs::Win32RenderWindow* window = new (bs_alloc<bs::Win32RenderWindow>()) bs::Win32RenderWindow(desc, windowId, *this);
+		return SPtr<bs::RenderWindow>(window, &bs::CoreObject::_delete<bs::Win32RenderWindow, GenAlloc>);
 	}
 
-	SPtr<RenderWindowCore> Win32GLSupport::newWindowCore(RENDER_WINDOW_DESC& desc, UINT32 windowId)
+	SPtr<RenderWindow> Win32GLSupport::newWindowCore(RENDER_WINDOW_DESC& desc, UINT32 windowId)
 	{
-		Win32RenderWindowCore* window = new (bs_alloc<Win32RenderWindowCore>()) Win32RenderWindowCore(desc, windowId, *this);
+		Win32RenderWindow* window = new (bs_alloc<Win32RenderWindow>()) Win32RenderWindow(desc, windowId, *this);
 
 		if (!mInitialWindow)
 			mInitialWindow = window;
 
-		return bs_shared_ptr<Win32RenderWindowCore>(window);
+		return bs_shared_ptr<Win32RenderWindow>(window);
 	}
 
 	void Win32GLSupport::start()
@@ -87,7 +87,7 @@ namespace bs
 
 	SPtr<Win32Context> Win32GLSupport::createContext(HDC hdc, HGLRC externalGlrc)
 	{
-		GLRenderAPI* rs = static_cast<GLRenderAPI*>(RenderAPICore::instancePtr());
+		GLRenderAPI* rs = static_cast<GLRenderAPI*>(RenderAPI::instancePtr());
 
 		// If RenderAPI has initialized a context use that, otherwise we create our own
 		HGLRC glrc = externalGlrc;
@@ -343,4 +343,4 @@ namespace bs
 
 		return String(errDesc);
 	}
-}
+}}

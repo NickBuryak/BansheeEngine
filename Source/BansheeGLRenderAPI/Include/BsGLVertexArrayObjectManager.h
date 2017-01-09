@@ -5,7 +5,7 @@
 #include "BsGLPrerequisites.h"
 #include "BsModule.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup GL
 	 *  @{
@@ -43,11 +43,11 @@ namespace bs
 		friend class GLVertexArrayObjectManager;
 
 		GLVertexArrayObject();
-		GLVertexArrayObject(GLuint handle, UINT64 vertexProgramId, GLVertexBufferCore** attachedBuffers, UINT32 numBuffers);
+		GLVertexArrayObject(GLuint handle, UINT64 vertexProgramId, GLVertexBuffer** attachedBuffers, UINT32 numBuffers);
 
 		GLuint mHandle;
 		UINT64 mVertProgId;
-		GLVertexBufferCore** mAttachedBuffers;
+		GLVertexBuffer** mAttachedBuffers;
 		UINT32 mNumBuffers;
 	};
 
@@ -63,8 +63,8 @@ namespace bs
 		 *
 		 * Lifetime of returned VAO is managed by the vertex buffers that it binds.
 		 */
-		const GLVertexArrayObject& getVAO(const SPtr<GLSLGpuProgramCore>& vertexProgram,
-			const SPtr<VertexDeclarationCore>& vertexDecl, const std::array<SPtr<VertexBufferCore>, 32>& boundBuffers);
+		const GLVertexArrayObject& getVAO(const SPtr<GLSLGpuProgram>& vertexProgram,
+			const SPtr<VertexDeclaration>& vertexDecl, const std::array<SPtr<VertexBuffer>, 32>& boundBuffers);
 
 		/**	Called when a vertex buffer containing the provided VAO is destroyed. */
 		void notifyBufferDestroyed(GLVertexArrayObject vao);
@@ -75,4 +75,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

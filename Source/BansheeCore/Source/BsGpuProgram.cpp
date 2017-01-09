@@ -14,31 +14,6 @@ namespace bs
 		:mType(gptype), mEntryPoint(entryPoint), mSource(source)
 	{ }
 		
-	GpuProgramCore::GpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
-		:mNeedsAdjacencyInfo(desc.requiresAdjacency), mIsCompiled(false), mProperties(desc.source, desc.entryPoint, 
-			desc.type)
-	{
-		mParametersDesc = bs_shared_ptr_new<GpuParamDesc>();
-	}
-
-	bool GpuProgramCore::isSupported() const
-    {
-		if (!isRequiredCapabilitiesSupported())
-			return false;
-
-		return true;
-    }
-
-	bool GpuProgramCore::isRequiredCapabilitiesSupported() const
-	{
-		return true;
-	}
-
-	SPtr<GpuProgramCore> GpuProgramCore::create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
-	{
-		return GpuProgramCoreManager::instance().create(desc, deviceMask);
-	}
-
 	GpuProgram::GpuProgram(const GPU_PROGRAM_DESC& desc)
 		: mNeedsAdjacencyInfo(desc.requiresAdjacency), mLanguage(desc.language)
 		, mProperties(desc.source, desc.entryPoint, desc.type)
@@ -61,12 +36,12 @@ namespace bs
 		return getCore()->getParamDesc();
 	}
 
-	SPtr<GpuProgramCore> GpuProgram::getCore() const
+	SPtr<ct::GpuProgram> GpuProgram::getCore() const
 	{
-		return std::static_pointer_cast<GpuProgramCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::GpuProgram>(mCoreSpecific);
 	}
 
-	SPtr<CoreObjectCore> GpuProgram::createCore() const
+	SPtr<ct::CoreObject> GpuProgram::createCore() const
 	{
 		GPU_PROGRAM_DESC desc;
 		desc.source = mProperties.getSource();
@@ -75,7 +50,7 @@ namespace bs
 		desc.type = mProperties.getType();
 		desc.requiresAdjacency = mNeedsAdjacencyInfo;
 
-		return GpuProgramCoreManager::instance().createInternal(desc);
+		return ct::GpuProgramManager::instance().createInternal(desc);
 	}
 
 	SPtr<GpuProgram> GpuProgram::create(const GPU_PROGRAM_DESC& desc)
@@ -94,5 +69,33 @@ namespace bs
 	RTTITypeBase* GpuProgram::getRTTI() const
 	{
 		return GpuProgram::getRTTIStatic();
+	}
+
+	namespace ct
+	{
+	GpuProgram::GpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
+		:mNeedsAdjacencyInfo(desc.requiresAdjacency), mIsCompiled(false), mProperties(desc.source, desc.entryPoint, 
+			desc.type)
+	{
+		mParametersDesc = bs_shared_ptr_new<GpuParamDesc>();
+	}
+
+	bool GpuProgram::isSupported() const
+    {
+		if (!isRequiredCapabilitiesSupported())
+			return false;
+
+		return true;
+    }
+
+	bool GpuProgram::isRequiredCapabilitiesSupported() const
+	{
+		return true;
+	}
+
+	SPtr<GpuProgram> GpuProgram::create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
+	{
+		return GpuProgramManager::instance().create(desc, deviceMask);
+	}
 	}
 }

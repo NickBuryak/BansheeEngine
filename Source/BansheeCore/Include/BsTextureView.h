@@ -6,6 +6,8 @@
 
 namespace bs
 {
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
@@ -82,17 +84,18 @@ namespace bs
 		const TEXTURE_VIEW_DESC& getDesc() const { return mDesc; }
 
 		/**	Gets the owner texture the view is referencing. */
-		SPtr<TextureCore> getTexture() const { return mOwnerTexture; }
+		SPtr<Texture> getTexture() const { return mOwnerTexture; }
 
 	protected:
-		TextureView(const SPtr<TextureCore>& texture, const TEXTURE_VIEW_DESC& _desc);
+		TextureView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& _desc);
 
 	protected:
-		friend class TextureCore;
+		friend class Texture;
 
 		TEXTURE_VIEW_DESC mDesc;
-		SPtr<TextureCore> mOwnerTexture;
+		SPtr<Texture> mOwnerTexture;
 	};
 
 	/** @} */
+	}
 }

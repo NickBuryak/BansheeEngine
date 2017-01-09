@@ -5,8 +5,76 @@
 #include "BsVulkanDevice.h"
 #include "BsException.h"
 
-namespace bs
+namespace bs { namespace ct
 {
+	PixelFormat VulkanUtility::getClosestSupportedPixelFormat(VulkanDevice& device, PixelFormat format, TextureType texType,
+		int usage, bool optimalTiling, bool hwGamma)
+	{
+		// Check for any obvious issues first
+		PixelUtil::checkFormat(format, texType, usage);
+
+		// Check actual device for format support
+		VkFormatFeatureFlagBits featureFlagBit;
+		if ((usage & TU_RENDERTARGET) != 0)
+			featureFlagBit = VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT;
+		else if ((usage & TU_DEPTHSTENCIL) != 0)
+			featureFlagBit = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		else if ((usage & TU_LOADSTORE) != 0)
+			featureFlagBit = VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+		else
+			featureFlagBit = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+
+		VkFormatProperties props;
+		auto isSupported = [&](VkFormat vkFmt)
+		{
+			vkGetPhysicalDeviceFormatProperties(device.getPhysical(), vkFmt, &props);
+			VkFormatFeatureFlags featureFlags = optimalTiling ? props.optimalTilingFeatures : props.linearTilingFeatures;
+
+			return (featureFlags & featureFlagBit) != 0;
+		};
+
+		VkFormat vkFormat = getPixelFormat(format, hwGamma);
+		if(!isSupported(vkFormat))
+		{
+			if ((usage & TU_DEPTHSTENCIL) != 0)
+			{
+				bool hasStencil = format == PF_D24S8 || format == PF_D32_S8X24;
+
+				// Spec guarantees at least one depth-only, and one depth-stencil format to be supported
+				if(hasStencil)
+				{
+					if (isSupported(VK_FORMAT_D32_SFLOAT_S8_UINT))
+						format = PF_D32_S8X24;
+					else
+						format = PF_D24S8;
+
+					// We ignore 8-bit stencil-only, and 16/8 depth/stencil combo buffers as engine doesn't expose them,
+					// and spec guarantees one of the above must be implemented.
+				}
+				else
+				{
+					// The only format that could have failed is 32-bit depth, so we must use the alternative 16-bit.
+					// Spec guarantees it is always supported.
+					format = PF_D16;
+				}
+			}
+			else
+			{
+				int bitDepths[4];
+				PixelUtil::getBitDepths(format, bitDepths);
+
+				if (bitDepths[0] == 16) // 16-bit format, fall back to 4-channel 16-bit, guaranteed to be supported
+					format = PF_FLOAT16_RGBA;
+				else if(format == PF_BC6H) // Fall back to uncompressed alternative
+					format = PF_FLOAT16_RGBA;
+				else // Must be 8-bit per channel format, compressed format or some uneven format
+					format = PF_R8G8B8A8;
+			}
+		}
+
+		return format;
+	}
+
 	VkFormat VulkanUtility::getPixelFormat(PixelFormat format, bool sRGB)
 	{
 		switch (format)
@@ -32,7 +100,6 @@ namespace bs
 
 			return VK_FORMAT_R8G8B8A8_UNORM;
 		case PF_B8G8R8A8:
-		case PF_B8G8R8X8:
 			if (sRGB)
 				return VK_FORMAT_B8G8R8A8_SRGB;
 
@@ -54,15 +121,11 @@ namespace bs
 		case PF_FLOAT32_RGBA:
 			return VK_FORMAT_R32G32B32A32_SFLOAT;
 		case PF_BC1:
+		case PF_BC1a:
 			if (sRGB)
 				return VK_FORMAT_BC1_RGB_SRGB_BLOCK;
 
 			return VK_FORMAT_BC1_RGB_UNORM_BLOCK;
-		case PF_BC1a:
-			if (sRGB)
-				return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
-
-			return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
 		case PF_BC2:
 			if (sRGB)
 				return VK_FORMAT_BC2_SRGB_BLOCK;
@@ -96,10 +159,6 @@ namespace bs
 			return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 		case PF_UNORM_R10G10B10A2:
 			return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
-		case PF_A8R8G8B8:
-		case PF_A8B8G8R8:
-		case PF_X8R8G8B8:
-		case PF_X8B8G8R8:
 		case PF_UNKNOWN:
 		default:
 			return VK_FORMAT_UNDEFINED;
@@ -485,4 +544,4 @@ namespace bs
 
 		return ((flags & (1 << idx)) != 0 || (flags == GDF_DEFAULT && device->isPrimary()));
 	}
-}
+}}

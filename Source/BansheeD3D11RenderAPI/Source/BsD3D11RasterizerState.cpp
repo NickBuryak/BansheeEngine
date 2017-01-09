@@ -7,20 +7,20 @@
 #include "BsRenderStats.h"
 #include "BsMath.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	D3D11RasterizerStateCore::D3D11RasterizerStateCore(const RASTERIZER_STATE_DESC& desc, UINT32 id)
-		:RasterizerStateCore(desc, id), mRasterizerState(nullptr)
+	D3D11RasterizerState::D3D11RasterizerState(const RASTERIZER_STATE_DESC& desc, UINT32 id)
+		:RasterizerState(desc, id), mRasterizerState(nullptr)
 	{ }
 
-	D3D11RasterizerStateCore::~D3D11RasterizerStateCore()
+	D3D11RasterizerState::~D3D11RasterizerState()
 	{
 		SAFE_RELEASE(mRasterizerState);
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_RasterizerState);
 	}
 
-	void D3D11RasterizerStateCore::createInternal()
+	void D3D11RasterizerState::createInternal()
 	{
 		INT32 scaledDepthBias = Math::floorToInt(-mProperties.getDepthBias() * float((1 << 24))); // Note: Assumes 24-bit depth buffer
 
@@ -38,7 +38,7 @@ namespace bs
 		rasterizerStateDesc.SlopeScaledDepthBias = mProperties.getSlopeScaledDepthBias();
 		rasterizerStateDesc.FrontCounterClockwise = false;
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		HRESULT hr = device.getD3D11Device()->CreateRasterizerState(&rasterizerStateDesc, &mRasterizerState);
 
@@ -49,6 +49,6 @@ namespace bs
 		}
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_RasterizerState);
-		RasterizerStateCore::createInternal();
+		RasterizerState::createInternal();
 	}
-}
+}}

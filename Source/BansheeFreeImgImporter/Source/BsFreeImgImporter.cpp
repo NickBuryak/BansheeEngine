@@ -325,16 +325,16 @@ namespace bs
 				//     PF_BYTE_BGR[A] for little endian (== PF_ARGB native)
 				//     PF_BYTE_RGB[A] for big endian (== PF_RGBA native)
 #if FREEIMAGE_COLORORDER == FREEIMAGE_COLORORDER_RGB
-				format = PF_BYTE_RGB;
+				format = PF_R8G8B8;
 #else
-				format = PF_BYTE_BGR;
+				format = PF_B8G8R8;
 #endif
 				break;
 			case 32:
 #if FREEIMAGE_COLORORDER == FREEIMAGE_COLORORDER_RGB
-				format = PF_BYTE_RGBA;
+				format = PF_R8G8B8A8;
 #else
-				format = PF_BYTE_BGRA;
+				format = PF_B8G8R8A8;
 #endif
 				break;
 
@@ -412,10 +412,7 @@ namespace bs
 				faceStart.x += faceSize;
 
 			PixelVolume volume(faceStart.x, faceStart.y, faceStart.x + faceSize, faceStart.y + faceSize);
-			PixelData subVolumeData = source->getSubVolume(volume);
-
-			assert(output[i]->getSize() == subVolumeData.getSize());
-			memcpy(output[i]->getData(), subVolumeData.getData(), subVolumeData.getSize());
+			PixelUtil::copy(*source, *output[i], faceStart.x, faceStart.y);
 		}
 	}
 
@@ -424,13 +421,13 @@ namespace bs
 	 * 
 	 * Vertical layout:
 	 *    +Y
-	 * -X -Z +X
+	 * -X +Z +X
 	 *    -Y
-	 *    +Z
+	 *    -Z
 	 * 
 	 * Horizontal layout:
 	 *    +Y
-	 * -X -Z +X +Z
+	 * -X +Z +X -Z
 	 *    -Y
 	 * 
 	 * @param[in]	source		Source texture to read.
@@ -441,8 +438,8 @@ namespace bs
 	void readCubemapCross(const SPtr<PixelData>& source, std::array<SPtr<PixelData>, 6>& output, UINT32 faceSize,
 		bool vertical)
 	{
-		const static UINT32 vertFaceIndices[] = { 5, 3, 1, 7, 10, 4 };
-		const static UINT32 horzFaceIndices[] = { 6, 4, 1, 9, 7, 5 };
+		const static UINT32 vertFaceIndices[] = { 5, 3, 1, 7, 4, 10 };
+		const static UINT32 horzFaceIndices[] = { 6, 4, 1, 9, 5, 7 };
 
 		const UINT32* faceIndices = vertical ? vertFaceIndices : horzFaceIndices;
 		UINT32 numFacesInRow = vertical ? 3 : 4;
@@ -455,37 +452,39 @@ namespace bs
 			UINT32 faceY = (faceIndices[i] / numFacesInRow) * faceSize;
 
 			PixelVolume volume(faceX, faceY, faceX + faceSize, faceY + faceSize);
-			PixelData subVolumeData = source->getSubVolume(volume);
-
-			assert(output[i]->getSize() == subVolumeData.getSize());
-			memcpy(output[i]->getData(), subVolumeData.getData(), subVolumeData.getSize());
+			PixelUtil::copy(*source, *output[i], faceX, faceY);
 		}
+
+		// Flip -Z as it's upside down
+		if (vertical)
+			PixelUtil::mirror(*output[5], MirrorModeBits::X | MirrorModeBits::Y);
 	}
 
 	/** Method that maps a direction to a point on a plane in range [0, 1] using spherical mapping. */
 	Vector2 mapCubemapDirToSpherical(const Vector3& dir)
 	{
+		// Using the OpenGL spherical mapping formula
 		Vector3 nrmDir = Vector3::normalize(dir);
+		nrmDir.z += 1.0f;
 
-		float u = acos(Math::abs(nrmDir.z)) / Math::PI;
-		if (nrmDir.x > 0.0f)
-			u = 1.0f - u;
+		float m = 2 * nrmDir.length();
 
-		float v = 1.0f - acos(nrmDir.y) / Math::PI;
+		float u = nrmDir.x / m + 0.5f;
+		float v = nrmDir.y / m + 0.5f;
 
 		return Vector2(u, v);
 	}
 
-	/** Method that maps a direction to a point on a plane in range [0, 1] using cylindrical mapping. */
+	/** 
+	 * Method that maps a direction to a point on a plane in range [0, 1] using cylindrical mapping. This mapping is also
+	 * know as longitude-latitude mapping, Blinn/Newell mapping or equirectangular cylindrical mapping. 
+	 */
 	Vector2 mapCubemapDirToCylindrical(const Vector3& dir)
 	{
 		Vector3 nrmDir = Vector3::normalize(dir);
 
-		float u = 0.75f - atan2(nrmDir.z, nrmDir.x) / Math::HALF_PI;
-		if (u > 1.0f)
-			u -= 1.0f;
-
-		float v = 1.0f - acos(nrmDir.y) / Math::PI;
+		float u = (atan2(nrmDir.z, nrmDir.x) + Math::PI) / Math::TWO_PI;
+		float v = acos(nrmDir.y) / Math::PI;
 
 		return Vector2(u, v);
 	}
@@ -523,8 +522,8 @@ namespace bs
 		{
 			{ 2, 1, 0, {  1.0f, -1.0f,  1.0f }}, // X+
 			{ 2, 1, 0, { -1.0f, -1.0f, -1.0f }}, // X-
-			{ 0, 2, 1, { -1.0f,  1.0f, -1.0f }}, // Y+
-			{ 0, 2, 1, { -1.0f, -1.0f,  1.0f }}, // Y-
+			{ 0, 2, 1, {  1.0f, -1.0f,  1.0f }}, // Y+
+			{ 0, 2, 1, {  1.0f,  1.0f, -1.0f }}, // Y-
 			{ 0, 1, 2, {  1.0f, -1.0f, -1.0f }}, // Z+
 			{ 0, 1, 2, { -1.0f, -1.0f,  1.0f }}  // Z-
 		};
@@ -543,13 +542,13 @@ namespace bs
 					Vector2 sourceCoord = (Vector2((float)x, (float)y) * invSize) * 2.0f - Vector2(1.0f, 1.0f);
 					Vector3 direction = Vector3(sourceCoord.x, sourceCoord.y, 1.0f);
 
+					direction *= remapInfo.sign;
+
 					// Rotate towards current face
 					Vector3 rotatedDir;
 					rotatedDir[remapInfo.idx[0]] = direction.x;
 					rotatedDir[remapInfo.idx[1]] = direction.y;
 					rotatedDir[remapInfo.idx[2]] = direction.z;
-
-					rotatedDir *= remapInfo.sign;
 
 					// Find location in the source to sample from
 					Vector2 sourceUV = remap(rotatedDir);
@@ -565,6 +564,9 @@ namespace bs
 	bool FreeImgImporter::generateCubemap(const SPtr<PixelData>& source, CubemapSourceType sourceType,
 						 std::array<SPtr<PixelData>, 6>& output)
 	{
+		// Note: Expose this as a parameter if needed:
+		UINT32 cubemapSupersampling = 1; // Set to amount of samples
+
 		Vector2I faceSize;
 		bool cross = false;
 		bool vertical = false;
@@ -615,9 +617,6 @@ namespace bs
 			// Don't allow sizes larger than 4096
 			faceSize.x = std::min(faceSize.x, 4096);
 
-			// We also do 4x super-sampling, so increase size accordingly
-			faceSize.x *= 4;
-
 			faceSize.y = faceSize.x;
 
 			break;
@@ -651,16 +650,28 @@ namespace bs
 		break;
 		case CubemapSourceType::Cylindrical:
 		{			
+			UINT32 superSampledFaceSize = faceSize.x * cubemapSupersampling;
+
 			std::array<SPtr<PixelData>, 6> superSampledOutput;
-			readCubemapUVRemap(source, superSampledOutput, faceSize.x, &mapCubemapDirToCylindrical);
-			downsampleCubemap(superSampledOutput, output, faceSize.x / 4);
+			readCubemapUVRemap(source, superSampledOutput, superSampledFaceSize, &mapCubemapDirToCylindrical);
+
+			if (faceSize.x != superSampledFaceSize)
+				downsampleCubemap(superSampledOutput, output, faceSize.x);
+			else
+				output = superSampledOutput;
 		}
 		break;
 		case CubemapSourceType::Spherical:
 		{
+			UINT32 superSampledFaceSize = faceSize.x * cubemapSupersampling;
+
 			std::array<SPtr<PixelData>, 6> superSampledOutput;
-			readCubemapUVRemap(source, superSampledOutput, faceSize.x, &mapCubemapDirToSpherical);
-			downsampleCubemap(superSampledOutput, output, faceSize.x / 4);
+			readCubemapUVRemap(source, superSampledOutput, superSampledFaceSize, &mapCubemapDirToSpherical);
+
+			if (faceSize.x != superSampledFaceSize)
+				downsampleCubemap(superSampledOutput, output, faceSize.x);
+			else
+				output = superSampledOutput;
 		}
 		break;
 		default: // Single-image

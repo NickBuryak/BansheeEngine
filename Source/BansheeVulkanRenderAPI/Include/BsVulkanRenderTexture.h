@@ -12,34 +12,6 @@ namespace bs
 	 *  @{
 	 */
 
-	class VulkanRenderTexture;
-
-	/**
-	 * Vulkan implementation of a render texture.
-	 *
-	 * @note	Core thread only.
-	 */
-	class VulkanRenderTextureCore : public RenderTextureCore
-	{
-	public:
-		VulkanRenderTextureCore(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx);
-		virtual ~VulkanRenderTextureCore();
-
-		/** @copydoc RenderTextureCore::getCustomAttribute */
-		void getCustomAttribute(const String& name, void* data) const override;
-
-	protected:
-		/** @copydoc CoreObjectCore::initialize() */
-		void initialize() override;
-
-		/** @copydoc RenderTextureCore::getProperties */
-		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
-
-		RenderTextureProperties mProperties;
-		UINT32 mDeviceIdx;
-		VulkanFramebuffer* mFramebuffer;
-	};
-
 	/**
 	 * Vulkan implementation of a render texture.
 	 *
@@ -60,6 +32,36 @@ namespace bs
 
 		RenderTextureProperties mProperties;
 	};
+
+	namespace ct
+	{
+	/**
+	 * Vulkan implementation of a render texture.
+	 *
+	 * @note	Core thread only.
+	 */
+	class VulkanRenderTexture : public RenderTexture
+	{
+	public:
+		VulkanRenderTexture(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx);
+		virtual ~VulkanRenderTexture();
+
+		/** @copydoc RenderTexture::getCustomAttribute */
+		void getCustomAttribute(const String& name, void* data) const override;
+
+	protected:
+		/** @copydoc CoreObject::initialize() */
+		void initialize() override;
+
+		/** @copydoc RenderTexture::getProperties */
+		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
+
+		RenderTextureProperties mProperties;
+		UINT32 mDeviceIdx;
+		VulkanFramebuffer* mFramebuffer;
+	};
+		
+	}
 
 	/** @} */
 }

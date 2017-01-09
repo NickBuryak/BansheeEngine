@@ -44,11 +44,11 @@
 
 /** @} */
 
-namespace bs
+namespace bs { namespace ct
 {
 	class VulkanRenderAPI;
 	class Win32RenderWindow;
-	class VulkanTextureCore;
+	class VulkanTexture;
 	class Win32VideoMode;
 	class VulkanVertexDeclaration;
 	class VulkanHardwareBuffer;
@@ -64,7 +64,7 @@ namespace bs
 	class VulkanCommandBuffer;
 	class VulkanQueue;
 	class VulkanResourceManager;
-	class VulkanGpuParamBlockBufferCore;
+	class VulkanGpuParamBlockBuffer;
 	class VulkanBuffer;
 	class VulkanImage;
 	class VulkanDescriptorPool;
@@ -110,7 +110,7 @@ namespace bs
 
 	typedef Flags<ClearMaskBits> ClearMask;
 	BS_FLAGS_OPERATORS(ClearMaskBits);
-}
+}}
 
 /** Macro to get a procedure address based on a Vulkan instance. */
 #define GET_INSTANCE_PROC_ADDR(instance, name) \

@@ -5,103 +5,103 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsRenderAPI.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
 	 */
 
 	/** Implementation of a render system using Vulkan. Provides abstracted access to various low level Vulkan methods. */
-	class VulkanRenderAPI : public RenderAPICore
+	class VulkanRenderAPI : public RenderAPI
 	{
 	public:
 		VulkanRenderAPI();
 		~VulkanRenderAPI();
 
-		/** @copydoc RenderAPICore::getName */
+		/** @copydoc RenderAPI::getName */
 		const StringID& getName() const override;
 		
-		/** @copydoc RenderAPICore::getShadingLanguageName */
+		/** @copydoc RenderAPI::getShadingLanguageName */
 		const String& getShadingLanguageName() const override;
 
-		/** @copydoc RenderAPICore::setGraphicsPipeline */
-		void setGraphicsPipeline(const SPtr<GraphicsPipelineStateCore>& pipelineState, 
+		/** @copydoc RenderAPI::setGraphicsPipeline */
+		void setGraphicsPipeline(const SPtr<GraphicsPipelineState>& pipelineState, 
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setComputePipeline */
-		void setComputePipeline(const SPtr<ComputePipelineStateCore>& pipelineState,
+		/** @copydoc RenderAPI::setComputePipeline */
+		void setComputePipeline(const SPtr<ComputePipelineState>& pipelineState,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setGpuParams */
-		void setGpuParams(const SPtr<GpuParamsCore>& gpuParams, 
+		/** @copydoc RenderAPI::setGpuParams */
+		void setGpuParams(const SPtr<GpuParams>& gpuParams, 
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::clearRenderTarget */
+		/** @copydoc RenderAPI::clearRenderTarget */
 		void clearRenderTarget(UINT32 buffers, const Color& color = Color::Black, float depth = 1.0f, UINT16 stencil = 0, 
 			UINT8 targetMask = 0xFF, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::clearViewport */
+		/** @copydoc RenderAPI::clearViewport */
 		void clearViewport(UINT32 buffers, const Color& color = Color::Black, float depth = 1.0f, UINT16 stencil = 0,
 			UINT8 targetMask = 0xFF, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setRenderTarget */
-		void setRenderTarget(const SPtr<RenderTargetCore>& target, bool readOnlyDepthStencil = false,
+		/** @copydoc RenderAPI::setRenderTarget */
+		void setRenderTarget(const SPtr<RenderTarget>& target, bool readOnlyDepthStencil = false,
 			RenderSurfaceMask loadMask = RT_NONE, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setViewport */
+		/** @copydoc RenderAPI::setViewport */
 		void setViewport(const Rect2& area, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setScissorRect */
+		/** @copydoc RenderAPI::setScissorRect */
 		void setScissorRect(UINT32 left, UINT32 top, UINT32 right, UINT32 bottom, 
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setStencilRef */
+		/** @copydoc RenderAPI::setStencilRef */
 		void setStencilRef(UINT32 value, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setVertexBuffers */
-		void setVertexBuffers(UINT32 index, SPtr<VertexBufferCore>* buffers, UINT32 numBuffers,
+		/** @copydoc RenderAPI::setVertexBuffers */
+		void setVertexBuffers(UINT32 index, SPtr<VertexBuffer>* buffers, UINT32 numBuffers,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setIndexBuffer */
-		void setIndexBuffer(const SPtr<IndexBufferCore>& buffer, 
+		/** @copydoc RenderAPI::setIndexBuffer */
+		void setIndexBuffer(const SPtr<IndexBuffer>& buffer, 
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setVertexDeclaration */
-		void setVertexDeclaration(const SPtr<VertexDeclarationCore>& vertexDeclaration,
+		/** @copydoc RenderAPI::setVertexDeclaration */
+		void setVertexDeclaration(const SPtr<VertexDeclaration>& vertexDeclaration,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::setDrawOperation */
+		/** @copydoc RenderAPI::setDrawOperation */
 		void setDrawOperation(DrawOperationType op,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::draw */
+		/** @copydoc RenderAPI::draw */
 		void draw(UINT32 vertexOffset, UINT32 vertexCount, UINT32 instanceCount = 0,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::drawIndexed */
+		/** @copydoc RenderAPI::drawIndexed */
 		void drawIndexed(UINT32 startIndex, UINT32 indexCount, UINT32 vertexOffset, UINT32 vertexCount, 
 			UINT32 instanceCount = 0, const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::dispatchCompute */
+		/** @copydoc RenderAPI::dispatchCompute */
 		void dispatchCompute(UINT32 numGroupsX, UINT32 numGroupsY = 1, UINT32 numGroupsZ = 1,
 			const SPtr<CommandBuffer>& commandBuffer = nullptr) override;
 
-		/** @copydoc RenderAPICore::swapBuffers() */
-		void swapBuffers(const SPtr<RenderTargetCore>& target, UINT32 syncMask = 0xFFFFFFFF) override;
+		/** @copydoc RenderAPI::swapBuffers() */
+		void swapBuffers(const SPtr<RenderTarget>& target, UINT32 syncMask = 0xFFFFFFFF) override;
 
-		/** @copydoc RenderAPICore::addCommands() */
+		/** @copydoc RenderAPI::addCommands() */
 		void addCommands(const SPtr<CommandBuffer>& commandBuffer, const SPtr<CommandBuffer>& secondary) override;
 
-		/** @copydoc RenderAPICore::executeCommands() */
+		/** @copydoc RenderAPI::executeCommands() */
 		void submitCommandBuffer(const SPtr<CommandBuffer>& commandBuffer, UINT32 syncMask = 0xFFFFFFFF) override;
 
-		/** @copydoc RenderAPICore::convertProjectionMatrix */
+		/** @copydoc RenderAPI::convertProjectionMatrix */
 		void convertProjectionMatrix(const Matrix4& matrix, Matrix4& dest) override;
 
-		/** @copydoc RenderAPICore::getAPIInfo */
+		/** @copydoc RenderAPI::getAPIInfo */
 		const RenderAPIInfo& getAPIInfo() const override;
 
-		/** @copydoc RenderAPICore::generateParamBlockDesc() */
+		/** @copydoc RenderAPI::generateParamBlockDesc() */
 		GpuParamBlockDesc generateParamBlockDesc(const String& name, Vector<GpuParamDataDesc>& params) override;
 
 		/**
@@ -134,10 +134,10 @@ namespace bs
 	protected:
 		friend class VulkanRenderAPIFactory;
 
-		/** @copydoc RenderAPICore::initializePrepare */
+		/** @copydoc RenderAPI::initializePrepare */
 		void initialize() override;
 
-		/** @copydoc RenderAPICore::destroyCore */
+		/** @copydoc RenderAPI::destroyCore */
 		void destroyCore() override;
 
 		/** Creates and populates a set of render system capabilities describing which functionality is available. */
@@ -178,4 +178,4 @@ namespace bs
 	extern PFN_vkQueuePresentKHR vkQueuePresentKHR;
 
 	/** @} */
-}
+}}

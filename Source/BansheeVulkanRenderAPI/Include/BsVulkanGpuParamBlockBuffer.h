@@ -5,20 +5,20 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsGpuParamBlockBuffer.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
 	 */
 
 	/**	Vulkan implementation of a parameter block buffer (uniform buffer in Vulkan lingo). */
-	class VulkanGpuParamBlockBufferCore : public GpuParamBlockBufferCore
+	class VulkanGpuParamBlockBuffer : public GpuParamBlockBuffer
 	{
 	public:
-		VulkanGpuParamBlockBufferCore(UINT32 size, GpuParamBlockUsage usage, GpuDeviceFlags deviceMask);
-		~VulkanGpuParamBlockBufferCore();
+		VulkanGpuParamBlockBuffer(UINT32 size, GpuParamBlockUsage usage, GpuDeviceFlags deviceMask);
+		~VulkanGpuParamBlockBuffer();
 
-		/** @copydoc GpuParamBlockBufferCore::writeToGPU */
+		/** @copydoc GpuParamBlockBuffer::writeToGPU */
 		void writeToGPU(const UINT8* data, UINT32 queueIdx = 0) override;
 
 		/** 
@@ -27,7 +27,7 @@ namespace bs
 		 */
 		VulkanBuffer* getResource(UINT32 deviceIdx) const;
 	protected:
-		/** @copydoc GpuParamBlockBufferCore::initialize */
+		/** @copydoc GpuParamBlockBuffer::initialize */
 		void initialize() override;
 
 	private:
@@ -36,4 +36,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

@@ -12,7 +12,7 @@
 #include "BsMorphShapes.h"
 #include "BsAnimationManager.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	PerFrameParamDef gPerFrameParamDef;
 
@@ -23,7 +23,7 @@ namespace bs
 
 	void ObjectRenderer::initElement(RendererObject& owner, BeastRenderableElement& element)
 	{
-		SPtr<ShaderCore> shader = element.material->getShader();
+		SPtr<Shader> shader = element.material->getShader();
 		if (shader == nullptr)
 		{
 			element.perCameraBindingIdx = -1;
@@ -63,7 +63,7 @@ namespace bs
 		
 		if (!boneMatricesParamName.empty())
 		{
-			MaterialParamBufferCore boneMatricesParam = element.material->getParamBuffer(boneMatricesParamName);
+			MaterialParamBuffer boneMatricesParam = element.material->getParamBuffer(boneMatricesParamName);
 			boneMatricesParam.set(element.boneMatrixBuffer);
 		}
 	}
@@ -77,4 +77,4 @@ namespace bs
 	{
 		// Do nothing
 	}
-}
+}}

@@ -22,38 +22,41 @@ namespace bs
 		:mIndexType(idxType), mNumIndices(numIndices), mIndexSize(calcIndexSize(idxType))
 	{ }
 
-	IndexBufferCore::IndexBufferCore(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
-		:HardwareBuffer(calcIndexSize(desc.indexType) * desc.numIndices), mProperties(desc.indexType, desc.numIndices)
-	{ }
-
-	SPtr<IndexBufferCore> IndexBufferCore::create(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
-	{
-		return HardwareBufferCoreManager::instance().createIndexBuffer(desc, deviceMask);
-	}
-
     IndexBuffer::IndexBuffer(const INDEX_BUFFER_DESC& desc)
 		:mProperties(desc.indexType, desc.numIndices), mUsage(desc.usage)
     {
 
 	}
 
-	SPtr<IndexBufferCore> IndexBuffer::getCore() const
+	SPtr<ct::IndexBuffer> IndexBuffer::getCore() const
 	{
-		return std::static_pointer_cast<IndexBufferCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::IndexBuffer>(mCoreSpecific);
 	}
 
-	SPtr<CoreObjectCore> IndexBuffer::createCore() const
+	SPtr<ct::CoreObject> IndexBuffer::createCore() const
 	{
 		INDEX_BUFFER_DESC desc;
 		desc.indexType = mProperties.mIndexType;
 		desc.numIndices = mProperties.mNumIndices;
 		desc.usage = mUsage;
 
-		return HardwareBufferCoreManager::instance().createIndexBufferInternal(desc);
+		return ct::HardwareBufferManager::instance().createIndexBufferInternal(desc);
 	}
 
 	SPtr<IndexBuffer> IndexBuffer::create(const INDEX_BUFFER_DESC& desc)
 	{
 		return HardwareBufferManager::instance().createIndexBuffer(desc);
+	}
+
+	namespace ct
+	{
+	IndexBuffer::IndexBuffer(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
+		:HardwareBuffer(calcIndexSize(desc.indexType) * desc.numIndices), mProperties(desc.indexType, desc.numIndices)
+	{ }
+
+	SPtr<IndexBuffer> IndexBuffer::create(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask)
+	{
+		return HardwareBufferManager::instance().createIndexBuffer(desc, deviceMask);
+	}
 	}
 }

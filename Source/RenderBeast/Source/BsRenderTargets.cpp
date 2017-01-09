@@ -7,18 +7,18 @@
 #include "BsTextureManager.h"
 #include "BsRendererUtility.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	RenderTargets::RenderTargets(const SPtr<ViewportCore>& viewport, bool hdr, UINT32 numSamples)
+	RenderTargets::RenderTargets(const SPtr<Viewport>& viewport, bool hdr, UINT32 numSamples)
 		:mViewport(viewport), mNumSamples(numSamples), mHDR(hdr)
 	{
 		// Note: Consider customizable HDR format via options? e.g. smaller PF_FLOAT_R11G11B10 or larger 32-bit format
-		mSceneColorFormat = hdr ? PF_FLOAT16_RGBA : PF_B8G8R8A8;
-		mAlbedoFormat = PF_B8G8R8X8; // Note: Also consider customizable format (e.g. 16-bit float?)
+		mSceneColorFormat = hdr ? PF_FLOAT16_RGBA : PF_R8G8B8A8;
+		mAlbedoFormat = PF_R8G8B8A8; // Note: Also consider customizable format (e.g. 16-bit float?)
 		mNormalFormat = PF_UNORM_R10G10B10A2; // Note: Also consider customizable format (e.g. 16-bit float?)
 	}
 
-	SPtr<RenderTargets> RenderTargets::create(const SPtr<ViewportCore>& viewport, bool hdr, UINT32 numSamples)
+	SPtr<RenderTargets> RenderTargets::create(const SPtr<Viewport>& viewport, bool hdr, UINT32 numSamples)
 	{
 		return bs_shared_ptr<RenderTargets>(new (bs_alloc<RenderTargets>()) RenderTargets(viewport, hdr, numSamples));
 	}
@@ -40,7 +40,7 @@ namespace bs
 			height, TU_RENDERTARGET, mNumSamples, true));
 		SPtr<PooledRenderTexture> newNormalRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mNormalFormat, width, 
 			height, TU_RENDERTARGET, mNumSamples, false));
-		SPtr<PooledRenderTexture> newDepthRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(PF_D24S8, width, height, 
+		SPtr<PooledRenderTexture> newDepthRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(PF_D32_S8X24, width, height, 
 			TU_DEPTHSTENCIL, mNumSamples, false));
 
 		bool rebuildTargets = newColorRT != mSceneColorTex || newAlbedoRT != mAlbedoTex || newNormalRT != mNormalTex || newDepthRT != mDepthTex;
@@ -52,7 +52,7 @@ namespace bs
 
 		if (mGBufferRT == nullptr || mSceneColorRT == nullptr || rebuildTargets)
 		{
-			RENDER_TEXTURE_DESC_CORE gbufferDesc;
+			RENDER_TEXTURE_DESC gbufferDesc;
 			gbufferDesc.colorSurfaces[0].texture = mSceneColorTex->texture;
 			gbufferDesc.colorSurfaces[0].face = 0;
 			gbufferDesc.colorSurfaces[0].numFaces = 1;
@@ -72,9 +72,9 @@ namespace bs
 			gbufferDesc.depthStencilSurface.face = 0;
 			gbufferDesc.depthStencilSurface.mipLevel = 0;
 
-			mGBufferRT = RenderTextureCore::create(gbufferDesc);
+			mGBufferRT = RenderTexture::create(gbufferDesc);
 
-			RENDER_TEXTURE_DESC_CORE sceneColorDesc;
+			RENDER_TEXTURE_DESC sceneColorDesc;
 			sceneColorDesc.colorSurfaces[0].texture = mSceneColorTex->texture;
 			sceneColorDesc.colorSurfaces[0].face = 0;
 			sceneColorDesc.colorSurfaces[0].numFaces = 1;
@@ -85,13 +85,13 @@ namespace bs
 			sceneColorDesc.depthStencilSurface.numFaces = 1;
 			sceneColorDesc.depthStencilSurface.mipLevel = 0;
 
-			mSceneColorRT = TextureCoreManager::instance().createRenderTexture(sceneColorDesc);
+			mSceneColorRT = TextureManager::instance().createRenderTexture(sceneColorDesc);
 		}
 	}
 
 	void RenderTargets::release()
 	{
-		RenderAPICore& rapi = RenderAPICore::instance();
+		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(nullptr);
 
 		RenderTexturePool& texPool = RenderTexturePool::instance();
@@ -104,7 +104,7 @@ namespace bs
 
 	void RenderTargets::bindGBuffer()
 	{
-		RenderAPICore& rapi = RenderAPICore::instance();
+		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(mGBufferRT);
 
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
@@ -123,34 +123,34 @@ namespace bs
 		// Clear scene color, depth, stencil according to user defined values
 		if (clearBuffers != 0)
 		{
-			RenderAPICore::instance().clearViewport(clearBuffers, mViewport->getClearColor(),
+			RenderAPI::instance().clearViewport(clearBuffers, mViewport->getClearColor(),
 				mViewport->getClearDepthValue(), mViewport->getClearStencilValue(), 0x01);
 		}
 
 		// Clear all others
-		RenderAPICore::instance().clearViewport(FBT_COLOR, Color::ZERO, 1.0f, 0, 0xFF & ~0x01);
+		RenderAPI::instance().clearViewport(FBT_COLOR, Color::ZERO, 1.0f, 0, 0xFF & ~0x01);
 	}
 
 	void RenderTargets::bindSceneColor(bool readOnlyDepthStencil)
 	{
-		RenderAPICore& rapi = RenderAPICore::instance();
+		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(mSceneColorRT, readOnlyDepthStencil, RT_COLOR0 | RT_DEPTH);
 
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
 		rapi.setViewport(area);
 	}
 
-	SPtr<TextureCore> RenderTargets::getTextureA() const
+	SPtr<Texture> RenderTargets::getTextureA() const
 	{
 		return mAlbedoTex->texture;
 	}
 
-	SPtr<TextureCore> RenderTargets::getTextureB() const
+	SPtr<Texture> RenderTargets::getTextureB() const
 	{
 		return mNormalTex->texture;
 	}
 
-	SPtr<TextureCore> RenderTargets::getTextureDepth() const
+	SPtr<Texture> RenderTargets::getTextureDepth() const
 	{
 		return mDepthTex->texture;
 	}
@@ -164,4 +164,4 @@ namespace bs
 	{
 		return (UINT32)mViewport->getHeight();
 	}
-}
+}}

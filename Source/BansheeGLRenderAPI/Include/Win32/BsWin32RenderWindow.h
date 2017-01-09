@@ -5,13 +5,11 @@
 #include "BsWin32Prerequisites.h"
 #include "BsRenderWindow.h"
 
-namespace bs 
+namespace bs
 {
 	/** @addtogroup GL
 	 *  @{
 	 */
-
-	class Win32RenderWindow;
 
 	/**	Contains various properties that describe a render window. */
 	class BS_RSGL_EXPORT Win32RenderWindowProperties : public RenderWindowProperties
@@ -21,103 +19,9 @@ namespace bs
 		virtual ~Win32RenderWindowProperties() { }
 
 	private:
-		friend class Win32RenderWindowCore;
+		friend class ct::Win32RenderWindow;
 		friend class Win32RenderWindow;
 	};
-
-	/**
-	 * Render window implementation for Windows.
-	 *
-	 * @note	Core thread only.
-	 */
-    class BS_RSGL_EXPORT Win32RenderWindowCore : public RenderWindowCore
-    {
-    public:
-		Win32RenderWindowCore(const RENDER_WINDOW_DESC& desc, UINT32 windowId, Win32GLSupport &glsupport);
-		~Win32RenderWindowCore();
-
-		/** @copydoc RenderWindowCore::setFullscreen(UINT32, UINT32, float, UINT32) */
-		void setFullscreen(UINT32 width, UINT32 height, float refreshRate = 60.0f, UINT32 monitorIdx = 0) override;
-
-		/** @copydoc RenderWindowCore::setFullscreen(const VideoMode&) */
-		void setFullscreen(const VideoMode& videoMode) override;
-
-		/** @copydoc RenderWindowCore::setWindowed */
-		void setWindowed(UINT32 width, UINT32 height) override;
-
-		/** @copydoc RenderWindowCore::setHidden */
-		void setHidden(bool hidden) override;
-
-		/** @copydoc RenderWindowCore::minimize */
-		void minimize() override;
-
-		/** @copydoc RenderWindowCore::maximize */
-		void maximize() override;
-
-		/** @copydoc RenderWindowCore::restore */
-		void restore() override;
-
-		/** @copydoc RenderWindowCore::move */
-		void move(INT32 left, INT32 top) override;
-
-		/** @copydoc RenderWindowCore::resize */
-		void resize(UINT32 width, UINT32 height) override;
-
-		/** 
-		 * Copies the contents of a frame buffer into the pre-allocated buffer. 
-		 *
-		 * @param[out]	dst		Previously allocated buffer to read the contents into. Must be of valid size.
-		 * @param[in]	buffer	Frame buffer to read the contents from.
-		 */
-		void copyToMemory(PixelData& dst, FrameBuffer buffer);
-
-		/** @copydoc RenderWindowCore::swapBuffers */
-		void swapBuffers(UINT32 syncMask) override;
-
-		/** @copydoc RenderWindowCore::getCustomAttribute */
-		void getCustomAttribute(const String& name, void* pData) const override;
-
-		/** @copydoc RenderWindowCore::setActive */
-		void setActive(bool state) override;
-
-		/** @copydoc RenderWindowCore::_windowMovedOrResized */
-		void _windowMovedOrResized() override;
-
-		/**	Returns handle to device context associated with the window. */
-		HDC _getHDC() const { return mHDC; }
-
-		/**	Returns internal window handle. */
-		HWND _getHWnd() const;
-
-	protected:
-		friend class Win32GLSupport;
-
-		/** @copydoc CoreObjectCore::initialize */
-		void initialize() override;
-
-		/** @copydoc RenderWindowCore::getProperties */
-		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
-
-		/** @copydoc RenderWindowCore::getSyncedProperties */
-		RenderWindowProperties& getSyncedProperties() override { return mSyncedProperties; }
-
-		/** @copydoc RenderWindowCore::syncProperties */
-		void syncProperties() override;
-
-	protected:
-		friend class Win32RenderWindow;
-
-		Win32Window* mWindow;
-		Win32GLSupport& mGLSupport;
-		HDC	mHDC;
-		bool mIsChild;
-		char* mDeviceName;
-		int mDisplayFrequency;
-		bool mShowOnSwap;
-		SPtr<Win32Context> mContext;
-		Win32RenderWindowProperties mProperties;
-		Win32RenderWindowProperties mSyncedProperties;
-    };
 
 	/**
 	 * Render window implementation for Windows.
@@ -139,14 +43,14 @@ namespace bs
 		Vector2I windowToScreenPos(const Vector2I& windowPos) const override;
 
 		/** @copydoc RenderWindow::getCore */
-		SPtr<Win32RenderWindowCore> getCore() const;
+		SPtr<ct::Win32RenderWindow> getCore() const;
 
 	protected:
 		friend class GLRenderWindowManager;
-		friend class Win32GLSupport;
-		friend class Win32RenderWindowCore;
+		friend class ct::Win32GLSupport;
+		friend class ct::Win32RenderWindow;
 
-		Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, Win32GLSupport& glsupport);
+		Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, ct::Win32GLSupport& glsupport);
 
 		/** @copydoc RenderWindow::getProperties */
 		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
@@ -158,9 +62,106 @@ namespace bs
 		HWND getHWnd() const;
 
 	private:
-		Win32GLSupport& mGLSupport;
+		ct::Win32GLSupport& mGLSupport;
 		Win32RenderWindowProperties mProperties;
 	};
+
+	namespace ct
+	{
+	/**
+	 * Render window implementation for Windows.
+	 *
+	 * @note	Core thread only.
+	 */
+    class BS_RSGL_EXPORT Win32RenderWindow : public RenderWindow
+    {
+    public:
+		Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, Win32GLSupport &glsupport);
+		~Win32RenderWindow();
+
+		/** @copydoc RenderWindow::setFullscreen(UINT32, UINT32, float, UINT32) */
+		void setFullscreen(UINT32 width, UINT32 height, float refreshRate = 60.0f, UINT32 monitorIdx = 0) override;
+
+		/** @copydoc RenderWindow::setFullscreen(const VideoMode&) */
+		void setFullscreen(const VideoMode& videoMode) override;
+
+		/** @copydoc RenderWindow::setWindowed */
+		void setWindowed(UINT32 width, UINT32 height) override;
+
+		/** @copydoc RenderWindow::setHidden */
+		void setHidden(bool hidden) override;
+
+		/** @copydoc RenderWindow::minimize */
+		void minimize() override;
+
+		/** @copydoc RenderWindow::maximize */
+		void maximize() override;
+
+		/** @copydoc RenderWindow::restore */
+		void restore() override;
+
+		/** @copydoc RenderWindow::move */
+		void move(INT32 left, INT32 top) override;
+
+		/** @copydoc RenderWindow::resize */
+		void resize(UINT32 width, UINT32 height) override;
+
+		/** 
+		 * Copies the contents of a frame buffer into the pre-allocated buffer. 
+		 *
+		 * @param[out]	dst		Previously allocated buffer to read the contents into. Must be of valid size.
+		 * @param[in]	buffer	Frame buffer to read the contents from.
+		 */
+		void copyToMemory(PixelData& dst, FrameBuffer buffer);
+
+		/** @copydoc RenderWindow::swapBuffers */
+		void swapBuffers(UINT32 syncMask) override;
+
+		/** @copydoc RenderWindow::getCustomAttribute */
+		void getCustomAttribute(const String& name, void* pData) const override;
+
+		/** @copydoc RenderWindow::setActive */
+		void setActive(bool state) override;
+
+		/** @copydoc RenderWindow::_windowMovedOrResized */
+		void _windowMovedOrResized() override;
+
+		/**	Returns handle to device context associated with the window. */
+		HDC _getHDC() const { return mHDC; }
+
+		/**	Returns internal window handle. */
+		HWND _getHWnd() const;
+
+	protected:
+		friend class Win32GLSupport;
+
+		/** @copydoc CoreObject::initialize */
+		void initialize() override;
+
+		/** @copydoc RenderWindow::getProperties */
+		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
+
+		/** @copydoc RenderWindow::getSyncedProperties */
+		RenderWindowProperties& getSyncedProperties() override { return mSyncedProperties; }
+
+		/** @copydoc RenderWindow::syncProperties */
+		void syncProperties() override;
+
+	protected:
+		friend class bs::Win32RenderWindow;
+
+		Win32Window* mWindow;
+		Win32GLSupport& mGLSupport;
+		HDC	mHDC;
+		bool mIsChild;
+		char* mDeviceName;
+		int mDisplayFrequency;
+		bool mShowOnSwap;
+		SPtr<Win32Context> mContext;
+		Win32RenderWindowProperties mProperties;
+		Win32RenderWindowProperties mSyncedProperties;
+    };		
+	}
 
 	/** @} */
 }

@@ -464,7 +464,7 @@ namespace bs
 
 		HMaterial dropOverlayMat = BuiltinEditorResources::instance().createDockDropOverlayMaterial();
 
-		mRenderer = RendererExtension::create<DockOverlayRenderer>(dropOverlayMat->getCore());
+		mRenderer = RendererExtension::create<ct::DockOverlayRenderer>(dropOverlayMat->getCore());
 	}
 
 	DockManager::~DockManager()
@@ -492,8 +492,8 @@ namespace bs
 
 		HCamera camera = mParentWindow->getGUICamera();
 
-		DockOverlayRenderer* renderer = mRenderer.get();
-		gCoreThread().queueCommand(std::bind(&DockOverlayRenderer::updateData, renderer, camera->_getCamera()->getCore(),
+		ct::DockOverlayRenderer* renderer = mRenderer.get();
+		gCoreThread().queueCommand(std::bind(&ct::DockOverlayRenderer::updateData, renderer, camera->_getCamera()->getCore(),
 			mDropOverlayMesh->getCore(), mShowOverlay, mHighlightedDropLoc));
 	}
 
@@ -1112,6 +1112,8 @@ namespace bs
 		return isInside;
 	}
 
+	namespace ct
+	{
 	const Color DockOverlayRenderer::TINT_COLOR = Color(0.44f, 0.44f, 0.44f, 0.22f);
 	const Color DockOverlayRenderer::HIGHLIGHT_COLOR = Color(0.44f, 0.44f, 0.44f, 0.42f);
 
@@ -1124,11 +1126,11 @@ namespace bs
 
 	void DockOverlayRenderer::initialize(const Any& data)
 	{
-		mMaterial = any_cast<SPtr<MaterialCore>>(data);
+		mMaterial = any_cast<SPtr<Material>>(data);
 		mParams = mMaterial->createParamsSet();
 	}
 
-	void DockOverlayRenderer::updateData(const SPtr<CameraCore>& camera, const SPtr<MeshCore>& mesh, bool active, 
+	void DockOverlayRenderer::updateData(const SPtr<Camera>& camera, const SPtr<Mesh>& mesh, bool active, 
 		DockManager::DockLocation location)
 	{
 		mCamera = camera;
@@ -1137,19 +1139,19 @@ namespace bs
 		mHighlightedDropLoc = location;
 	}
 
-	bool DockOverlayRenderer::check(const CameraCore& camera)
+	bool DockOverlayRenderer::check(const Camera& camera)
 	{
 		return mCamera.get() == &camera;
 	}
 
-	void DockOverlayRenderer::render(const CameraCore& camera)
+	void DockOverlayRenderer::render(const Camera& camera)
 	{
 		THROW_IF_NOT_CORE_THREAD;
 
 		if (!mShowOverlay)
 			return;
 
-		SPtr<ViewportCore> viewport = mCamera->getViewport();
+		SPtr<Viewport> viewport = mCamera->getViewport();
 
 		float invViewportWidth = 1.0f / (viewport->getWidth() * 0.5f);
 		float invViewportHeight = 1.0f / (viewport->getHeight() * 0.5f);
@@ -1186,5 +1188,6 @@ namespace bs
 		gRendererUtility().setPass(mMaterial);
 		gRendererUtility().setPassParams(mParams);
 		gRendererUtility().draw(mMesh, mMesh->getProperties().getSubMesh(0));
+	}
 	}
 }

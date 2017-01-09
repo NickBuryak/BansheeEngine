@@ -14,7 +14,7 @@
 namespace bs
 {
 	/** Converts a sim thread pass descriptor to a core thread one. */
-	void convertPassDesc(const PASS_DESC& input, PASS_DESC_CORE& output)
+	void convertPassDesc(const PASS_DESC& input, ct::PASS_DESC& output)
 	{
 		output.blendState = input.blendState != nullptr ? input.blendState->getCore() : nullptr;
 		output.rasterizerState = input.rasterizerState != nullptr ? input.rasterizerState->getCore() : nullptr;
@@ -42,7 +42,7 @@ namespace bs
 	}
 
 	/** Converts a sim thread pass descriptor to a core thread pipeline state descriptor. */
-	void convertPassDesc(const PASS_DESC_CORE& input, PIPELINE_STATE_CORE_DESC& output)
+	void convertPassDesc(const ct::PASS_DESC& input, ct::PIPELINE_STATE_DESC& output)
 	{
 		output.blendState = input.blendState;
 		output.rasterizerState = input.rasterizerState;
@@ -95,93 +95,36 @@ namespace bs
 	template class TPass < false > ;
 	template class TPass < true >;
 
-	PassCore::PassCore(const PASS_DESC_CORE& desc)
-		:TPass(desc)
-	{ }
-
-	PassCore::PassCore(const PASS_DESC_CORE& desc, const SPtr<GraphicsPipelineStateCore>& pipelineState)
-		:TPass(desc)
-	{
-		mGraphicsPipelineState = pipelineState;
-	}
-
-
-	PassCore::PassCore(const PASS_DESC_CORE& desc, const SPtr<ComputePipelineStateCore>& pipelineState)
-		:TPass(desc)
-	{
-		mComputePipelineState = pipelineState;
-	}
-
-	void PassCore::initialize()
-	{
-		if(hasComputeProgram())
-		{
-			if(mComputePipelineState == nullptr)
-				mComputePipelineState = ComputePipelineStateCore::create(getComputeProgram());
-		}
-		else
-		{
-			if (mGraphicsPipelineState == nullptr)
-			{
-				PIPELINE_STATE_CORE_DESC desc;
-				convertPassDesc(mData, desc);
-
-				mGraphicsPipelineState = GraphicsPipelineStateCore::create(desc);
-			}
-		}
-
-		CoreObjectCore::initialize();
-	}
-
-	void PassCore::syncToCore(const CoreSyncData& data)
-	{
-		UINT8* dataPtr = data.getBuffer();
-		PASS_DESC_CORE* desc = (PASS_DESC_CORE*)dataPtr;
-
-		mData = *desc;
-		desc->~PASS_DESC_CORE();
-	}
-
-	SPtr<PassCore> PassCore::create(const PASS_DESC_CORE& desc)
-	{
-		PassCore* newPass = new (bs_alloc<PassCore>()) PassCore(desc);
-		SPtr<PassCore> newPassPtr = bs_shared_ptr<PassCore>(newPass);
-		newPassPtr->_setThisPtr(newPassPtr);
-		newPassPtr->initialize();
-
-		return newPassPtr;
-	}
-
 	Pass::Pass(const PASS_DESC& desc)
 		:TPass(desc)
 	{ }
 
-	SPtr<PassCore> Pass::getCore() const
+	SPtr<ct::Pass> Pass::getCore() const
 	{
-		return std::static_pointer_cast<PassCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::Pass>(mCoreSpecific);
 	}
 
-	SPtr<CoreObjectCore> Pass::createCore() const
+	SPtr<ct::CoreObject> Pass::createCore() const
 	{
-		PASS_DESC_CORE desc;
+		ct::PASS_DESC desc;
 		convertPassDesc(mData, desc);
 
-		PassCore* pass;
+		ct::Pass* pass;
 		if(mComputePipelineState != nullptr)
 		{
-			SPtr<ComputePipelineStateCore> corePipeline = mComputePipelineState->getCore();
-			pass = new (bs_alloc<PassCore>()) PassCore(desc, corePipeline);
+			SPtr<ct::ComputePipelineState> corePipeline = mComputePipelineState->getCore();
+			pass = new (bs_alloc<ct::Pass>()) ct::Pass(desc, corePipeline);
 		}
 		else
 		{
-			SPtr<GraphicsPipelineStateCore> corePipeline;
+			SPtr<ct::GraphicsPipelineState> corePipeline;
 			if (mGraphicsPipelineState != nullptr)
 				corePipeline = mGraphicsPipelineState->getCore();
 
-			pass = new (bs_alloc<PassCore>()) PassCore(desc, corePipeline);
+			pass = new (bs_alloc<ct::Pass>()) ct::Pass(desc, corePipeline);
 		}
 
-		SPtr<PassCore> passPtr = bs_shared_ptr<PassCore>(pass);
+		SPtr<ct::Pass> passPtr = bs_shared_ptr<ct::Pass>(pass);
 		passPtr->_setThisPtr(passPtr);
 
 		return passPtr;
@@ -207,10 +150,10 @@ namespace bs
 
 	CoreSyncData Pass::syncToCore(FrameAlloc* allocator)
 	{
-		UINT32 size = sizeof(PASS_DESC_CORE);
+		UINT32 size = sizeof(ct::PASS_DESC);
 
 		UINT8* data = allocator->alloc(size);
-		PASS_DESC_CORE* passDesc = new (data) PASS_DESC_CORE();
+		ct::PASS_DESC* passDesc = new (data) ct::PASS_DESC();
 		convertPassDesc(mData, *passDesc);
 
 		return CoreSyncData(data, size);
@@ -273,5 +216,65 @@ namespace bs
 	RTTITypeBase* Pass::getRTTI() const
 	{
 		return Pass::getRTTIStatic();
+	}
+
+	namespace ct
+	{
+	Pass::Pass(const PASS_DESC& desc)
+		:TPass(desc)
+	{ }
+
+	Pass::Pass(const PASS_DESC& desc, const SPtr<GraphicsPipelineState>& pipelineState)
+		:TPass(desc)
+	{
+		mGraphicsPipelineState = pipelineState;
+	}
+
+
+	Pass::Pass(const PASS_DESC& desc, const SPtr<ComputePipelineState>& pipelineState)
+		:TPass(desc)
+	{
+		mComputePipelineState = pipelineState;
+	}
+
+	void Pass::initialize()
+	{
+		if(hasComputeProgram())
+		{
+			if(mComputePipelineState == nullptr)
+				mComputePipelineState = ComputePipelineState::create(getComputeProgram());
+		}
+		else
+		{
+			if (mGraphicsPipelineState == nullptr)
+			{
+				PIPELINE_STATE_DESC desc;
+				convertPassDesc(mData, desc);
+
+				mGraphicsPipelineState = GraphicsPipelineState::create(desc);
+			}
+		}
+
+		CoreObject::initialize();
+	}
+
+	void Pass::syncToCore(const CoreSyncData& data)
+	{
+		UINT8* dataPtr = data.getBuffer();
+		PASS_DESC* desc = (PASS_DESC*)dataPtr;
+
+		mData = *desc;
+		desc->~PASS_DESC();
+	}
+
+	SPtr<Pass> Pass::create(const PASS_DESC& desc)
+	{
+		Pass* newPass = new (bs_alloc<Pass>()) Pass(desc);
+		SPtr<Pass> newPassPtr = bs_shared_ptr<Pass>(newPass);
+		newPassPtr->_setThisPtr(newPassPtr);
+		newPassPtr->initialize();
+
+		return newPassPtr;
+	}
 	}
 }

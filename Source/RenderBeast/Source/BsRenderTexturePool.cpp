@@ -5,7 +5,7 @@
 #include "BsTexture.h"
 #include "BsTextureManager.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	PooledRenderTexture::PooledRenderTexture(RenderTexturePool* pool)
 		:mPool(pool), mIsFree(false)
@@ -55,11 +55,11 @@ namespace bs
 		texDesc.hwGamma = desc.hwGamma;
 		texDesc.numSamples = desc.numSamples;
 
-		newTextureData->texture = TextureCoreManager::instance().createTexture(texDesc);
+		newTextureData->texture = TextureManager::instance().createTexture(texDesc);
 		
 		if ((desc.flag & (TU_RENDERTARGET | TU_DEPTHSTENCIL)) != 0)
 		{
-			RENDER_TEXTURE_DESC_CORE rtDesc;
+			RENDER_TEXTURE_DESC rtDesc;
 
 			if ((desc.flag & TU_RENDERTARGET) != 0)
 			{
@@ -77,7 +77,7 @@ namespace bs
 				rtDesc.depthStencilSurface.mipLevel = 0;
 			}
 
-			newTextureData->renderTexture = TextureCoreManager::instance().createRenderTexture(rtDesc);
+			newTextureData->renderTexture = TextureManager::instance().createRenderTexture(rtDesc);
 		}
 
 		return newTextureData;
@@ -89,7 +89,7 @@ namespace bs
 		iterFind->second.lock()->mIsFree = true;
 	}
 
-	bool RenderTexturePool::matches(const SPtr<TextureCore>& texture, const POOLED_RENDER_TEXTURE_DESC& desc)
+	bool RenderTexturePool::matches(const SPtr<Texture>& texture, const POOLED_RENDER_TEXTURE_DESC& desc)
 	{
 		const TextureProperties& texProps = texture->getProperties();
 
@@ -168,4 +168,4 @@ namespace bs
 
 		return desc;
 	}
-}
+}}

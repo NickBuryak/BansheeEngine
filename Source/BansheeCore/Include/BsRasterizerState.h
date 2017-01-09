@@ -86,7 +86,7 @@ namespace bs
 		/**
 		 * Scissor rectangle allows you to cull all pixels outside of the scissor rectangle.
 		 *			
-		 * @see		RenderAPICore::setScissorRect
+		 * @see		ct::RenderAPI::setScissorRect
 		 */
 		bool getScissorEnable() const { return mData.scissorEnable; }
 
@@ -111,7 +111,7 @@ namespace bs
 
 	protected:
 		friend class RasterizerState;
-		friend class RasterizerStateCore;
+		friend class ct::RasterizerState;
 		friend class RasterizerStateRTTI;
 
 		RASTERIZER_STATE_DESC mData;
@@ -133,7 +133,7 @@ namespace bs
 		const RasterizerProperties& getProperties() const;
 
 		/** Retrieves a core implementation of the rasterizer state usable only from the core thread. */
-		SPtr<RasterizerStateCore> getCore() const;
+		SPtr<ct::RasterizerState> getCore() const;
 
 		/** Creates a new rasterizer state using the specified rasterizer state descriptor structure. */
 		static SPtr<RasterizerState> create(const RASTERIZER_STATE_DESC& desc);
@@ -150,7 +150,7 @@ namespace bs
 		RasterizerState(const RASTERIZER_STATE_DESC& desc);
 		
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 		RasterizerProperties mProperties;
 		mutable UINT32 mId;
@@ -162,24 +162,26 @@ namespace bs
 	public:
 		friend class RasterizerStateRTTI;
 		static RTTITypeBase* getRTTIStatic();
-		virtual RTTITypeBase* getRTTI() const override;	
+		RTTITypeBase* getRTTI() const override;	
 	};
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
 	/**
-	 * Core thread version of RasterizerState.
+	 * Core thread version of bs::RasterizerState.
 	 *
 	 * @note	Core thread.
 	 */
-	class BS_CORE_EXPORT RasterizerStateCore : public CoreObjectCore
+	class BS_CORE_EXPORT RasterizerState : public CoreObject
 	{
 	public:
-		virtual ~RasterizerStateCore();
+		virtual ~RasterizerState();
 
 		/** Returns information about the rasterizer state. */
 		const RasterizerProperties& getProperties() const;
@@ -188,17 +190,17 @@ namespace bs
 		UINT32 getId() const { return mId; }
 
 		/** Creates a new rasterizer state using the specified rasterizer state descriptor structure. */
-		static SPtr<RasterizerStateCore> create(const RASTERIZER_STATE_DESC& desc);
+		static SPtr<RasterizerState> create(const RASTERIZER_STATE_DESC& desc);
 
 		/** Returns the default rasterizer state. */
-		static const SPtr<RasterizerStateCore>& getDefault();
+		static const SPtr<RasterizerState>& getDefault();
 
 	protected:
-		friend class RenderStateCoreManager;
+		friend class RenderStateManager;
 
-		RasterizerStateCore(const RASTERIZER_STATE_DESC& desc, UINT32 id);
+		RasterizerState(const RASTERIZER_STATE_DESC& desc, UINT32 id);
 
-		/** @copydoc CoreObjectCore::initialize */
+		/** @copydoc CoreObject::initialize */
 		void initialize() override;
 
 		/**	Creates any API-specific state objects. */
@@ -209,6 +211,7 @@ namespace bs
 	};
 
 	/** @} */
+		}
 }
 
 /** @cond STDLIB */

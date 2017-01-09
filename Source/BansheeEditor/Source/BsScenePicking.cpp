@@ -30,11 +30,9 @@ using namespace std::placeholders;
 
 namespace bs
 {
-	const float ScenePickingCore::ALPHA_CUTOFF = 0.5f;
-
 	ScenePicking::ScenePicking()
 	{
-		mCore = bs_new<ScenePickingCore>();
+		mCore = bs_new<ct::ScenePicking>();
 
 		for (UINT32 i = 0; i < 3; i++)
 		{
@@ -45,12 +43,12 @@ namespace bs
 			mCore->mMaterials[3 + i] = matPickingAlpha->getCore();
 		}
 
-		gCoreThread().queueCommand(std::bind(&ScenePickingCore::initialize, mCore));
+		gCoreThread().queueCommand(std::bind(&ct::ScenePicking::initialize, mCore));
 	}
 
 	ScenePicking::~ScenePicking()
 	{
-		gCoreThread().queueCommand(std::bind(&ScenePickingCore::destroy, mCore));
+		gCoreThread().queueCommand(std::bind(&ct::ScenePicking::destroy, mCore));
 	}
 
 	HSceneObject ScenePicking::pickClosestObject(const SPtr<Camera>& cam, const Vector2I& position, const Vector2I& area, 
@@ -157,7 +155,7 @@ namespace bs
 							const Map<String, SHADER_OBJECT_PARAM_DESC>& textureParams = originalMat->getShader()->getTextureParams();
 							for (auto& objectParam : textureParams)
 							{
-								if (objectParam.second.rendererSemantic == RPS_Diffuse)
+								if (objectParam.second.rendererSemantic == ct::RPS_Diffuse)
 								{
 									mainTexture = originalMat->getTexture(objectParam.first);
 									break;
@@ -176,13 +174,13 @@ namespace bs
 
 		UINT32 firstGizmoIdx = (UINT32)pickData.size();
 
-		SPtr<RenderTargetCore> target = cam->getViewport()->getTarget()->getCore();
-		gCoreThread().queueCommand(std::bind(&ScenePickingCore::corePickingBegin, mCore, target,
+		SPtr<ct::RenderTarget> target = cam->getViewport()->getTarget()->getCore();
+		gCoreThread().queueCommand(std::bind(&ct::ScenePicking::corePickingBegin, mCore, target,
 			cam->getViewport()->getNormArea(), std::cref(pickData), position, area));
 
 		GizmoManager::instance().renderForPicking(cam, [&](UINT32 inputIdx) { return encodeIndex(firstGizmoIdx + inputIdx); });
 
-		AsyncOp op = gCoreThread().queueReturnCommand(std::bind(&ScenePickingCore::corePickingEnd, mCore, target,
+		AsyncOp op = gCoreThread().queueReturnCommand(std::bind(&ct::ScenePicking::corePickingEnd, mCore, target,
 			cam->getViewport()->getNormArea(), position, area, data != nullptr, _1));
 		gCoreThread().submit(true);
 
@@ -243,26 +241,30 @@ namespace bs
 		return (r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16);
 	}
 
+	namespace ct
+	{
+	const float ScenePicking::ALPHA_CUTOFF = 0.5f;
+
 	PickingParamBlockDef gPickingParamBlockDef;
 
-	void ScenePickingCore::initialize()
+	void ScenePicking::initialize()
 	{
 		// Do nothing
 	}
 
-	void ScenePickingCore::destroy()
+	void ScenePicking::destroy()
 	{
 		bs_delete(this);
 	}
 
-	void ScenePickingCore::corePickingBegin(const SPtr<RenderTargetCore>& target, const Rect2& viewportArea,
-		const ScenePicking::RenderableSet& renderables, const Vector2I& position, const Vector2I& area)
+	void ScenePicking::corePickingBegin(const SPtr<RenderTarget>& target, const Rect2& viewportArea,
+		const bs::ScenePicking::RenderableSet& renderables, const Vector2I& position, const Vector2I& area)
 	{
-		RenderAPICore& rs = RenderAPICore::instance();
+		RenderAPI& rs = RenderAPI::instance();
 
-		SPtr<RenderTextureCore> rtt = std::static_pointer_cast<RenderTextureCore>(target);
+		SPtr<RenderTexture> rtt = std::static_pointer_cast<RenderTexture>(target);
 
-		SPtr<TextureCore> outputTexture = rtt->getColorTexture(0);
+		SPtr<Texture> outputTexture = rtt->getColorTexture(0);
 		TextureProperties outputTextureProperties = outputTexture->getProperties();
 
 		TEXTURE_DESC normalTexDesc;
@@ -272,10 +274,10 @@ namespace bs
 		normalTexDesc.format = PF_R8G8B8A8;
 		normalTexDesc.usage = TU_RENDERTARGET;
 
-		SPtr<TextureCore> normalsTexture = TextureCore::create(normalTexDesc);
-		SPtr<TextureCore> depthTexture = rtt->getDepthStencilTexture();
+		SPtr<Texture> normalsTexture = Texture::create(normalTexDesc);
+		SPtr<Texture> depthTexture = rtt->getDepthStencilTexture();
 
-		RENDER_TEXTURE_DESC_CORE pickingMRT;
+		RENDER_TEXTURE_DESC pickingMRT;
 		pickingMRT.colorSurfaces[0].face = 0;
 		pickingMRT.colorSurfaces[0].texture = outputTexture;
 		pickingMRT.colorSurfaces[1].face = 0;
@@ -284,7 +286,7 @@ namespace bs
 		pickingMRT.depthStencilSurface.face = 0;
 		pickingMRT.depthStencilSurface.texture = depthTexture;
 		
-		mPickingTexture = RenderTextureCore::create(pickingMRT);
+		mPickingTexture = RenderTexture::create(pickingMRT);
 
 		rs.setRenderTarget(mPickingTexture);
 		rs.setViewport(viewportArea);
@@ -313,7 +315,7 @@ namespace bs
 			UINT32 renderableIdx = typeCounters[typeIdx];
 			renderableIndices[idx] = renderableIdx;
 
-			SPtr<GpuParamsSetCore> paramsSet;
+			SPtr<GpuParamsSet> paramsSet;
 			if (renderableIdx >= mParamSets[typeIdx].size())
 			{
 				paramsSet = mMaterials[typeIdx]->createParamsSet();
@@ -322,7 +324,7 @@ namespace bs
 			else
 				paramsSet = mParamSets[typeIdx][renderableIdx];
 
-			SPtr<GpuParamBlockBufferCore> paramBuffer;
+			SPtr<GpuParamBlockBuffer> paramBuffer;
 			if (idx >= mParamBuffers.size())
 			{
 				paramBuffer = gPickingParamBlockDef.createBuffer();
@@ -333,7 +335,7 @@ namespace bs
 
 			paramsSet->setParamBlockBuffer("Uniforms", paramBuffer, true);
 
-			Color color = ScenePicking::encodeIndex(renderable.index);
+			Color color = bs::ScenePicking::encodeIndex(renderable.index);
 
 			gPickingParamBlockDef.gMatViewProj.set(paramBuffer, renderable.wvpTransform);
 			gPickingParamBlockDef.gAlphaCutoff.set(paramBuffer, ALPHA_CUTOFF);
@@ -375,11 +377,11 @@ namespace bs
 		bs_stack_free(renderableIndices);
 	}
 
-	void ScenePickingCore::corePickingEnd(const SPtr<RenderTargetCore>& target, const Rect2& viewportArea, 
+	void ScenePicking::corePickingEnd(const SPtr<RenderTarget>& target, const Rect2& viewportArea, 
 		const Vector2I& position, const Vector2I& area, bool gatherSnapData, AsyncOp& asyncOp)
 	{
 		const RenderTargetProperties& rtProps = target->getProperties();
-		RenderAPICore& rs = RenderAPICore::instance();
+		RenderAPI& rs = RenderAPI::instance();
 
 		rs.setRenderTarget(nullptr);
 		rs.submitCommandBuffer(nullptr);
@@ -389,9 +391,9 @@ namespace bs
 			BS_EXCEPT(NotImplementedException, "Picking is not supported on render windows as framebuffer readback methods aren't implemented");
 		}
 
-		SPtr<TextureCore> outputTexture = mPickingTexture->getColorTexture(0);
-		SPtr<TextureCore> normalsTexture = mPickingTexture->getColorTexture(1);
-		SPtr<TextureCore> depthTexture = mPickingTexture->getDepthStencilTexture();
+		SPtr<Texture> outputTexture = mPickingTexture->getColorTexture(0);
+		SPtr<Texture> normalsTexture = mPickingTexture->getColorTexture(1);
+		SPtr<Texture> depthTexture = mPickingTexture->getDepthStencilTexture();
 
 		if (position.x < 0 || position.x >= (INT32)outputTexture->getProperties().getWidth() ||
 			position.y < 0 || position.y >= (INT32)outputTexture->getProperties().getHeight())
@@ -426,7 +428,7 @@ namespace bs
 				for (UINT32 x = (UINT32)position.x; x < maxWidth; x++)
 				{
 					Color color = outputPixelData->getColorAt(x, vertOffset - y);
-					UINT32 index = ScenePicking::decodeIndex(color);
+					UINT32 index = bs::ScenePicking::decodeIndex(color);
 
 					if (index == 0x00FFFFFF) // Nothing selected
 						continue;
@@ -446,7 +448,7 @@ namespace bs
 				for (UINT32 x = (UINT32)position.x; x < maxWidth; x++)
 				{
 					Color color = outputPixelData->getColorAt(x, y);
-					UINT32 index = ScenePicking::decodeIndex(color);
+					UINT32 index = bs::ScenePicking::decodeIndex(color);
 
 					if (index == 0x00FFFFFF) // Nothing selected
 						continue;
@@ -506,5 +508,6 @@ namespace bs
 		
 		result.objects = objects;
 		asyncOp._completeOperation(result);
+	}
 	}
 }

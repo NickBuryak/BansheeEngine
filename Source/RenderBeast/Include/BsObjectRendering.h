@@ -10,10 +10,12 @@
 #include "BsParamBlocks.h"
 #include "BsRendererObject.h"
 
-namespace bs
-{
+namespace bs 
+{ 
 	struct RendererAnimationData;
 
+	namespace ct
+	{
 	/** @addtogroup RenderBeast
 	 *  @{
 	 */
@@ -37,11 +39,11 @@ namespace bs
 		void setParamFrameParams(float time);
 
 	protected:
-		SPtr<GpuParamBlockBufferCore> mPerFrameParamBuffer;
+		SPtr<GpuParamBlockBuffer> mPerFrameParamBuffer;
 	};
 
 	/** Basic shader that is used when no other is available. */
 	class DefaultMaterial : public RendererMaterial<DefaultMaterial> { RMAT_DEF("Default.bsl"); };
 
 	/** @} */
-}
+}}

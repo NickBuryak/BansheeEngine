@@ -6,11 +6,13 @@
 #include "BsStringID.h"
 #include "BsRendererMeshData.h"
 
-namespace bs
-{
+namespace bs 
+{ 
 	class RendererExtension;
 	struct PostProcessSettings;
 
+	namespace ct
+	{
 	/** @addtogroup Renderer-Internal
 	 *  @{
 	 */
@@ -81,7 +83,7 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraAdded(const CameraCore* camera) { }
+		virtual void notifyCameraAdded(const ct::Camera* camera) { }
 
 		/**
 		 * Called whenever a camera's position or rotation is updated.
@@ -91,14 +93,14 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraUpdated(const CameraCore* camera, UINT32 updateFlag) { }
+		virtual void notifyCameraUpdated(const ct::Camera* camera, UINT32 updateFlag) { }
 
 		/**
 		 * Called whenever a camera is destroyed.
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraRemoved(const CameraCore* camera) { }
+		virtual void notifyCameraRemoved(const ct::Camera* camera) { }
 
 		/**
 		 * Creates a new empty renderer mesh data.
@@ -157,4 +159,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

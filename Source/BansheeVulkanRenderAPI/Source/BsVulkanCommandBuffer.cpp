@@ -21,7 +21,7 @@
 static_assert(false, "Other platforms go here");
 #endif
 
-namespace bs
+namespace bs { namespace ct
 {
 	VulkanSemaphore::VulkanSemaphore(VulkanResourceManager* owner)
 		:VulkanResource(owner, true)
@@ -348,7 +348,9 @@ namespace bs
 		mQueuedEvents.clear();
 
 		// Update any layout transitions that were performed by subpass dependencies, reset flags that signal image usage
-		// and reset access flags
+		// and reset read-only state.
+		// Note: It's okay reset these even those they might still be bound on the GPU, because these values only matter
+		// for state transitions.
 		for (auto& entry : mImages)
 		{
 			UINT32 imageInfoIdx = entry.second;
@@ -356,8 +358,7 @@ namespace bs
 
 			imageInfo.isFBAttachment = false;
 			imageInfo.isShaderInput = false;
-
-			imageInfo.accessFlags = 0;
+			imageInfo.isReadOnly = true;
 		}
 
 		updateFinalLayouts();
@@ -465,7 +466,7 @@ namespace bs
 				barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 				barrier.pNext = nullptr;
 				barrier.srcAccessMask = resource->getAccessFlags(currentLayout);
-				barrier.dstAccessMask = imageInfo.accessFlags;
+				barrier.dstAccessMask = resource->getAccessFlags(initialLayout, imageInfo.isInitialReadOnly);
 				barrier.oldLayout = currentLayout;
 				barrier.newLayout = initialLayout;
 				barrier.image = resource->getHandle();
@@ -695,7 +696,7 @@ namespace bs
 		mImageInfos.clear();
 	}
 
-	void VulkanCmdBuffer::setRenderTarget(const SPtr<RenderTargetCore>& rt, bool readOnlyDepthStencil, 
+	void VulkanCmdBuffer::setRenderTarget(const SPtr<RenderTarget>& rt, bool readOnlyDepthStencil, 
 		RenderSurfaceMask loadMask)
 	{
 		assert(mState != State::Submitted);
@@ -705,7 +706,7 @@ namespace bs
 		{
 			if (rt->getProperties().isWindow())
 			{
-				Win32RenderWindowCore* window = static_cast<Win32RenderWindowCore*>(rt.get());
+				Win32RenderWindow* window = static_cast<Win32RenderWindow*>(rt.get());
 				window->acquireBackBuffer();
 			}
 
@@ -940,25 +941,25 @@ namespace bs
 		clearViewport(area, buffers, color, depth, stencil, targetMask);
 	}
 
-	void VulkanCmdBuffer::setPipelineState(const SPtr<GraphicsPipelineStateCore>& state)
+	void VulkanCmdBuffer::setPipelineState(const SPtr<GraphicsPipelineState>& state)
 	{
 		if (mGraphicsPipeline == state)
 			return;
 
-		mGraphicsPipeline = std::static_pointer_cast<VulkanGraphicsPipelineStateCore>(state);
+		mGraphicsPipeline = std::static_pointer_cast<VulkanGraphicsPipelineState>(state);
 		mGfxPipelineRequiresBind = true; 
 	}
 
-	void VulkanCmdBuffer::setPipelineState(const SPtr<ComputePipelineStateCore>& state)
+	void VulkanCmdBuffer::setPipelineState(const SPtr<ComputePipelineState>& state)
 	{
 		if (mComputePipeline == state)
 			return;
 
-		mComputePipeline = std::static_pointer_cast<VulkanComputePipelineStateCore>(state);
+		mComputePipeline = std::static_pointer_cast<VulkanComputePipelineState>(state);
 		mCmpPipelineRequiresBind = true;
 	}
 
-	void VulkanCmdBuffer::setGpuParams(const SPtr<GpuParamsCore>& gpuParams)
+	void VulkanCmdBuffer::setGpuParams(const SPtr<GpuParams>& gpuParams)
 	{
 		// Note: We keep an internal reference to GPU params even though we shouldn't keep a reference to a core thread
 		// object. But it should be fine since we expect the resource to be externally synchronized so it should never
@@ -1013,14 +1014,14 @@ namespace bs
 		mGfxPipelineRequiresBind = true;
 	}
 
-	void VulkanCmdBuffer::setVertexBuffers(UINT32 index, SPtr<VertexBufferCore>* buffers, UINT32 numBuffers)
+	void VulkanCmdBuffer::setVertexBuffers(UINT32 index, SPtr<VertexBuffer>* buffers, UINT32 numBuffers)
 	{
 		if (numBuffers == 0)
 			return;
 
 		for(UINT32 i = 0; i < numBuffers; i++)
 		{
-			VulkanVertexBufferCore* vertexBuffer = static_cast<VulkanVertexBufferCore*>(buffers[i].get());
+			VulkanVertexBuffer* vertexBuffer = static_cast<VulkanVertexBuffer*>(buffers[i].get());
 
 			if (vertexBuffer != nullptr)
 			{
@@ -1041,9 +1042,9 @@ namespace bs
 		vkCmdBindVertexBuffers(mCmdBuffer, index, numBuffers, mVertexBuffersTemp, mVertexBufferOffsetsTemp);
 	}
 
-	void VulkanCmdBuffer::setIndexBuffer(const SPtr<IndexBufferCore>& buffer)
+	void VulkanCmdBuffer::setIndexBuffer(const SPtr<IndexBuffer>& buffer)
 	{
-		VulkanIndexBufferCore* indexBuffer = static_cast<VulkanIndexBufferCore*>(buffer.get());
+		VulkanIndexBuffer* indexBuffer = static_cast<VulkanIndexBuffer*>(buffer.get());
 
 		VkBuffer vkBuffer = VK_NULL_HANDLE;
 		VkIndexType indexType = VK_INDEX_TYPE_UINT32;
@@ -1062,7 +1063,7 @@ namespace bs
 		vkCmdBindIndexBuffer(mCmdBuffer, vkBuffer, 0, indexType);
 	}
 
-	void VulkanCmdBuffer::setVertexDeclaration(const SPtr<VertexDeclarationCore>& decl)
+	void VulkanCmdBuffer::setVertexDeclaration(const SPtr<VertexDeclaration>& decl)
 	{
 		if (mVertexDecl == decl)
 			return;
@@ -1076,7 +1077,7 @@ namespace bs
 		if (mGraphicsPipeline == nullptr)
 			return false;
 
-		SPtr<VertexDeclarationCore> inputDecl = mGraphicsPipeline->getInputDeclaration();
+		SPtr<VertexDeclaration> inputDecl = mGraphicsPipeline->getInputDeclaration();
 		if (inputDecl == nullptr)
 			return false;
 
@@ -1085,7 +1086,7 @@ namespace bs
 
 	bool VulkanCmdBuffer::bindGraphicsPipeline()
 	{
-		SPtr<VertexDeclarationCore> inputDecl = mGraphicsPipeline->getInputDeclaration();
+		SPtr<VertexDeclaration> inputDecl = mGraphicsPipeline->getInputDeclaration();
 		SPtr<VulkanVertexInput> vertexInput = VulkanVertexInputManager::instance().getVertexInfo(mVertexDecl, inputDecl);
 
 		VulkanPipeline* pipeline = mGraphicsPipeline->getPipeline(mDevice.getIndex(), mFramebuffer,
@@ -1209,7 +1210,7 @@ namespace bs
 			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			barrier.pNext = nullptr;
 			barrier.srcAccessMask = image->getAccessFlags(imageInfo.currentLayout);
-			barrier.dstAccessMask = imageInfo.accessFlags;
+			barrier.dstAccessMask = image->getAccessFlags(imageInfo.requiredLayout, imageInfo.isReadOnly);
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.oldLayout = imageInfo.currentLayout;
@@ -1218,7 +1219,7 @@ namespace bs
 			barrier.subresourceRange = imageInfo.range;
 
 			imageInfo.currentLayout = imageInfo.requiredLayout;
-			imageInfo.accessFlags = 0;
+			imageInfo.isReadOnly = true;
 			imageInfo.hasTransitioned = true;
 		};
 
@@ -1449,13 +1450,12 @@ namespace bs
 	void VulkanCmdBuffer::registerResource(VulkanImage* res, VulkanUseFlags flags)
 	{
 		VkImageLayout layout = res->getOptimalLayout();
-		VkAccessFlags accessFlags = res->getAccessFlags(layout);
 
-		registerResource(res, accessFlags, VK_IMAGE_LAYOUT_UNDEFINED, layout, flags, false);
+		registerResource(res, VK_IMAGE_LAYOUT_UNDEFINED, layout, flags, false);
 	}
 
-	void VulkanCmdBuffer::registerResource(VulkanImage* res, VkAccessFlags accessFlags, VkImageLayout newLayout, 
-		VkImageLayout finalLayout, VulkanUseFlags flags, bool isFBAttachment)
+	void VulkanCmdBuffer::registerResource(VulkanImage* res, VkImageLayout newLayout, VkImageLayout finalLayout, 
+		VulkanUseFlags flags, bool isFBAttachment)
 	{
 		// Note: I currently always perform pipeline barriers (layout transitions and similar), over the entire image.
 		//       In the case of render and storage images, the case is often that only a specific subresource requires
@@ -1473,7 +1473,6 @@ namespace bs
 			mImageInfos.push_back(ImageInfo());
 
 			ImageInfo& imageInfo = mImageInfos[imageInfoIdx];
-			imageInfo.accessFlags = accessFlags;
 			imageInfo.currentLayout = newLayout;
 			imageInfo.initialLayout = newLayout;
 			imageInfo.requiredLayout = newLayout;
@@ -1482,6 +1481,8 @@ namespace bs
 			imageInfo.isFBAttachment = isFBAttachment;
 			imageInfo.isShaderInput = !isFBAttachment;
 			imageInfo.hasTransitioned = false;
+			imageInfo.isReadOnly = !flags.isSet(VulkanUseFlag::Write);
+			imageInfo.isInitialReadOnly = imageInfo.isReadOnly;
 
 			imageInfo.useHandle.used = false;
 			imageInfo.useHandle.flags = flags;
@@ -1496,7 +1497,7 @@ namespace bs
 			assert(!imageInfo.useHandle.used);
 			imageInfo.useHandle.flags |= flags;
 
-			imageInfo.accessFlags |= accessFlags;
+			imageInfo.isReadOnly &= !flags.isSet(VulkanUseFlag::Write);
 
 			// New layout is valid, check for transitions (UNDEFINED signifies the caller doesn't want a layout transition)
 			if (newLayout != VK_IMAGE_LAYOUT_UNDEFINED)
@@ -1540,6 +1541,7 @@ namespace bs
 			{
 				imageInfo.initialLayout = imageInfo.requiredLayout;
 				imageInfo.currentLayout = imageInfo.requiredLayout;
+				imageInfo.isInitialReadOnly = imageInfo.isReadOnly;
 			}
 			else
 			{
@@ -1633,44 +1635,28 @@ namespace bs
 		{
 			const VulkanFramebufferAttachment& attachment = res->getColorAttachment(i);
 
-			VkImageLayout layout;
-			VkAccessFlags accessMask;
-
 			// If image is being loaded, we need to transfer it to correct layout, otherwise it doesn't matter
+			VkImageLayout layout;
 			if (loadMask.isSet((RenderSurfaceMaskBits)(1 << i)))
-			{
 				layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				accessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			}
 			else
-			{
 				layout = VK_IMAGE_LAYOUT_UNDEFINED;
-				accessMask = 0;
-			}
 
-			registerResource(attachment.image, accessMask, layout, attachment.finalLayout, VulkanUseFlag::Write, true);
+			registerResource(attachment.image, layout, attachment.finalLayout, VulkanUseFlag::Write, true);
 		}
 
 		if(res->hasDepthAttachment())
 		{
 			const VulkanFramebufferAttachment& attachment = res->getDepthStencilAttachment();
 
-			VkImageLayout layout;
-			VkAccessFlags accessMask;
-
 			// If image is being loaded, we need to transfer it to correct layout, otherwise it doesn't matter
+			VkImageLayout layout;
 			if (loadMask.isSet(RT_DEPTH))
-			{
 				layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				accessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-			}
 			else
-			{
 				layout = VK_IMAGE_LAYOUT_UNDEFINED;
-				accessMask = 0;
-			}
 
-			registerResource(attachment.image, accessMask, layout, attachment.finalLayout, VulkanUseFlag::Write, true);
+			registerResource(attachment.image, layout, attachment.finalLayout, VulkanUseFlag::Write, true);
 		}
 	}
 
@@ -1725,4 +1711,4 @@ namespace bs
 
 		gVulkanCBManager().refreshStates(mDeviceIdx);
 	}
-}
+}}

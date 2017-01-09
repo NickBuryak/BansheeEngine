@@ -6,7 +6,7 @@
 #include "BsVulkanResource.h"
 #include "BsSamplerState.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -27,10 +27,10 @@ namespace bs
 	};
 
 	/**	Vulkan implementation of a sampler state. Wraps a Vulkan sampler object. */
-	class VulkanSamplerStateCore : public SamplerStateCore
+	class VulkanSamplerState : public SamplerState
 	{
 	public:
-		~VulkanSamplerStateCore();
+		~VulkanSamplerState();
 
 		/** 
 		 * Gets the resource wrapping the sampler object, on the specified device. If sampler state device mask doesn't 
@@ -39,11 +39,11 @@ namespace bs
 		VulkanSampler* getResource(UINT32 deviceIdx) const { return mSamplers[deviceIdx]; }
 
 	protected:
-		friend class VulkanRenderStateCoreManager;
+		friend class VulkanRenderStateManager;
 
-		VulkanSamplerStateCore(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask);
+		VulkanSamplerState(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask);
 
-		/** @copydoc SamplerStateCore::createInternal */
+		/** @copydoc SamplerState::createInternal */
 		void createInternal() override;
 
 		VulkanSampler* mSamplers[BS_MAX_DEVICES];
@@ -51,4 +51,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

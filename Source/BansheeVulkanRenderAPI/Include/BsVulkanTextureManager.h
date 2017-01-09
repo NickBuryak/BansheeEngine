@@ -5,7 +5,7 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsTextureManager.h"
 
-namespace bs 
+namespace bs
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -23,11 +23,13 @@ namespace bs
 		SPtr<RenderTexture> createRenderTextureImpl(const RENDER_TEXTURE_DESC& desc) override;
 	};
 
+	namespace ct
+	{
 	/**	Handles creation of Vulkan textures. */
-	class VulkanTextureCoreManager : public TextureCoreManager
+	class VulkanTextureManager : public TextureManager
 	{
 	public:
-		/** @copydoc TextureCoreManager::onStartUp */
+		/** @copydoc TextureManager::onStartUp */
 		void onStartUp() override;
 
 		/** Returns a image view that can be used for shader read operations when no other image is bound. */
@@ -37,17 +39,17 @@ namespace bs
 		VkImageView getDummyStorageImageView(UINT32 deviceIdx) const;
 
 	protected:
-		/** @copydoc TextureCoreManager::createTextureInternal */
-		SPtr<TextureCore> createTextureInternal(const TEXTURE_DESC& desc, 
+		/** @copydoc TextureManager::createTextureInternal */
+		SPtr<Texture> createTextureInternal(const TEXTURE_DESC& desc, 
 			const SPtr<PixelData>& initialData = nullptr, GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc TextureCoreManager::createRenderTextureInternal */
-		SPtr<RenderTextureCore> createRenderTextureInternal(const RENDER_TEXTURE_DESC_CORE& desc, 
+		/** @copydoc TextureManager::createRenderTextureInternal */
+		SPtr<RenderTexture> createRenderTextureInternal(const RENDER_TEXTURE_DESC& desc, 
 			UINT32 deviceIdx = 0) override;
 
-		SPtr<VulkanTextureCore> mDummyReadTexture;
-		SPtr<VulkanTextureCore> mDummyStorageTexture;
+		SPtr<VulkanTexture> mDummyReadTexture;
+		SPtr<VulkanTexture> mDummyStorageTexture;
 	};
-
+	}
 	/** @} */
 }

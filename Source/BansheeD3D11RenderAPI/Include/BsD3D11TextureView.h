@@ -5,7 +5,7 @@
 #include "BsD3D11Prerequisites.h"
 #include "BsTextureView.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup D3D11
 	 *  @{
@@ -45,9 +45,9 @@ namespace bs
 		ID3D11DepthStencilView*	getDSV(bool readOnly) const { return readOnly ? mRODSV : mDSV; }
 
 	protected:
-		friend class D3D11TextureCore;
+		friend class D3D11Texture;
 
-		D3D11TextureView(const SPtr<TextureCore>& texture, const TEXTURE_VIEW_DESC& desc);
+		D3D11TextureView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& desc);
 	private:
 		/**
 		 * Creates a shader resource view that allows the provided surfaces to be bound as normal shader resources.
@@ -62,7 +62,7 @@ namespace bs
 		 *								for 1D and 2D array textures, number of slices for 3D textures, and number of cubes
 		 *								for cube textures.
 		 */
-		ID3D11ShaderResourceView* createSRV(D3D11TextureCore* texture, 
+		ID3D11ShaderResourceView* createSRV(D3D11Texture* texture, 
 			UINT32 mostDetailMip, UINT32 numMips, UINT32 firstArraySlice, UINT32 numArraySlices);
 
 		/**
@@ -77,7 +77,7 @@ namespace bs
 		 *								for 1D and 2D array textures, number of slices for 3D textures, and number of cubes
 		 *								for cube textures.
 		 */
-		ID3D11RenderTargetView* createRTV(D3D11TextureCore* texture, 
+		ID3D11RenderTargetView* createRTV(D3D11Texture* texture, 
 			UINT32 mipSlice, UINT32 firstArraySlice, UINT32 numArraySlices);
 
 		/**
@@ -92,7 +92,7 @@ namespace bs
 		 *								for 1D and 2D array textures, number of slices for 3D textures, and number of cubes
 		 *								for cube textures.
 		 */
-		ID3D11UnorderedAccessView* createUAV(D3D11TextureCore* texture, 
+		ID3D11UnorderedAccessView* createUAV(D3D11Texture* texture, 
 			UINT32 mipSlice, UINT32 firstArraySlice, UINT32 numArraySlices);
 
 		/**
@@ -109,7 +109,7 @@ namespace bs
 		 * @param[in]	readOnly		Should the depth stencil view only support read operations (allows the bound texture
 		 *								to be also used as a shader resource view while bound as a depth stencil target).
 		 */
-		ID3D11DepthStencilView* createDSV(D3D11TextureCore* texture, 
+		ID3D11DepthStencilView* createDSV(D3D11Texture* texture, 
 			UINT32 mipSlice, UINT32 firstArraySlice, UINT32 numArraySlices, bool readOnly);
 
 		ID3D11ShaderResourceView* mSRV;
@@ -120,4 +120,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

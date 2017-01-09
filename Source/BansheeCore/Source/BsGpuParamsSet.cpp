@@ -124,36 +124,36 @@ namespace bs
 		return allParamDescs;
 	}
 
-	Vector<SPtr<GpuParamDesc>> getAllParamDescs(const SPtr<TechniqueCore>& technique)
+	Vector<SPtr<GpuParamDesc>> getAllParamDescs(const SPtr<ct::Technique>& technique)
 	{
 		Vector<SPtr<GpuParamDesc>> allParamDescs;
 
 		// Make sure all gpu programs are fully loaded
 		for (UINT32 i = 0; i < technique->getNumPasses(); i++)
 		{
-			SPtr<PassCore> curPass = technique->getPass(i);
+			SPtr<ct::Pass> curPass = technique->getPass(i);
 
-			SPtr<GpuProgramCore> vertProgram = curPass->getVertexProgram();
+			SPtr<ct::GpuProgram> vertProgram = curPass->getVertexProgram();
 			if (vertProgram)
 				allParamDescs.push_back(vertProgram->getParamDesc());
 
-			SPtr<GpuProgramCore> fragProgram = curPass->getFragmentProgram();
+			SPtr<ct::GpuProgram> fragProgram = curPass->getFragmentProgram();
 			if (fragProgram)
 				allParamDescs.push_back(fragProgram->getParamDesc());
 
-			SPtr<GpuProgramCore> geomProgram = curPass->getGeometryProgram();
+			SPtr<ct::GpuProgram> geomProgram = curPass->getGeometryProgram();
 			if (geomProgram)
 				allParamDescs.push_back(geomProgram->getParamDesc());
 
-			SPtr<GpuProgramCore> hullProgram = curPass->getHullProgram();
+			SPtr<ct::GpuProgram> hullProgram = curPass->getHullProgram();
 			if (hullProgram)
 				allParamDescs.push_back(hullProgram->getParamDesc());
 
-			SPtr<GpuProgramCore> domainProgram = curPass->getDomainProgram();
+			SPtr<ct::GpuProgram> domainProgram = curPass->getDomainProgram();
 			if (domainProgram)
 				allParamDescs.push_back(domainProgram->getParamDesc());
 
-			SPtr<GpuProgramCore> computeProgram = curPass->getComputeProgram();
+			SPtr<ct::GpuProgram> computeProgram = curPass->getComputeProgram();
 			if (computeProgram)
 				allParamDescs.push_back(computeProgram->getParamDesc());
 		}
@@ -897,7 +897,7 @@ namespace bs
 
 			UINT8* data = params->getData(materialParamInfo->index);
 
-			bool transposeMatrices = RenderAPICore::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
+			bool transposeMatrices = ct::RenderAPI::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
 			if (transposeMatrices)
 			{
 				auto writeTransposed = [&](auto& temp)

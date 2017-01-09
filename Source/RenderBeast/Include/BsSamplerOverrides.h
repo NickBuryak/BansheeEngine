@@ -4,7 +4,7 @@
 
 #include "BsRenderBeastPrerequisites.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup RenderBeast
 	 *  @{
@@ -22,7 +22,7 @@ namespace bs
 	{
 		UINT32 paramIdx;
 		UINT64 originalStateHash;
-		SPtr<SamplerStateCore> state;
+		SPtr<SamplerState> state;
 		UINT32 set;
 		UINT32 slot;
 	};
@@ -41,7 +41,7 @@ namespace bs
 	/** Key used for uniquely identifying a sampler override entry. */
 	struct SamplerOverrideKey
 	{
-		SamplerOverrideKey(const SPtr<MaterialCore>& material, UINT32 techniqueIdx)
+		SamplerOverrideKey(const SPtr<Material>& material, UINT32 techniqueIdx)
 			:material(material), techniqueIdx(techniqueIdx)
 		{ }
 
@@ -55,7 +55,7 @@ namespace bs
 			return !(*this == rhs); 
 		}
 
-		SPtr<MaterialCore> material;
+		SPtr<Material> material;
 		UINT32 techniqueIdx;
 	};
 
@@ -67,9 +67,9 @@ namespace bs
 		 * Generates a set of sampler overrides for the specified set of GPU program parameters. Overrides are generates
 		 * according to the provided render options. 
 		 */
-		static MaterialSamplerOverrides* generateSamplerOverrides(const SPtr<ShaderCore>& shader,
-			const SPtr<MaterialParamsCore>& params, 
-			const SPtr<GpuParamsSetCore>& paramsSet,
+		static MaterialSamplerOverrides* generateSamplerOverrides(const SPtr<Shader>& shader,
+			const SPtr<MaterialParams>& params, 
+			const SPtr<GpuParamsSet>& paramsSet,
 			const SPtr<RenderBeastOptions>& options);
 
 		/**	Destroys sampler overrides previously generated with generateSamplerOverrides(). */
@@ -79,19 +79,19 @@ namespace bs
 		 * Checks if the provided sampler state requires an override, in case the render options have requirements not
 		 * fulfilled by current sampler state (for example filtering type).
 		 */
-		static bool checkNeedsOverride(const SPtr<SamplerStateCore>& samplerState, 
+		static bool checkNeedsOverride(const SPtr<SamplerState>& samplerState, 
 			const SPtr<RenderBeastOptions>& options);
 
 		/**
 		 * Generates a new sampler state override using the provided state as the basis. Overridden properties are taken
 		 * from the provided render options.
 		 */
-		static SPtr<SamplerStateCore> generateSamplerOverride(const SPtr<SamplerStateCore>& samplerState, 
+		static SPtr<SamplerState> generateSamplerOverride(const SPtr<SamplerState>& samplerState, 
 			const SPtr<RenderBeastOptions>& options);
 	};
 
 	/** @} */
-}
+}}
 
 /** @cond STDLIB */
 
@@ -99,9 +99,9 @@ namespace std
 {
 	/** Hash value generator for SamplerOverrideKey. */
 	template<>
-	struct hash<bs::SamplerOverrideKey>
+	struct hash<bs::ct::SamplerOverrideKey>
 	{
-		size_t operator()(const bs::SamplerOverrideKey& key) const
+		size_t operator()(const bs::ct::SamplerOverrideKey& key) const
 		{
 			size_t hash = 0;
 			bs::hash_combine(hash, key.material);

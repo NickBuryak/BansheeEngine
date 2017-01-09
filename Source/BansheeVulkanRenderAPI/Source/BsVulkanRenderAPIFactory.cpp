@@ -3,14 +3,14 @@
 #include "BsVulkanRenderAPIFactory.h"
 #include "BsRenderAPI.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	const char* SystemName = "BansheeVulkanRenderAPI";
 
 	void VulkanRenderAPIFactory::create()
 	{
-		RenderAPICore::startUp<VulkanRenderAPI>();
+		RenderAPI::startUp<VulkanRenderAPI>();
 	}
 
 	VulkanRenderAPIFactory::InitOnStart VulkanRenderAPIFactory::initOnStart;
-}
+}}

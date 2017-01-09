@@ -5,28 +5,28 @@
 #include "BsD3D11Prerequisites.h"
 #include "BsRenderStateManager.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup D3D11
 	 *  @{
 	 */
 
 	/**	Handles creation of DirectX 11 pipeline states. */
-	class BS_D3D11_EXPORT D3D11RenderStateCoreManager : public RenderStateCoreManager
+	class BS_D3D11_EXPORT D3D11RenderStateManager : public RenderStateManager
 	{
 	protected:
-		/** @copydoc RenderStateCoreManager::createSamplerStateInternal */
-		SPtr<SamplerStateCore> createSamplerStateInternal(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask) const override;
+		/** @copydoc RenderStateManager::createSamplerStateInternal */
+		SPtr<SamplerState> createSamplerStateInternal(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask) const override;
 
-		/** @copydoc RenderStateCoreManager::createBlendStateInternal */
-		SPtr<BlendStateCore> createBlendStateInternal(const BLEND_STATE_DESC& desc, UINT32 id) const override;
+		/** @copydoc RenderStateManager::createBlendStateInternal */
+		SPtr<BlendState> createBlendStateInternal(const BLEND_STATE_DESC& desc, UINT32 id) const override;
 
-		/** @copydoc RenderStateCoreManager::createRasterizerStateInternal */
-		SPtr<RasterizerStateCore> createRasterizerStateInternal(const RASTERIZER_STATE_DESC& desc, UINT32 id) const override;
+		/** @copydoc RenderStateManager::createRasterizerStateInternal */
+		SPtr<RasterizerState> createRasterizerStateInternal(const RASTERIZER_STATE_DESC& desc, UINT32 id) const override;
 
-		/** @copydoc RenderStateCoreManager::createDepthStencilStateInternal */
-		SPtr<DepthStencilStateCore> createDepthStencilStateInternal(const DEPTH_STENCIL_STATE_DESC& desc, UINT32 id) const override;
+		/** @copydoc RenderStateManager::createDepthStencilStateInternal */
+		SPtr<DepthStencilState> createDepthStencilStateInternal(const DEPTH_STENCIL_STATE_DESC& desc, UINT32 id) const override;
 	};
 
 	/** @} */
-}
+}}

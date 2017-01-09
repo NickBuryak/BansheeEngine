@@ -8,7 +8,7 @@
 #include "BsRenderAPI.h"
 #include "BsGpuParamBlockBuffer.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Renderer-Internal
 	 *  @{
@@ -26,13 +26,13 @@ namespace bs
 		 * Sets the parameter in the provided parameter block buffer. Caller is responsible for ensuring the param block
 		 * buffer contains this parameter. 
 		 */
-		void set(const SPtr<GpuParamBlockBufferCore>& paramBlock, const T& value, UINT32 arrayIdx = 0) const;
+		void set(const SPtr<GpuParamBlockBuffer>& paramBlock, const T& value, UINT32 arrayIdx = 0) const;
 
 		/** 
 		 * Gets the parameter in the provided parameter block buffer. Caller is responsible for ensuring the param block
 		 * buffer contains this parameter. 
 		 */
-		T get(const SPtr<GpuParamBlockBufferCore>& paramBlock, UINT32 arrayIdx = 0) const;
+		T get(const SPtr<GpuParamBlockBuffer>& paramBlock, UINT32 arrayIdx = 0) const;
 
 	protected:
 		GpuParamDataDesc mParamDesc;
@@ -77,7 +77,7 @@ namespace bs
 			ParamBlockManager::registerBlock(this);																			\
 		}																													\
 																															\
-		SPtr<GpuParamBlockBufferCore> createBuffer() const { return GpuParamBlockBufferCore::create(mBlockSize); }			\
+		SPtr<GpuParamBlockBuffer> createBuffer() const { return GpuParamBlockBuffer::create(mBlockSize); }					\
 																															\
 	private:																												\
 		friend class ParamBlockManager;																						\
@@ -85,7 +85,7 @@ namespace bs
 		void initialize() override																							\
 		{																													\
 			mParams = getEntries();																							\
-			RenderAPICore& rapi = RenderAPICore::instance();																\
+			RenderAPI& rapi = RenderAPI::instance();																		\
 																															\
 			GpuParamBlockDesc blockDesc = rapi.generateParamBlockDesc(#Name, mParams);										\
 			mBlockSize = blockDesc.blockSize * sizeof(UINT32);																\
@@ -155,4 +155,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

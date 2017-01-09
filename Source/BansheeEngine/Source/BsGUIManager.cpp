@@ -118,7 +118,7 @@ namespace bs
 		deferredCall(std::bind(&GUIManager::updateCaretTexture, this));
 		deferredCall(std::bind(&GUIManager::updateTextSelectionTexture, this));
 
-		mRenderer = RendererExtension::create<GUIRenderer>(nullptr);
+		mRenderer = RendererExtension::create<ct::GUIRenderer>(nullptr);
 	}
 
 	GUIManager::~GUIManager()
@@ -158,7 +158,7 @@ namespace bs
 		assert(mCachedGUIData.size() == 0);
 	}
 
-	void GUIManager::destroyCore(GUIRenderer* core)
+	void GUIManager::destroyCore(ct::GUIRenderer* core)
 	{
 		bs_delete(core);
 	}
@@ -374,7 +374,7 @@ namespace bs
 		// Send potentially updated meshes to core for rendering
 		if (mCoreDirty)
 		{
-			UnorderedMap<SPtr<CameraCore>, Vector<GUICoreRenderData>> corePerCameraData;
+			UnorderedMap<SPtr<ct::Camera>, Vector<GUICoreRenderData>> corePerCameraData;
 
 			for (auto& viewportData : mCachedGUIData)
 			{
@@ -402,7 +402,7 @@ namespace bs
 					cameraData.push_back(GUICoreRenderData());
 					GUICoreRenderData& newEntry = cameraData.back();
 
-					SPtr<TextureCore> textureCore;
+					SPtr<ct::Texture> textureCore;
 					if (entry.matInfo.texture.isLoaded())
 						textureCore = entry.matInfo.texture->getCore();
 					else
@@ -417,7 +417,7 @@ namespace bs
 				}
 			}
 
-			gCoreThread().queueCommand(std::bind(&GUIRenderer::updateData, mRenderer.get(), corePerCameraData));
+			gCoreThread().queueCommand(std::bind(&ct::GUIRenderer::updateData, mRenderer.get(), corePerCameraData));
 
 			mCoreDirty = false;
 		}
@@ -1732,6 +1732,8 @@ namespace bs
 		return GUIManager::instance();
 	}
 
+	namespace ct
+	{
 	GUISpriteParamBlockDef gGUISpriteParamBlockDef;
 
 	GUIRenderer::GUIRenderer()
@@ -1745,26 +1747,26 @@ namespace bs
 		ssDesc.minFilter = FO_POINT;
 		ssDesc.mipFilter = FO_POINT;
 
-		mSamplerState = RenderStateCoreManager::instance().createSamplerState(ssDesc);
+		mSamplerState = RenderStateManager::instance().createSamplerState(ssDesc);
 	}
 
-	bool GUIRenderer::check(const CameraCore& camera)
+	bool GUIRenderer::check(const Camera& camera)
 	{
 		auto iterFind = mPerCameraData.find(&camera);
 		return iterFind != mPerCameraData.end();
 	}
 
-	void GUIRenderer::render(const CameraCore& camera)
+	void GUIRenderer::render(const Camera& camera)
 	{
 		Vector<GUIManager::GUICoreRenderData>& renderData = mPerCameraData[&camera];
 
 		float invViewportWidth = 1.0f / (camera.getViewport()->getWidth() * 0.5f);
 		float invViewportHeight = 1.0f / (camera.getViewport()->getHeight() * 0.5f);
-		float viewflipYFlip = RenderAPI::getAPIInfo().getNDCYAxisDown() ? -1.0f : 1.0f;
+		float viewflipYFlip = bs::RenderAPI::getAPIInfo().getNDCYAxisDown() ? -1.0f : 1.0f;
 
 		for (auto& entry : renderData)
 		{
-			SPtr<GpuParamBlockBufferCore> buffer = mParamBlocks[entry.bufferIdx];
+			SPtr<GpuParamBlockBuffer> buffer = mParamBlocks[entry.bufferIdx];
 
 			gGUISpriteParamBlockDef.gInvViewportWidth.set(buffer, invViewportWidth);
 			gGUISpriteParamBlockDef.gInvViewportHeight.set(buffer, invViewportHeight);
@@ -1778,13 +1780,13 @@ namespace bs
 			// TODO - I shouldn't be re-applying the entire material for each entry, instead just check which programs
 			// changed, and apply only those + the modified constant buffers and/or texture.
 
-			SPtr<GpuParamBlockBufferCore> buffer = mParamBlocks[entry.bufferIdx];
+			SPtr<GpuParamBlockBuffer> buffer = mParamBlocks[entry.bufferIdx];
 
 			entry.material->render(entry.mesh, entry.texture, mSamplerState, buffer, entry.additionalData);
 		}
 	}
 
-	void GUIRenderer::updateData(const UnorderedMap<SPtr<CameraCore>, Vector<GUIManager::GUICoreRenderData>>& newPerCameraData)
+	void GUIRenderer::updateData(const UnorderedMap<SPtr<Camera>, Vector<GUIManager::GUICoreRenderData>>& newPerCameraData)
 	{
 		bs_frame_mark();
 
@@ -1794,7 +1796,7 @@ namespace bs
 
 			for (auto& newCameraData : newPerCameraData)
 			{
-				SPtr<CameraCore> camera = newCameraData.first;
+				SPtr<Camera> camera = newCameraData.first;
 
 				mPerCameraData.insert(std::make_pair(camera.get(), newCameraData.second));
 				mReferencedCameras.insert(camera);
@@ -1819,7 +1821,7 @@ namespace bs
 			{
 				for(auto& entry : cameraData.second)
 				{
-					SPtr<GpuParamBlockBufferCore> buffer = mParamBlocks[curBufferIdx];
+					SPtr<GpuParamBlockBuffer> buffer = mParamBlocks[curBufferIdx];
 
 					gGUISpriteParamBlockDef.gTint.set(buffer, entry.tint);
 					gGUISpriteParamBlockDef.gWorldTransform.set(buffer, entry.worldTransform);
@@ -1831,5 +1833,6 @@ namespace bs
 		}
 
 		bs_frame_clear();
+	}
 	}
 }

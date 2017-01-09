@@ -3,7 +3,7 @@
 #include "BsParamBlocks.h"
 #include "BsGpuParam.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	template<class T>
 	ParamBlockParam<T>::ParamBlockParam(const GpuParamDataDesc& paramDesc)
@@ -11,7 +11,7 @@ namespace bs
 	{ }
 
 	template<class T>
-	void ParamBlockParam<T>::set(const SPtr<GpuParamBlockBufferCore>& paramBlock, const T& value, UINT32 arrayIdx) const
+	void ParamBlockParam<T>::set(const SPtr<GpuParamBlockBuffer>& paramBlock, const T& value, UINT32 arrayIdx) const
 	{
 #if BS_DEBUG_MODE
 		if (arrayIdx >= mParamDesc.arraySize)
@@ -24,7 +24,7 @@ namespace bs
 		UINT32 elementSizeBytes = mParamDesc.elementSize * sizeof(UINT32);
 		UINT32 sizeBytes = std::min(elementSizeBytes, (UINT32)sizeof(T)); // Truncate if it doesn't fit within parameter size
 
-		bool transposeMatrices = RenderAPICore::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
+		bool transposeMatrices = RenderAPI::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
 		if (TransposePolicy<T>::transposeEnabled(transposeMatrices))
 		{
 			T transposed = TransposePolicy<T>::transpose(value);
@@ -45,7 +45,7 @@ namespace bs
 	}
 
 	template<class T>
-	T ParamBlockParam<T>::get(const SPtr<GpuParamBlockBufferCore>& paramBlock, UINT32 arrayIdx) const
+	T ParamBlockParam<T>::get(const SPtr<GpuParamBlockBuffer>& paramBlock, UINT32 arrayIdx) const
 	{
 #if BS_DEBUG_MODE
 		if (arrayIdx >= mParamDesc.arraySize)
@@ -63,7 +63,7 @@ namespace bs
 		paramBlock->read((mParamDesc.cpuMemOffset + arrayIdx * mParamDesc.arrayElementStride) * sizeof(UINT32), &value, 
 			sizeBytes);
 
-		bool transposeMatrices = RenderAPICore::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
+		bool transposeMatrices = RenderAPI::instance().getAPIInfo().getGpuProgramHasColumnMajorMatrices();
 		if (TransposePolicy<T>::transposeEnabled(transposeMatrices))
 			return TransposePolicy<T>::transpose(value);
 		else
@@ -118,4 +118,4 @@ namespace bs
 		if (iterFind != sToInitialize.end())
 			sToInitialize.erase(iterFind);
 	}
-}
+}}

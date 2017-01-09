@@ -112,7 +112,7 @@ namespace bs
 		SPtr<GpuParamDesc> getParamDesc() const;
 
 		/** Retrieves a core implementation of a gpu program usable only from the core thread. */
-		SPtr<GpuProgramCore> getCore() const;
+		SPtr<ct::GpuProgram> getCore() const;
 
 		/** Returns properties that contain information about the GPU program. */
 		const GpuProgramProperties& getProperties() const { return mProperties; }
@@ -131,7 +131,7 @@ namespace bs
 		GpuProgram(const GPU_PROGRAM_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 	protected:
 		bool mNeedsAdjacencyInfo;
@@ -149,19 +149,21 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
 	/**
-	 * Core thread version of a GpuProgram.
+	 * Core thread version of a bs::GpuProgram.
 	 *
 	 * @note	Core thread only.
 	 */
-	class BS_CORE_EXPORT GpuProgramCore : public CoreObjectCore
+	class BS_CORE_EXPORT GpuProgram : public CoreObject
 	{
 	public:
-		virtual ~GpuProgramCore() { }
+		virtual ~GpuProgram() { }
 
 		/** Returns whether this program can be supported on the current renderer and hardware. */
         virtual bool isSupported() const;
@@ -186,23 +188,23 @@ namespace bs
 		 */
 		virtual bool isAdjacencyInfoRequired() const { return mNeedsAdjacencyInfo; }
 
-		/** @copydoc GpuProgram::getParamDesc */
+		/** @copydoc bs::GpuProgram::getParamDesc */
 		SPtr<GpuParamDesc> getParamDesc() const { return mParametersDesc; }
 
 		/**	Returns GPU program input declaration. Only relevant for vertex programs. */
-		SPtr<VertexDeclarationCore> getInputDeclaration() const { return mInputDeclaration; }
+		SPtr<VertexDeclaration> getInputDeclaration() const { return mInputDeclaration; }
 
 		/**	Returns properties that contain information about the GPU program. */
 		const GpuProgramProperties& getProperties() const { return mProperties; }
 
 		/** 
-		 * @copydoc GpuProgram::create 
+		 * @copydoc bs::GpuProgram::create 
 		 * @param[in]	deviceMask		Mask that determines on which GPU devices should the object be created on.
 		 */
-		static SPtr<GpuProgramCore> create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		static SPtr<GpuProgram> create(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
 
 	protected:
-		GpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
+		GpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
 
 		/** Returns whether required capabilities for this program is supported. */
 		bool isRequiredCapabilitiesSupported() const;
@@ -213,9 +215,10 @@ namespace bs
 		String mCompileError;
 
 		SPtr<GpuParamDesc> mParametersDesc;
-		SPtr<VertexDeclarationCore> mInputDeclaration;
+		SPtr<VertexDeclaration> mInputDeclaration;
 		GpuProgramProperties mProperties;
 	};
 
 	/** @} */
+	}
 }

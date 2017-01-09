@@ -8,14 +8,14 @@
 #include "BsRenderStats.h"
 #include "BsGpuParams.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
-	UINT32 GLSLGpuProgramCore::mVertexShaderCount = 0;
-	UINT32 GLSLGpuProgramCore::mFragmentShaderCount = 0;
-	UINT32 GLSLGpuProgramCore::mGeometryShaderCount = 0;
-	UINT32 GLSLGpuProgramCore::mDomainShaderCount = 0;
-	UINT32 GLSLGpuProgramCore::mHullShaderCount = 0;
-	UINT32 GLSLGpuProgramCore::mComputeShaderCount = 0;
+	UINT32 GLSLGpuProgram::mVertexShaderCount = 0;
+	UINT32 GLSLGpuProgram::mFragmentShaderCount = 0;
+	UINT32 GLSLGpuProgram::mGeometryShaderCount = 0;
+	UINT32 GLSLGpuProgram::mDomainShaderCount = 0;
+	UINT32 GLSLGpuProgram::mHullShaderCount = 0;
+	UINT32 GLSLGpuProgram::mComputeShaderCount = 0;
 
 	bool checkForGLSLError(const GLuint programObj, String& outErrorMsg)
 	{
@@ -69,11 +69,11 @@ namespace bs
 		return errorsFound || !linkCompileSuccess;
 	}
 	
-	GLSLGpuProgramCore::GLSLGpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
-		:GpuProgramCore(desc, deviceMask), mProgramID(0), mGLHandle(0)
+	GLSLGpuProgram::GLSLGpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask)
+		:GpuProgram(desc, deviceMask), mProgramID(0), mGLHandle(0)
     { }
 
-	GLSLGpuProgramCore::~GLSLGpuProgramCore()
+	GLSLGpuProgram::~GLSLGpuProgram()
     { 
 		if (mIsCompiled && mGLHandle != 0)
 		{
@@ -84,7 +84,7 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_GpuProgram);
 	}
 
-	void GLSLGpuProgramCore::initialize()
+	void GLSLGpuProgram::initialize()
 	{
 		static const char GLSL_VERSION_LINE[] = "#version 440\n";
 
@@ -93,7 +93,7 @@ namespace bs
 			mIsCompiled = false;
 			mCompileError = "Specified program is not supported by the current render system.";
 
-			GpuProgramCore::initialize();
+			GpuProgram::initialize();
 			return;
 		}
 
@@ -194,21 +194,20 @@ namespace bs
 			if (mProperties.getType() == GPT_VERTEX_PROGRAM)
 			{
 				List<VertexElement> elementList = paramParser.buildVertexDeclaration(mGLHandle);
-				mInputDeclaration = HardwareBufferCoreManager::instance().createVertexDeclaration(elementList);
+				mInputDeclaration = HardwareBufferManager::instance().createVertexDeclaration(elementList);
 			}
 		}
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_GpuProgram);
-		GpuProgramCore::initialize();
+		GpuProgram::initialize();
 	}
 
-	bool GLSLGpuProgramCore::isSupported() const
+	bool GLSLGpuProgram::isSupported() const
 	{
 		if (!isRequiredCapabilitiesSupported())
 			return false;
 
-		RenderAPICore* rapi = RenderAPICore::instancePtr();
+		RenderAPI* rapi = RenderAPI::instancePtr();
 		return rapi->getCapabilities(0).isShaderProfileSupported("glsl");
 	}
-}
-
+}}

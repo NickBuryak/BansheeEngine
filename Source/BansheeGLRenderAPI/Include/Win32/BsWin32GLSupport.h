@@ -6,7 +6,7 @@
 #include "BsGLSupport.h"
 #include "BsGLRenderAPI.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup GL
 	 *  @{
@@ -19,10 +19,10 @@ namespace bs
         Win32GLSupport();
 
 		/** @copydoc GLSupport::newWindow */
-		SPtr<RenderWindow> newWindow(RENDER_WINDOW_DESC& desc, UINT32 windowId, SPtr<RenderWindow> parentWindow) override;
+		SPtr<bs::RenderWindow> newWindow(RENDER_WINDOW_DESC& desc, UINT32 windowId, SPtr<bs::RenderWindow> parentWindow) override;
 
 		/** @copydoc GLSupport::newWindowCore */
-		SPtr<RenderWindowCore> newWindowCore(RENDER_WINDOW_DESC& desc, UINT32 windowId) override;
+		SPtr<RenderWindow> newWindowCore(RENDER_WINDOW_DESC& desc, UINT32 windowId) override;
 
 		/** @copydoc GLSupport::start */
 		void start() override;
@@ -69,7 +69,7 @@ namespace bs
 		static LRESULT CALLBACK dummyWndProc(HWND hwnd, UINT umsg, WPARAM wp, LPARAM lp);
 
 		Vector<DEVMODE> mDevModes;
-		Win32RenderWindowCore *mInitialWindow;
+		Win32RenderWindow *mInitialWindow;
 		Vector<int> mMultisampleLevels;
 		bool mHasPixelFormatARB;
         bool mHasMultisample;
@@ -78,4 +78,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

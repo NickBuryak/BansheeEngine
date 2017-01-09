@@ -92,8 +92,8 @@ namespace bs
 		 * @param[in]	paramBuffer		Buffer containing data GPU parameters.
 		 * @param[in]	additionalData	Optional additional data that might be required by the renderer.
 		 */
-		virtual void render(const SPtr<MeshCoreBase>& mesh, const SPtr<TextureCore>& texture,
-			const SPtr<SamplerStateCore>& sampler, const SPtr<GpuParamBlockBufferCore>& paramBuffer, 
+		virtual void render(const SPtr<ct::MeshBase>& mesh, const SPtr<ct::Texture>& texture,
+			const SPtr<ct::SamplerState>& sampler, const SPtr<ct::GpuParamBlockBuffer>& paramBuffer,
 			const SPtr<SpriteMaterialExtraInfo>& additionalData) const;
 
 	protected:
@@ -101,18 +101,18 @@ namespace bs
 		virtual void initialize();
 
 		/** Destroys the core thread material. */
-		static void destroy(const SPtr<MaterialCore>& material, const SPtr<GpuParamsSetCore>& params);
+		static void destroy(const SPtr<ct::Material>& material, const SPtr<ct::GpuParamsSet>& params);
 
 		UINT32 mId;
 
 		// Core thread only (everything below)
-		SPtr<MaterialCore> mMaterial;
+		SPtr<ct::Material> mMaterial;
 		std::atomic<bool> mMaterialStored;
 
-		SPtr<GpuParamsSetCore> mParams;
+		SPtr<ct::GpuParamsSet> mParams;
 		UINT32 mParamBufferIdx;
-		mutable MaterialParamTextureCore mTextureParam;
-		mutable MaterialParamSampStateCore mSamplerParam;
+		mutable ct::MaterialParamTexture mTextureParam;
+		mutable ct::MaterialParamSampState mSamplerParam;
 	};
 
 	/** @} */

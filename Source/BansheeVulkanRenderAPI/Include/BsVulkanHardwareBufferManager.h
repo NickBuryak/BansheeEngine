@@ -5,18 +5,18 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsHardwareBufferManager.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
 	 */
 
 	/**	Handles creation of Vulkan hardware buffers. */
-	class VulkanHardwareBufferCoreManager : public HardwareBufferCoreManager
+	class VulkanHardwareBufferManager : public HardwareBufferManager
 	{
 	public:
-		VulkanHardwareBufferCoreManager();
-		~VulkanHardwareBufferCoreManager();
+		VulkanHardwareBufferManager();
+		~VulkanHardwareBufferManager();
 
 		/** Returns a buffer view that can be used for buffer read operations when no other buffer is bound. */
 		VkBufferView getDummyReadBufferView(UINT32 deviceIdx) const;
@@ -28,24 +28,24 @@ namespace bs
 		VkBuffer getDummyUniformBuffer(UINT32 deviceIdx) const;
 
 	protected:     
-		/** @copydoc HardwareBufferCoreManager::createVertexBufferInternal */
-		SPtr<VertexBufferCore> createVertexBufferInternal(const VERTEX_BUFFER_DESC& desc, 
+		/** @copydoc HardwareBufferManager::createVertexBufferInternal */
+		SPtr<VertexBuffer> createVertexBufferInternal(const VERTEX_BUFFER_DESC& desc, 
 			GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc HardwareBufferCoreManager::createIndexBufferInternal */
-		SPtr<IndexBufferCore> createIndexBufferInternal(const INDEX_BUFFER_DESC& desc, 
+		/** @copydoc HardwareBufferManager::createIndexBufferInternal */
+		SPtr<IndexBuffer> createIndexBufferInternal(const INDEX_BUFFER_DESC& desc, 
 			GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc HardwareBufferCoreManager::createGpuParamBlockBufferInternal  */
-		SPtr<GpuParamBlockBufferCore> createGpuParamBlockBufferInternal(UINT32 size, 
+		/** @copydoc HardwareBufferManager::createGpuParamBlockBufferInternal  */
+		SPtr<GpuParamBlockBuffer> createGpuParamBlockBufferInternal(UINT32 size, 
 			GpuParamBlockUsage usage = GPBU_DYNAMIC, GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc HardwareBufferCoreManager::createGpuBufferInternal */
-		SPtr<GpuBufferCore> createGpuBufferInternal(const GPU_BUFFER_DESC& desc,
+		/** @copydoc HardwareBufferManager::createGpuBufferInternal */
+		SPtr<GpuBuffer> createGpuBufferInternal(const GPU_BUFFER_DESC& desc,
 			GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc HardwareBufferCoreManager::createGpuParamsInternal */
-		SPtr<GpuParamsCore> createGpuParamsInternal(const SPtr<GpuPipelineParamInfoCore>& paramInfo,
+		/** @copydoc HardwareBufferManager::createGpuParamsInternal */
+		SPtr<GpuParams> createGpuParamsInternal(const SPtr<GpuPipelineParamInfo>& paramInfo,
 													GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
 		VulkanHardwareBuffer* mDummyReadBuffer;
@@ -54,4 +54,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

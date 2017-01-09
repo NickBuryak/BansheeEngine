@@ -4,14 +4,14 @@
 #include "BsVulkanHardwareBuffer.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	VulkanGpuParamBlockBufferCore::VulkanGpuParamBlockBufferCore(UINT32 size, GpuParamBlockUsage usage,
+	VulkanGpuParamBlockBuffer::VulkanGpuParamBlockBuffer(UINT32 size, GpuParamBlockUsage usage,
 		GpuDeviceFlags deviceMask)
-		:GpuParamBlockBufferCore(size, usage, deviceMask), mBuffer(nullptr), mDeviceMask(deviceMask)
+		:GpuParamBlockBuffer(size, usage, deviceMask), mBuffer(nullptr), mDeviceMask(deviceMask)
 	{ }
 
-	VulkanGpuParamBlockBufferCore::~VulkanGpuParamBlockBufferCore()
+	VulkanGpuParamBlockBuffer::~VulkanGpuParamBlockBuffer()
 	{
 		if(mBuffer != nullptr)
 			bs_delete(mBuffer);
@@ -19,7 +19,7 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_GpuParamBuffer);
 	}
 
-	void VulkanGpuParamBlockBufferCore::initialize()
+	void VulkanGpuParamBlockBuffer::initialize()
 	{
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_GpuParamBuffer);
 
@@ -27,18 +27,18 @@ namespace bs
 
 		mBuffer = bs_new<VulkanHardwareBuffer>(VulkanHardwareBuffer::BT_UNIFORM, BF_UNKNOWN, usage, mSize, mDeviceMask);
 
-		GpuParamBlockBufferCore::initialize();
+		GpuParamBlockBuffer::initialize();
 	}
 
-	void VulkanGpuParamBlockBufferCore::writeToGPU(const UINT8* data, UINT32 queueIdx)
+	void VulkanGpuParamBlockBuffer::writeToGPU(const UINT8* data, UINT32 queueIdx)
 	{
 		mBuffer->writeData(0, mSize, data, BWT_DISCARD, queueIdx);
 
 		BS_INC_RENDER_STAT_CAT(ResWrite, RenderStatObject_GpuParamBuffer);
 	}
 
-	VulkanBuffer* VulkanGpuParamBlockBufferCore::getResource(UINT32 deviceIdx) const
+	VulkanBuffer* VulkanGpuParamBlockBuffer::getResource(UINT32 deviceIdx) const
 	{
 		return mBuffer->getResource(deviceIdx);
 	}
-}
+}}

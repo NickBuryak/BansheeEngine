@@ -5,19 +5,19 @@
 #include "BsGLPrerequisites.h"
 #include "BsGpuProgram.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
 	/** @addtogroup GL
 	 *  @{
 	 */
 
 	/**	GPU program compiled from GLSL and usable by OpenGL. */
-    class BS_RSGL_EXPORT GLSLGpuProgramCore : public GpuProgramCore
+    class BS_RSGL_EXPORT GLSLGpuProgram : public GpuProgram
     {
 	public:
-		~GLSLGpuProgramCore();
+		~GLSLGpuProgram();
 
-		/** @copydoc GpuProgramCore::isSupported */
+		/** @copydoc GpuProgram::isSupported */
 		bool isSupported() const override;
 
 		/**	Gets internal OpenGL handle to the program. */
@@ -29,9 +29,9 @@ namespace bs
 	private:
 		friend class GLSLProgramFactory;
 
-		GLSLGpuProgramCore(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
+		GLSLGpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
 
-		/** @copydoc GpuProgramCore::initialize */
+		/** @copydoc GpuProgram::initialize */
 		void initialize() override;
 
 	private:
@@ -47,4 +47,4 @@ namespace bs
     };
 
 	/** @} */
-}
+}}

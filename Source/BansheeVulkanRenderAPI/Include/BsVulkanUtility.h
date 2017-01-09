@@ -6,7 +6,7 @@
 #include "BsPixelUtil.h"
 #include "BsVertexDeclaration.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
@@ -16,6 +16,10 @@ namespace bs
 	class VulkanUtility
 	{
 	public:
+		/**	Finds the closest pixel format that a specific Vulkan device supports. */
+		static PixelFormat getClosestSupportedPixelFormat(VulkanDevice& device, PixelFormat format, TextureType texType, 
+			int usage, bool optimalTiling, bool hwGamma);
+
 		/** Converts between Banshee and Vulkan pixel format. */
 		static VkFormat getPixelFormat(PixelFormat format, bool sRGB = false);
 
@@ -75,4 +79,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

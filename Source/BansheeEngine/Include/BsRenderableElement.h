@@ -5,7 +5,7 @@
 #include "BsPrerequisites.h"
 #include "BsSubMesh.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Renderer-Engine-Internal
 	 *  @{
@@ -16,14 +16,14 @@ namespace bs
 	{
 	public:
 		/**	Reference to the mesh to render. */
-		SPtr<MeshCore> mesh;
+		SPtr<Mesh> mesh;
 
 		/**	Portion of the mesh to render. */
 		SubMesh subMesh;
 
 		/**	Material to render the mesh with. */
-		SPtr<MaterialCore> material;
+		SPtr<Material> material;
 	};
 
 	/** @} */
-}
+}}

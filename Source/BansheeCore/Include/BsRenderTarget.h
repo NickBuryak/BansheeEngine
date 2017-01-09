@@ -34,16 +34,18 @@ namespace bs
 		UINT32 mipLevel = 0; 
 	};
 
+	namespace ct
+	{
 	/**
-	 * @see		RENDER_SURFACE_DESC
+	 * @see		bs::RENDER_SURFACE_DESC
 	 *
 	 * @note	References core textures instead of texture handles.
 	 */
-	struct BS_CORE_EXPORT RENDER_SURFACE_DESC_CORE
+	struct BS_CORE_EXPORT RENDER_SURFACE_DESC
 	{
-		RENDER_SURFACE_DESC_CORE() { }
+		RENDER_SURFACE_DESC() { }
 
-		SPtr<TextureCore> texture;
+		SPtr<Texture> texture;
 
 		/** First face of the texture to bind (array index in texture arrays, or Z slice in 3D textures). */
 		UINT32 face = 0; 
@@ -57,6 +59,7 @@ namespace bs
 		/** If the texture has multiple mips, which one to bind (only one can be bound for rendering). */
 		UINT32 mipLevel = 0; 
 	};
+	}
 
 	/** Contains various properties that describe a render target. */
 	class BS_CORE_EXPORT RenderTargetProperties
@@ -119,7 +122,7 @@ namespace bs
 		bool requiresTextureFlipping() const { return mRequiresTextureFlipping; }
 
 	protected:
-		friend class RenderTargetCore;
+		friend class ct::RenderTarget;
 		friend class RenderTarget;
 
 		UINT32 mWidth = 0;
@@ -155,7 +158,7 @@ namespace bs
 		virtual void getCustomAttribute(const String& name, void* pData) const;
 
 		/** 
-		 * @copydoc RenderTargetCore::setPriority 
+		 * @copydoc ct::RenderTarget::setPriority 
 		 *
 		 * @note This is an @ref asyncMethod "asynchronous method".
 		 */
@@ -169,7 +172,7 @@ namespace bs
 		const RenderTargetProperties& getProperties() const;
 
 		/** Retrieves a core implementation of a render target usable only from the core thread. */
-		SPtr<RenderTargetCore> getCore() const;
+		SPtr<ct::RenderTarget> getCore() const;
 
 		/**
 		 * Event that gets triggered whenever the render target is resized.
@@ -179,7 +182,7 @@ namespace bs
 		mutable Event<void()> onResized;
 
     protected:
-		friend class RenderTargetCore;
+		friend class ct::RenderTarget;
 
 		/**	Returns properties that describe the render target. */
 		virtual const RenderTargetProperties& getPropertiesInternal() const = 0;
@@ -187,6 +190,8 @@ namespace bs
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
@@ -196,7 +201,7 @@ namespace bs
 	 *
 	 * @note	Core thread only.
 	 */
-	class BS_CORE_EXPORT RenderTargetCore : public CoreObjectCore
+	class BS_CORE_EXPORT RenderTarget : public CoreObject
 	{
 	public:
 		/** Frame buffer type when double-buffering is used. */
@@ -207,8 +212,8 @@ namespace bs
 			FB_AUTO
 		};
 
-		RenderTargetCore();
-		virtual ~RenderTargetCore() { }
+		RenderTarget();
+		virtual ~RenderTarget() { }
 
 		/**
 		 * Sets a priority that determines in which orders the render targets the processed.
@@ -235,11 +240,12 @@ namespace bs
 		const RenderTargetProperties& getProperties() const;
 
 	protected:
-		friend class RenderTarget;
+		friend class bs::RenderTarget;
 
 		/**	Returns properties that describe the render target. */
 		virtual const RenderTargetProperties& getPropertiesInternal() const = 0;
 	};
 
 	/** @} */
+	}
 }

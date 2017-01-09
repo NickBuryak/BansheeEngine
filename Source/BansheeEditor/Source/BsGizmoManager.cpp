@@ -68,7 +68,7 @@ namespace bs
 		initData.pickingMat = pickingMaterial->getCore();
 		initData.alphaPickingMat = alphaPickingMaterial->getCore();
 
-		mGizmoRenderer = RendererExtension::create<GizmoRenderer>(initData);
+		mGizmoRenderer = RendererExtension::create<ct::GizmoRenderer>(initData);
 	}
 
 	GizmoManager::~GizmoManager()
@@ -415,7 +415,7 @@ namespace bs
 		Vector<MeshRenderData> proxyData;
 		for (auto& entry : meshData)
 		{
-			SPtr<TextureCore> tex;
+			SPtr<ct::Texture> tex;
 			if (entry.texture.isLoaded())
 				tex = entry.texture->getCore();
 
@@ -449,13 +449,13 @@ namespace bs
 
 		mIconMesh = buildIconMesh(camera, mIconData, false, iconRenderData);
 
-		SPtr<MeshCoreBase> iconMesh;
+		SPtr<ct::MeshBase> iconMesh;
 		if(mIconMesh != nullptr)
 			iconMesh = mIconMesh->getCore();
 
-		GizmoRenderer* renderer = mGizmoRenderer.get();
+		ct::GizmoRenderer* renderer = mGizmoRenderer.get();
 
-		gCoreThread().queueCommand(std::bind(&GizmoRenderer::updateData, renderer, camera->getCore(),
+		gCoreThread().queueCommand(std::bind(&ct::GizmoRenderer::updateData, renderer, camera->getCore(),
 			proxyData, iconMesh, iconRenderData));
 	}
 
@@ -628,15 +628,15 @@ namespace bs
 
 		SPtr<TransientMesh> iconMesh = buildIconMesh(camera, iconData, true, iconRenderData);
 		
-		SPtr<TransientMeshCore> iconMeshCore;
+		SPtr<ct::TransientMesh> iconMeshCore;
 		if (iconMesh != nullptr)
 			iconMeshCore = iconMesh->getCore();
 
 		// Note: This must be rendered while Scene view is being rendered
-		GizmoRenderer* renderer = mGizmoRenderer.get();
+		ct::GizmoRenderer* renderer = mGizmoRenderer.get();
 
 		Vector<MeshRenderData> proxyData = createMeshProxyData(meshes);
-		gCoreThread().queueCommand(std::bind(&GizmoRenderer::renderData, renderer, camera->getCore(),
+		gCoreThread().queueCommand(std::bind(&ct::GizmoRenderer::renderData, renderer, camera->getCore(),
 											 proxyData, iconMeshCore, iconRenderData, true));
 
 		mPickingDrawHelper->clearMeshes(meshes);
@@ -676,10 +676,10 @@ namespace bs
 
 		mIconMesh = nullptr;
 
-		GizmoRenderer* renderer = mGizmoRenderer.get();
+		ct::GizmoRenderer* renderer = mGizmoRenderer.get();
 		IconRenderDataVecPtr iconRenderData = bs_shared_ptr_new<IconRenderDataVec>();
 		
-		gCoreThread().queueCommand(std::bind(&GizmoRenderer::updateData, renderer,
+		gCoreThread().queueCommand(std::bind(&ct::GizmoRenderer::updateData, renderer,
 			nullptr, Vector<MeshRenderData>(), nullptr, iconRenderData));
 	}
 
@@ -903,6 +903,8 @@ namespace bs
 		return HSceneObject();
 	}
 
+	namespace ct
+	{
 	GizmoParamBlockDef gHandleParamBlockDef;
 	GizmoPickingParamBlockDef gGizmoPickingParamBlockDef;
 
@@ -933,8 +935,8 @@ namespace bs
 		mIconPickingParamBuffer = gGizmoPickingParamBlockDef.createBuffer();
 	}
 
-	void GizmoRenderer::updateData(const SPtr<CameraCore>& camera, const Vector<GizmoManager::MeshRenderData>& meshes,
-		const SPtr<MeshCoreBase>& iconMesh, const GizmoManager::IconRenderDataVecPtr& iconRenderData)
+	void GizmoRenderer::updateData(const SPtr<Camera>& camera, const Vector<GizmoManager::MeshRenderData>& meshes,
+		const SPtr<MeshBase>& iconMesh, const GizmoManager::IconRenderDataVecPtr& iconRenderData)
 	{
 		mCamera = camera;
 		mMeshes = meshes;
@@ -954,7 +956,7 @@ namespace bs
 
 			if (paramsIdx >= mMeshParamSets[typeIdx].size())
 			{
-				SPtr<GpuParamsSetCore> paramsSet = mMeshMaterials[typeIdx]->createParamsSet();
+				SPtr<GpuParamsSet> paramsSet = mMeshMaterials[typeIdx]->createParamsSet();
 				paramsSet->setParamBlockBuffer("Uniforms", mMeshGizmoBuffer, true);
 
 				mMeshParamSets[typeIdx].push_back(paramsSet);
@@ -968,7 +970,7 @@ namespace bs
 		{
 			iconData.paramsIdx = iconMeshIdx;
 
-			SPtr<GpuParamsSetCore> paramsSet;
+			SPtr<GpuParamsSet> paramsSet;
 			if (iconMeshIdx >= mIconParamSets.size())
 			{
 				mIconMaterial->createParamsSet();
@@ -979,11 +981,11 @@ namespace bs
 			else
 				paramsSet = mIconParamSets[iconMeshIdx];
 
-			SPtr<GpuParamsCore> params0 = paramsSet->getGpuParams(0);
-			SPtr<GpuParamsCore> params1 = paramsSet->getGpuParams(1);
+			SPtr<GpuParams> params0 = paramsSet->getGpuParams(0);
+			SPtr<GpuParams> params1 = paramsSet->getGpuParams(1);
 
-			GpuParamTextureCore textureParam0;
-			GpuParamTextureCore textureParam1;
+			GpuParamTexture textureParam0;
+			GpuParamTexture textureParam1;
 
 			params0->getTextureParam(GPT_FRAGMENT_PROGRAM, "gMainTexture", textureParam0);
 			params1->getTextureParam(GPT_FRAGMENT_PROGRAM, "gMainTexture", textureParam1);
@@ -995,23 +997,23 @@ namespace bs
 		}
 	}
 
-	bool GizmoRenderer::check(const CameraCore& camera)
+	bool GizmoRenderer::check(const Camera& camera)
 	{
 		return &camera == mCamera.get();
 	}
 
-	void GizmoRenderer::render(const CameraCore& camera)
+	void GizmoRenderer::render(const Camera& camera)
 	{
 		renderData(mCamera, mMeshes, mIconMesh, mIconRenderData, false);
 	}
 
-	void GizmoRenderer::renderData(const SPtr<CameraCore>& camera, Vector<GizmoManager::MeshRenderData>& meshes,
-		const SPtr<MeshCoreBase>& iconMesh, const GizmoManager::IconRenderDataVecPtr& iconRenderData, bool usePickingMaterial)
+	void GizmoRenderer::renderData(const SPtr<Camera>& camera, Vector<GizmoManager::MeshRenderData>& meshes,
+		const SPtr<MeshBase>& iconMesh, const GizmoManager::IconRenderDataVecPtr& iconRenderData, bool usePickingMaterial)
 	{
 		if (camera == nullptr)
 			return;
 
-		SPtr<RenderTargetCore> renderTarget = camera->getViewport()->getTarget();
+		SPtr<RenderTarget> renderTarget = camera->getViewport()->getTarget();
 		if (renderTarget == nullptr)
 			return;
 
@@ -1053,7 +1055,7 @@ namespace bs
 
 				if (paramsIdx >= mPickingParamSets[typeIdx].size())
 				{
-					SPtr<GpuParamsSetCore> paramsSet = mPickingMaterials[typeIdx]->createParamsSet();
+					SPtr<GpuParamsSet> paramsSet = mPickingMaterials[typeIdx]->createParamsSet();
 					paramsSet->setParamBlockBuffer("Uniforms", mMeshPickingParamBuffer, true);
 
 					mPickingParamSets[typeIdx].push_back(paramsSet);
@@ -1068,7 +1070,7 @@ namespace bs
 
 				if (iconData.paramsIdx >= mPickingParamSets[1].size())
 				{
-					SPtr<GpuParamsSetCore> paramsSet = mPickingMaterials[1]->createParamsSet();
+					SPtr<GpuParamsSet> paramsSet = mPickingMaterials[1]->createParamsSet();
 					paramsSet->setParamBlockBuffer("Uniforms", mIconPickingParamBuffer, true);
 
 					mPickingParamSets[1].push_back(paramsSet);
@@ -1095,19 +1097,19 @@ namespace bs
 			renderIconGizmos(screenArea, iconMesh, iconRenderData, usePickingMaterial);
 	}
 
-	void GizmoRenderer::renderIconGizmos(Rect2I screenArea, SPtr<MeshCoreBase> mesh, 
+	void GizmoRenderer::renderIconGizmos(Rect2I screenArea, SPtr<MeshBase> mesh, 
 		GizmoManager::IconRenderDataVecPtr renderData, bool usePickingMaterial)
 	{
-		RenderAPICore& rapi = RenderAPICore::instance();
+		RenderAPI& rapi = RenderAPI::instance();
 		SPtr<VertexData> vertexData = mesh->getVertexData();
 
 		rapi.setVertexDeclaration(vertexData->vertexDeclaration);
 		auto vertexBuffers = vertexData->getBuffers();
 
-		SPtr<VertexBufferCore> vertBuffers[1] = { vertexBuffers.begin()->second };
+		SPtr<VertexBuffer> vertBuffers[1] = { vertexBuffers.begin()->second };
 		rapi.setVertexBuffers(0, vertBuffers, 1);
 
-		SPtr<IndexBufferCore> indexBuffer = mesh->getIndexBuffer();
+		SPtr<IndexBuffer> indexBuffer = mesh->getIndexBuffer();
 		rapi.setIndexBuffer(indexBuffer);
 
 		rapi.setDrawOperation(DOT_TRIANGLE_LIST);
@@ -1155,10 +1157,10 @@ namespace bs
 
 			for (auto& iconData : *renderData)
 			{
-				SPtr<GpuParamsSetCore> paramsSet = mPickingParamSets[1][iconData.paramsIdx];
-				SPtr<GpuParamsCore> params = paramsSet->getGpuParams();
+				SPtr<GpuParamsSet> paramsSet = mPickingParamSets[1][iconData.paramsIdx];
+				SPtr<GpuParams> params = paramsSet->getGpuParams();
 
-				GpuParamTextureCore textureParam;
+				GpuParamTexture textureParam;
 				params->getTextureParam(GPT_FRAGMENT_PROGRAM, "gMainTexture", textureParam);
 
 				textureParam.set(iconData.texture);
@@ -1177,5 +1179,6 @@ namespace bs
 		}
 
 		mesh->_notifyUsedOnGPU();
+	}
 	}
 }

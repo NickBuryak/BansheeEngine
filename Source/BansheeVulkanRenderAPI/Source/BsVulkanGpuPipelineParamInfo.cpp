@@ -6,10 +6,10 @@
 #include "BsVulkanDevice.h"
 #include "BsGpuParamDesc.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	VulkanGpuPipelineParamInfo::VulkanGpuPipelineParamInfo(const GPU_PIPELINE_PARAMS_DESC& desc, GpuDeviceFlags deviceMask)
-		: GpuPipelineParamInfoCore(desc, deviceMask), mDeviceMask(deviceMask), mSetExtraInfos(nullptr), mLayouts()
+		: GpuPipelineParamInfo(desc, deviceMask), mDeviceMask(deviceMask), mSetExtraInfos(nullptr), mLayouts()
 		, mLayoutInfos()
 	{ }
 
@@ -20,7 +20,7 @@ namespace bs
 
 	void VulkanGpuPipelineParamInfo::initialize()
 	{
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 
 		VulkanDevice* devices[BS_MAX_DEVICES];
 		VulkanUtility::getDevices(rapi, mDeviceMask, devices);
@@ -167,4 +167,4 @@ namespace bs
 
 		return mLayouts[deviceIdx][layoutIdx];
 	}
-}
+}}

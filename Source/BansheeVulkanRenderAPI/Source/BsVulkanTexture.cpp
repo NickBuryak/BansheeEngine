@@ -10,7 +10,7 @@
 #include "BsRenderStats.h"
 #include "BsMath.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	VULKAN_IMAGE_DESC createDesc(VkImage image, VkDeviceMemory memory, VkImageLayout layout, const TextureProperties& props)
 	{
@@ -193,6 +193,14 @@ namespace bs
 			case VK_IMAGE_VIEW_TYPE_3D:
 				mImageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 				break;
+			default:
+				break;
+			}
+		} 
+		else if(surface.numArraySlices > 6)
+		{
+			switch (oldViewType)
+			{
 			case VK_IMAGE_VIEW_TYPE_CUBE:
 				mImageViewCI.viewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
 				break;
@@ -313,17 +321,34 @@ namespace bs
 		vkCmdCopyImageToBuffer(cb->getCB()->getHandle(), mImage, layout, destination->getHandle(), 1, &region);
 	}
 
-	VkAccessFlags VulkanImage::getAccessFlags(VkImageLayout layout)
+	VkAccessFlags VulkanImage::getAccessFlags(VkImageLayout layout, bool readOnly)
 	{
 		VkAccessFlags accessFlags;
 
 		switch (layout)
 		{
-		case VK_IMAGE_LAYOUT_GENERAL: // Only used for render targets that are also read by shaders, or for storage textures
-			if (mUsage == VulkanImageUsage::Storage)
-				accessFlags = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-			else
-				accessFlags = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+		case VK_IMAGE_LAYOUT_GENERAL:
+			{
+				switch(mUsage)
+				{
+				case VulkanImageUsage::Storage:
+					accessFlags = VK_ACCESS_SHADER_READ_BIT;
+					
+					if(!readOnly)
+						accessFlags |= VK_ACCESS_SHADER_WRITE_BIT;
+					break;
+				case VulkanImageUsage::ColorAttachment:
+					accessFlags = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+					break;
+				case VulkanImageUsage::DepthAttachment:
+					accessFlags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+					break;
+				default:
+					accessFlags = VK_ACCESS_SHADER_READ_BIT;
+					break;
+				}
+			}
+
 			break;
 		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 			accessFlags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
@@ -357,17 +382,17 @@ namespace bs
 		:VulkanResource(owner, false)
 	{ }
 
-	VulkanTextureCore::VulkanTextureCore(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData,
-		GpuDeviceFlags deviceMask)
-		: TextureCore(desc, initialData, deviceMask), mImages(), mDeviceMask(deviceMask), mStagingBuffer(nullptr)
+	VulkanTexture::VulkanTexture(const TEXTURE_DESC& desc, const SPtr<PixelData>& initialData,
+										 GpuDeviceFlags deviceMask)
+		: Texture(desc, initialData, deviceMask), mImages(), mDeviceMask(deviceMask), mStagingBuffer(nullptr)
 		, mMappedDeviceIdx(-1), mMappedGlobalQueueIdx(-1), mMappedMip(0), mMappedFace(0), mMappedRowPitch(false)
-		, mMappedSlicePitch(false), mMappedLockOptions(GBL_WRITE_ONLY), mDirectlyMappable(false), mSupportsGPUWrites(false)
-		, mIsMapped(false)
+		, mMappedSlicePitch(false), mMappedLockOptions(GBL_WRITE_ONLY), mInternalFormats()
+		, mDirectlyMappable(false), mSupportsGPUWrites(false), mIsMapped(false)
 	{
 		
 	}
 
-	VulkanTextureCore::~VulkanTextureCore()
+	VulkanTexture::~VulkanTexture()
 	{ 
 		for (UINT32 i = 0; i < BS_MAX_DEVICES; i++)
 		{
@@ -382,7 +407,7 @@ namespace bs
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_Texture);
 	}
 
-	void VulkanTextureCore::initialize()
+	void VulkanTexture::initialize()
 	{
 		THROW_IF_NOT_CORE_THREAD;
 
@@ -456,7 +481,6 @@ namespace bs
 			}
 		}
 
-		mImageCI.format = VulkanUtility::getPixelFormat(props.getFormat(), props.isHardwareGammaEnabled());
 		mImageCI.extent = { props.getWidth(), props.getHeight(), props.getDepth() };
 		mImageCI.mipLevels = props.getNumMipmaps() + 1;
 		mImageCI.arrayLayers = props.getNumFaces();
@@ -467,7 +491,7 @@ namespace bs
 		mImageCI.queueFamilyIndexCount = 0;
 		mImageCI.pQueueFamilyIndices = nullptr;
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 		VulkanDevice* devices[BS_MAX_DEVICES];
 		VulkanUtility::getDevices(rapi, mDeviceMask, devices);
 
@@ -477,14 +501,21 @@ namespace bs
 			if (devices[i] == nullptr)
 				continue;
 
-			mImages[i] = createImage(*devices[i]);
+			bool optimalTiling = tiling == VK_IMAGE_TILING_OPTIMAL;
+
+			mInternalFormats[i] = VulkanUtility::getClosestSupportedPixelFormat(
+				*devices[i], props.getFormat(), props.getTextureType(), props.getUsage(), optimalTiling,
+				props.isHardwareGammaEnabled());
+
+			mImages[i] = createImage(*devices[i], mInternalFormats[i]);
+			
 		}
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_Texture);
-		TextureCore::initialize();
+		Texture::initialize();
 	}
 
-	VulkanImage* VulkanTextureCore::createImage(VulkanDevice& device)
+	VulkanImage* VulkanTexture::createImage(VulkanDevice& device, PixelFormat format)
 	{
 		bool directlyMappable = mImageCI.tiling == VK_IMAGE_TILING_LINEAR;
 		VkMemoryPropertyFlags flags = directlyMappable ?
@@ -492,6 +523,8 @@ namespace bs
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
 		VkDevice vkDevice = device.getLogical();
+
+		mImageCI.format = VulkanUtility::getPixelFormat(format, mProperties.isHardwareGammaEnabled());;
 
 		VkImage image;
 		VkResult result = vkCreateImage(vkDevice, &mImageCI, gVulkanAllocator, &image);
@@ -507,7 +540,7 @@ namespace bs
 		return device.getResourceManager().create<VulkanImage>(image, memory, mImageCI.initialLayout, getProperties());
 	}
 
-	VulkanBuffer* VulkanTextureCore::createStaging(VulkanDevice& device, const PixelData& pixelData, bool readable)
+	VulkanBuffer* VulkanTexture::createStaging(VulkanDevice& device, const PixelData& pixelData, bool readable)
 	{
 		VkBufferCreateInfo bufferCI;
 		bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -543,7 +576,7 @@ namespace bs
 			pixelData.getRowPitch(), pixelData.getSlicePitch());
 	}
 
-	void VulkanTextureCore::copyImage(VulkanTransferBuffer* cb, VulkanImage* srcImage, VulkanImage* dstImage, 
+	void VulkanTexture::copyImage(VulkanTransferBuffer* cb, VulkanImage* srcImage, VulkanImage* dstImage, 
 									  VkImageLayout srcFinalLayout, VkImageLayout dstFinalLayout)
 	{
 		UINT32 numFaces = mProperties.getNumFaces();
@@ -620,10 +653,10 @@ namespace bs
 		bs_stack_free(imageRegions);
 	}
 
-	void VulkanTextureCore::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-									 const SPtr<TextureCore>& target, UINT32 queueIdx)
+	void VulkanTexture::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
+									 const SPtr<Texture>& target, UINT32 queueIdx)
 	{
-		VulkanTextureCore* other = static_cast<VulkanTextureCore*>(target.get());
+		VulkanTexture* other = static_cast<VulkanTexture*>(target.get());
 
 		const TextureProperties& srcProps = mProperties;
 		const TextureProperties& dstProps = other->getProperties();
@@ -708,7 +741,7 @@ namespace bs
 		dstRange.baseMipLevel = destMipLevel;
 		dstRange.levelCount = 1;
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 		for(UINT32 i = 0; i < BS_MAX_DEVICES; i++)
 		{
 			VulkanDevice& device = *rapi._getDevice(i);
@@ -733,7 +766,7 @@ namespace bs
 			bool isBoundWithoutUse = boundCount > useCount;
 			if (isBoundWithoutUse)
 			{
-				VulkanImage* newImage = createImage(device);
+				VulkanImage* newImage = createImage(device, mInternalFormats[i]);
 
 				// Avoid copying original contents if the image only has one sub-resource, which we'll overwrite anyway
 				if (dstProps.getNumMipmaps() > 0 || dstProps.getNumFaces() > 1)
@@ -802,7 +835,7 @@ namespace bs
 		}
 	}
 
-	PixelData VulkanTextureCore::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,
+	PixelData VulkanTexture::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,
 										  UINT32 queueIdx)
 	{
 		const TextureProperties& props = getProperties();
@@ -829,7 +862,7 @@ namespace bs
 		UINT32 mipHeight = std::max(1u, props.getHeight() >> mipLevel);
 		UINT32 mipDepth = std::max(1u, props.getDepth() >> mipLevel);
 
-		PixelData lockedArea(mipWidth, mipHeight, mipDepth, props.getFormat());
+		PixelData lockedArea(mipWidth, mipHeight, mipDepth, mInternalFormats[deviceIdx]);
 
 		VulkanImage* image = mImages[deviceIdx];
 
@@ -843,7 +876,7 @@ namespace bs
 		mMappedMip = mipLevel;
 		mMappedLockOptions = options;
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 		VulkanDevice& device = *rapi._getDevice(deviceIdx);
 
 		VulkanCommandBufferManager& cbManager = gVulkanCBManager();
@@ -874,7 +907,7 @@ namespace bs
 				// image so we don't modify the previous use of the image
 				if (subresource->isBound())
 				{
-					VulkanImage* newImage = createImage(device);
+					VulkanImage* newImage = createImage(device, mInternalFormats[deviceIdx]);
 
 					// Copy contents of the current image to the new one, unless caller explicitly specifies he doesn't
 					// care about the current contents
@@ -915,7 +948,7 @@ namespace bs
 				// We need to discard the entire image, even though we're only writing to a single sub-resource
 				image->destroy();
 
-				image = createImage(device);
+				image = createImage(device, mInternalFormats[deviceIdx]);
 				mImages[deviceIdx] = image;
 
 				image->map(face, mipLevel, lockedArea);
@@ -943,7 +976,7 @@ namespace bs
 				// create a new image so we don't modify the previous use of the image
 				if (options == GBL_READ_WRITE && subresource->isBound())
 				{
-					VulkanImage* newImage = createImage(device);
+					VulkanImage* newImage = createImage(device, mInternalFormats[deviceIdx]);
 
 					VkMemoryRequirements memReqs;
 					vkGetImageMemoryRequirements(device.getLogical(), image->getHandle(), &memReqs);
@@ -1059,7 +1092,7 @@ namespace bs
 		return lockedArea;
 	}
 
-	void VulkanTextureCore::unlockImpl()
+	void VulkanTexture::unlockImpl()
 	{
 		// Possibly map() failed with some error
 		if (!mIsMapped)
@@ -1079,7 +1112,7 @@ namespace bs
 			// We the caller wrote anything to the staging buffer, we need to upload it back to the main buffer
 			if (isWrite)
 			{
-				VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+				VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 				VulkanDevice& device = *rapi._getDevice(mMappedDeviceIdx);
 
 				VulkanCommandBufferManager& cbManager = gVulkanCBManager();
@@ -1111,7 +1144,7 @@ namespace bs
 						// We need to discard the entire image, even though we're only writing to a single sub-resource
 						image->destroy();
 
-						image = createImage(device);
+						image = createImage(device, mInternalFormats[mMappedDeviceIdx]);
 						mImages[mMappedDeviceIdx] = image;
 
 						subresource = image->getSubresource(mMappedFace, mMappedMip);
@@ -1139,7 +1172,7 @@ namespace bs
 					// avoid modifying its use in the previous operation
 					if (isBoundWithoutUse)
 					{
-						VulkanImage* newImage = createImage(device);
+						VulkanImage* newImage = createImage(device, mInternalFormats[mMappedDeviceIdx]);
 
 						// Avoid copying original contents if the image only has one sub-resource, which we'll overwrite anyway
 						if (props.getNumMipmaps() > 0 || props.getNumFaces() > 1)
@@ -1215,7 +1248,7 @@ namespace bs
 		mIsMapped = false;
 	}
 
-	void VulkanTextureCore::readDataImpl(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
+	void VulkanTexture::readDataImpl(PixelData& dest, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx, UINT32 queueIdx)
 	{
 		if (mProperties.getNumSamples() > 1)
 		{
@@ -1224,23 +1257,13 @@ namespace bs
 		}
 
 		PixelData myData = lock(GBL_READ_ONLY, mipLevel, face, deviceIdx, queueIdx);
-
-#if BS_DEBUG_MODE
-		if (dest.getConsecutiveSize() != myData.getConsecutiveSize())
-		{
-			unlock();
-			BS_EXCEPT(InternalErrorException, "Buffer sizes don't match");
-		}
-#endif
-
 		PixelUtil::bulkPixelConversion(myData, dest);
-
 		unlock();
 
 		BS_INC_RENDER_STAT_CAT(ResRead, RenderStatObject_Texture);
 	}
 
-	void VulkanTextureCore::writeDataImpl(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardWholeBuffer,
+	void VulkanTexture::writeDataImpl(const PixelData& src, UINT32 mipLevel, UINT32 face, bool discardWholeBuffer,
 									  UINT32 queueIdx)
 	{
 		if (mProperties.getNumSamples() > 1)
@@ -1248,8 +1271,6 @@ namespace bs
 			LOGERR("Multisampled textures cannot be accessed from the CPU directly.");
 			return;
 		}
-
-		PixelFormat format = mProperties.getFormat();
 
 		mipLevel = Math::clamp(mipLevel, (UINT32)mipLevel, mProperties.getNumMipmaps());
 		face = Math::clamp(face, (UINT32)0, mProperties.getNumFaces() - 1);
@@ -1274,4 +1295,4 @@ namespace bs
 
 		BS_INC_RENDER_STAT_CAT(ResWrite, RenderStatObject_Texture);
 	}
-}
+}}

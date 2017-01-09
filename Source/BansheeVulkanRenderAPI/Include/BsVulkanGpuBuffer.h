@@ -5,32 +5,32 @@
 #include "BsVulkanPrerequisites.h"
 #include "BsGpuBuffer.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
 	/** @addtogroup Vulkan
 	 *  @{
 	 */
 
 	/**	DirectX 11 implementation of a generic GPU buffer. */
-	class VulkanGpuBufferCore : public GpuBufferCore
+	class VulkanGpuBuffer : public GpuBuffer
     {
     public:
-		~VulkanGpuBufferCore();
+		~VulkanGpuBuffer();
 
-		/** @copydoc GpuBufferCore::lock */
+		/** @copydoc GpuBuffer::lock */
 		void* lock(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx = 0, UINT32 queueIdx = 0) override;
 
-		/** @copydoc GpuBufferCore::unlock */
+		/** @copydoc GpuBuffer::unlock */
 		void unlock() override;
 
-		/** @copydoc GpuBufferCore::readData */
+		/** @copydoc GpuBuffer::readData */
 		void readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx = 0, UINT32 queueIdx = 0) override;
 
-		/** @copydoc GpuBufferCore::writeData */
+		/** @copydoc GpuBuffer::writeData */
         void writeData(UINT32 offset, UINT32 length, const void* source,
 			BufferWriteType writeFlags = BWT_NORMAL, UINT32 queueIdx = 0) override;
 
-		/** @copydoc GpuBufferCore::copyData */
+		/** @copydoc GpuBuffer::copyData */
 		void copyData(HardwareBuffer& srcBuffer, UINT32 srcOffset, 
 			UINT32 dstOffset, UINT32 length, bool discardWholeBuffer = false, UINT32 queueIdx = 0) override;
 		
@@ -40,11 +40,11 @@ namespace bs
 		 */
 		VulkanBuffer* getResource(UINT32 deviceIdx) const;
 	protected:
-		friend class VulkanHardwareBufferCoreManager;
+		friend class VulkanHardwareBufferManager;
 
-		VulkanGpuBufferCore(const GPU_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
+		VulkanGpuBuffer(const GPU_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
 
-		/** @copydoc GpuBufferCore::initialize */
+		/** @copydoc GpuBuffer::initialize */
 		void initialize() override;
 	private:
 		VulkanHardwareBuffer* mBuffer;
@@ -52,4 +52,4 @@ namespace bs
     };
 
 	/** @} */
-}
+}}

@@ -3,7 +3,7 @@
 #include "BsTextureView.h"
 #include "BsTexture.h"
 
-namespace bs
+namespace bs { namespace ct 
 {
 	size_t TextureView::HashFunction::operator()(const TEXTURE_VIEW_DESC &key) const
 	{
@@ -27,9 +27,9 @@ namespace bs
 	TextureView::~TextureView()
 	{ }
 
-	TextureView::TextureView(const SPtr<TextureCore>& texture, const TEXTURE_VIEW_DESC& desc)
+	TextureView::TextureView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& desc)
 		:mDesc(desc), mOwnerTexture(texture)
 	{
 
 	}
-}
+}}

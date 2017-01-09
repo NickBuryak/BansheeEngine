@@ -4,7 +4,7 @@
 
 #include "BsCorePrerequisites.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup RenderAPI
 	 *  @{
@@ -59,7 +59,7 @@ namespace bs
 		 *							
 		 *							Caller must ensure to synchronize operations executing on different queues via
 		 *							sync masks. Command buffer dependant on another command buffer should provide a sync
-		 *							mask when being submitted (see RenderAPICore::executeCommands).
+		 *							mask when being submitted (see RenderAPI::executeCommands).
 		 *							
 		 *							Queue indices are unique per buffer type (e.g. upload index 0 and graphics index 0 may
 		 *							map to different queues internally). Must be in range [0, 7].
@@ -89,4 +89,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

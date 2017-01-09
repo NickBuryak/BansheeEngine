@@ -9,7 +9,7 @@
 #include "BsRect2I.h"
 #include "BsRendererMaterial.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Renderer-Engine-Internal
 	 *  @{
@@ -38,7 +38,7 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		void setPass(const SPtr<MaterialCore>& material, UINT32 passIdx = 0, UINT32 techniqueIdx = 0);
+		void setPass(const SPtr<Material>& material, UINT32 passIdx = 0, UINT32 techniqueIdx = 0);
 
 		/**
 		 * Activates the specified material pass for compute. Any further dispatch calls will be executed using this pass.
@@ -48,7 +48,7 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		void setComputePass(const SPtr<MaterialCore>& material, UINT32 passIdx = 0);
+		void setComputePass(const SPtr<Material>& material, UINT32 passIdx = 0);
 
 		/**
 		 * Sets parameters (textures, samplers, buffers) for the currently active pass.
@@ -58,7 +58,7 @@ namespace bs
 		 *					
 		 * @note	Core thread.
 		 */
-		void setPassParams(const SPtr<GpuParamsSetCore>& params, UINT32 passIdx = 0);
+		void setPassParams(const SPtr<GpuParamsSet>& params, UINT32 passIdx = 0);
 
 		/**
 		 * Draws the specified mesh.
@@ -69,7 +69,7 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		void draw(const SPtr<MeshCoreBase>& mesh, const SubMesh& subMesh, UINT32 numInstances = 1);
+		void draw(const SPtr<MeshBase>& mesh, const SubMesh& subMesh, UINT32 numInstances = 1);
 
 
 		/**
@@ -84,8 +84,8 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		void drawMorph(const SPtr<MeshCoreBase>& mesh, const SubMesh& subMesh, const SPtr<VertexBufferCore>& morphVertices, 
-			const SPtr<VertexDeclarationCore>& morphVertexDeclaration);
+		void drawMorph(const SPtr<MeshBase>& mesh, const SubMesh& subMesh, const SPtr<VertexBuffer>& morphVertices, 
+			const SPtr<VertexDeclaration>& morphVertexDeclaration);
 
 		/**
 		 * Blits contents of the provided texture into the currently bound render target. If the provided texture contains
@@ -95,7 +95,7 @@ namespace bs
 		 * @param[in]	area	Area of the source texture to blit in pixels. If width or height is zero it is assumed
 		 *						the entire texture should be blitted.
 		 */
-		void blit(const SPtr<TextureCore>& texture, const Rect2I& area = Rect2I::EMPTY);
+		void blit(const SPtr<Texture>& texture, const Rect2I& area = Rect2I::EMPTY);
 
 		/**
 		 * Draws a quad over the entire viewport in normalized device coordinates.
@@ -130,15 +130,19 @@ namespace bs
 		}
 
 		/** Returns a stencil mesh used for a point light (a unit sphere). */
-		SPtr<MeshCore> getPointLightStencil() const { return mPointLightStencilMesh; }
+		SPtr<Mesh> getPointLightStencil() const { return mPointLightStencilMesh; }
 
 		/** Returns a stencil mesh used for spot light. Actual vertex positions need to be computed in shader. */
-		SPtr<MeshCore> getSpotLightStencil() const { return mSpotLightStencilMesh; }
+		SPtr<Mesh> getSpotLightStencil() const { return mSpotLightStencilMesh; }
+
+		/** Returns a mesh that can be used for rendering a skybox. */
+		SPtr<Mesh> getSkyBoxMesh() const { return mSkyBoxMesh; }
 
 	private:
-		SPtr<MeshCore> mFullScreenQuadMesh;
-		SPtr<MeshCore> mPointLightStencilMesh;
-		SPtr<MeshCore> mSpotLightStencilMesh;
+		SPtr<Mesh> mFullScreenQuadMesh;
+		SPtr<Mesh> mPointLightStencilMesh;
+		SPtr<Mesh> mSpotLightStencilMesh;
+		SPtr<Mesh> mSkyBoxMesh;
 		SPtr<ResolveMat> mResolveMat;
 		SPtr<BlitMat> mBlitMat;
 	};
@@ -159,10 +163,10 @@ namespace bs
 		ResolveMat();
 
 		/** Updates the parameter buffers used by the material. */
-		void setParameters(const SPtr<TextureCore>& source);
+		void setParameters(const SPtr<Texture>& source);
 	private:
-		MaterialParamIntCore mNumSamples;
-		MaterialParamTextureCore mSource;
+		MaterialParamInt mNumSamples;
+		MaterialParamTexture mSource;
 	};
 
 	/** Shader that copies a source texture into a render target. */
@@ -174,10 +178,10 @@ namespace bs
 		BlitMat();
 
 		/** Updates the parameter buffers used by the material. */
-		void setParameters(const SPtr<TextureCore>& source);
+		void setParameters(const SPtr<Texture>& source);
 	private:
-		MaterialParamTextureCore mSource;
+		MaterialParamTexture mSource;
 	};
 
 	/** @} */
-}
+}}

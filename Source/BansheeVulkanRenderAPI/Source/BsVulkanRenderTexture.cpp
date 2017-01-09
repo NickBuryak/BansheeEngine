@@ -9,20 +9,28 @@
 
 namespace bs
 {
-	VulkanRenderTextureCore::VulkanRenderTextureCore(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx)
-		:RenderTextureCore(desc, deviceIdx), mProperties(desc, false), mDeviceIdx(deviceIdx), mFramebuffer(nullptr)
+	VulkanRenderTexture::VulkanRenderTexture(const RENDER_TEXTURE_DESC& desc)
+		:RenderTexture(desc), mProperties(desc, false)
+	{ 
+
+	}
+
+	namespace ct
+	{
+	VulkanRenderTexture::VulkanRenderTexture(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx)
+		:RenderTexture(desc, deviceIdx), mProperties(desc, false), mDeviceIdx(deviceIdx), mFramebuffer(nullptr)
 	{
 		
 	}
 
-	VulkanRenderTextureCore::~VulkanRenderTextureCore()
+	VulkanRenderTexture::~VulkanRenderTexture()
 	{
 		mFramebuffer->destroy();
 	}
 
-	void VulkanRenderTextureCore::initialize()
+	void VulkanRenderTexture::initialize()
 	{
-		RenderTextureCore::initialize();
+		RenderTexture::initialize();
 
 		VULKAN_FRAMEBUFFER_DESC fbDesc;
 		fbDesc.width = mProperties.getWidth();
@@ -37,7 +45,7 @@ namespace bs
 				continue;
 
 			const SPtr<TextureView>& view = mColorSurfaces[i];
-			VulkanTextureCore* texture = static_cast<VulkanTextureCore*>(view->getTexture().get());
+			VulkanTexture* texture = static_cast<VulkanTexture*>(view->getTexture().get());
 
 			VulkanImage* image = texture->getResource(mDeviceIdx);
 			if (image == nullptr)
@@ -78,7 +86,7 @@ namespace bs
 		if(mDepthStencilSurface != nullptr)
 		{
 			const SPtr<TextureView>& view = mDepthStencilSurface;
-			VulkanTextureCore* texture = static_cast<VulkanTextureCore*>(view->getTexture().get());
+			VulkanTexture* texture = static_cast<VulkanTexture*>(view->getTexture().get());
 
 			VulkanImage* image = texture->getResource(mDeviceIdx);
 			if (image != nullptr)
@@ -117,13 +125,13 @@ namespace bs
 			}
 		}
 
-		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPICore::instance());
+		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
 		SPtr<VulkanDevice> device = rapi._getDevice(mDeviceIdx);
 
 		mFramebuffer = device->getResourceManager().create<VulkanFramebuffer>(fbDesc);
 	}
 
-	void VulkanRenderTextureCore::getCustomAttribute(const String& name, void* data) const
+	void VulkanRenderTexture::getCustomAttribute(const String& name, void* data) const
 	{
 		if (name == "FB")
 		{
@@ -131,11 +139,6 @@ namespace bs
 			*fb = mFramebuffer;
 			return;
 		}
-	}
-
-	VulkanRenderTexture::VulkanRenderTexture(const RENDER_TEXTURE_DESC& desc)
-		:RenderTexture(desc), mProperties(desc, false)
-	{ 
-
+	}		
 	}
 }

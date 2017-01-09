@@ -5,7 +5,7 @@
 #include "BsVertexDeclaration.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	VulkanVertexInput::VulkanVertexInput(UINT32 id, const VkPipelineVertexInputStateCreateInfo& createInfo)
 		:mId(id), mCreateInfo(createInfo)
@@ -52,7 +52,7 @@ namespace bs
 	}
 
 	SPtr<VulkanVertexInput> VulkanVertexInputManager::getVertexInfo(
-		const SPtr<VertexDeclarationCore>& vbDecl, const SPtr<VertexDeclarationCore>& shaderDecl)
+		const SPtr<VertexDeclaration>& vbDecl, const SPtr<VertexDeclaration>& shaderDecl)
 	{
 		Lock(mMutex);
 
@@ -75,8 +75,8 @@ namespace bs
 		return iterFind->second.vertexInput;
 	}
 
-	void VulkanVertexInputManager::addNew(const SPtr<VertexDeclarationCore>& vbDecl, 
-		const SPtr<VertexDeclarationCore>& shaderInputDecl)
+	void VulkanVertexInputManager::addNew(const SPtr<VertexDeclaration>& vbDecl, 
+		const SPtr<VertexDeclaration>& shaderInputDecl)
 	{
 		const List<VertexElement>& vbElements = vbDecl->getProperties().getElements();
 		const List<VertexElement>& inputElements = shaderInputDecl->getProperties().getElements();
@@ -218,4 +218,4 @@ namespace bs
 				break;
 		}
 	}
-}
+}}

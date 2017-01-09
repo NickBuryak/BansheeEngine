@@ -3,15 +3,23 @@
 #include "BsD3D11RenderTexture.h"
 #include "BsD3D11TextureView.h"
 
-namespace bs
-{
-	D3D11RenderTextureCore::D3D11RenderTextureCore(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx)
-		:RenderTextureCore(desc, deviceIdx), mProperties(desc, false)
+namespace bs 
+{ 
+	D3D11RenderTexture::D3D11RenderTexture(const RENDER_TEXTURE_DESC& desc)
+		:RenderTexture(desc), mProperties(desc, false)
+	{
+
+	}
+
+	namespace ct
+	{
+	D3D11RenderTexture::D3D11RenderTexture(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx)
+		:RenderTexture(desc, deviceIdx), mProperties(desc, false)
 	{ 
 		assert(deviceIdx == 0 && "Multiple GPUs not supported natively on DirectX 11.");
 	}
 
-	void D3D11RenderTextureCore::getCustomAttribute(const String& name, void* data) const
+	void D3D11RenderTexture::getCustomAttribute(const String& name, void* data) const
 	{
 		if(name == "RTV")
 		{
@@ -46,10 +54,4 @@ namespace bs
 			*dsv = depthStencilView->getDSV(true);
 		}
 	}
-
-	D3D11RenderTexture::D3D11RenderTexture(const RENDER_TEXTURE_DESC& desc)
-		:RenderTexture(desc), mProperties(desc, false)
-	{ 
-
-	}
-}
+}}

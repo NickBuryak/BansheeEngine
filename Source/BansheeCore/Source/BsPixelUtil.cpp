@@ -5,6 +5,7 @@
 #include "BsColor.h"
 #include "BsMath.h"
 #include "BsException.h"
+#include "BsTexture.h"
 #include <nvtt.h>
 
 namespace bs 
@@ -418,33 +419,9 @@ namespace bs
         16, 8, 0, 0
         },
 	//-----------------------------------------------------------------------
-        {"PF_A8R8G8B8",
-        /* Bytes per element */
-        4,
-        /* Flags */
-        PFF_HASALPHA | PFF_NATIVEENDIAN,
-        /* Component type and count */
-        PCT_BYTE, 4,
-        /* rbits, gbits, bbits, abits */
-        8, 8, 8, 8,
-        /* Masks and shifts */
-        0x0000FF00, 0x00FF0000, 0xFF000000, 0x000000FF,
-        8, 16, 24, 0
-        },
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
-        {"PF_A8B8G8R8",
-        /* Bytes per element */
-        4,
-        /* Flags */
-        PFF_HASALPHA | PFF_NATIVEENDIAN,
-        /* Component type and count */
-        PCT_BYTE, 4,
-        /* rbits, gbits, bbits, abits */
-        8, 8, 8, 8,
-        /* Masks and shifts */
-        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF,
-        24, 16, 8, 0,
-        },
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
         {"PF_B8G8R8A8",
         /* Bytes per element */
@@ -474,61 +451,13 @@ namespace bs
 		0, 8, 16, 24
 		},
 	//-----------------------------------------------------------------------
-		{"PF_X8R8G8B8",
-		/* Bytes per element */
-		4,
-		/* Flags */
-		PFF_NATIVEENDIAN,
-		/* Component type and count */
-		PCT_BYTE, 3,
-		/* rbits, gbits, bbits, abits */
-		8, 8, 8, 0,
-		/* Masks and shifts */
-		0x0000FF00, 0x00FF0000, 0xFF000000, 0x000000FF,
-		8, 16, 24, 0
-		},
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
-		{"PF_X8B8G8R8",
-		/* Bytes per element */
-		4,
-		/* Flags */
-		PFF_NATIVEENDIAN,
-		/* Component type and count */
-		PCT_BYTE, 3,
-		/* rbits, gbits, bbits, abits */
-		8, 8, 8, 0,
-		/* Masks and shifts */
-		0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF,
-		24, 16, 8, 0
-		},
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
-		{"PF_R8G8B8X8",
-		/* Bytes per element */
-		4,
-		/* Flags */
-		PFF_HASALPHA | PFF_NATIVEENDIAN,
-		/* Component type and count */
-		PCT_BYTE, 3,
-		/* rbits, gbits, bbits, abits */
-		8, 8, 8, 0,
-		/* Masks and shifts */
-		0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000,
-		0, 8, 16, 0
-		},
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
-		{"PF_B8G8R8X8",
-		/* Bytes per element */
-		4,
-		/* Flags */
-		PFF_HASALPHA | PFF_NATIVEENDIAN,
-		/* Component type and count */
-		PCT_BYTE, 3,
-		/* rbits, gbits, bbits, abits */
-		8, 8, 8, 0,
-		/* Masks and shifts */
-		0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000,
-		16, 8, 0, 0
-		},
+		{}, // Deleted format
 	//-----------------------------------------------------------------------
         {"PF_BC1",
         /* Bytes per element */
@@ -1070,6 +999,73 @@ namespace bs
         return (PixelUtil::getFlags(format) & PFF_NATIVEENDIAN) > 0;
     }
 
+	bool PixelUtil::checkFormat(PixelFormat& format, TextureType texType, int usage)
+	{
+		// First check just the usage since it's the most limiting factor
+
+		//// Depth-stencil only supports depth formats
+		if ((usage & TU_DEPTHSTENCIL) != 0)
+		{
+			if (isDepth(format))
+				return true;
+
+			format = PF_D32_S8X24;
+			return false;
+		}
+
+		//// Render targets support everything but compressed & depth-stencil formats
+		if ((usage & TU_RENDERTARGET) != 0)
+		{
+			if (!isDepth(format) && !isCompressed(format))
+				return true;
+
+			format = PF_R8G8B8A8;
+			return false;
+		}
+
+		//// Load-store textures support everything but compressed & depth-stencil formats
+		if ((usage & TU_LOADSTORE) != 0)
+		{
+			if (!isDepth(format) && !isCompressed(format))
+				return true;
+
+			format = PF_R8G8B8A8;
+			return false;
+		}
+
+		//// Sampled texture support depends on texture type
+		switch (texType)
+		{
+		case TEX_TYPE_1D:
+		{
+			// 1D textures support anything but depth & compressed formats
+			if (!isDepth(format) && !isCompressed(format))
+				return true;
+
+			format = PF_R8G8B8A8;
+			return false;
+		}
+		case TEX_TYPE_3D:
+		{
+			// 3D textures support anything but depth & compressed formats
+			if (!isDepth(format))
+				return true;
+
+			format = PF_R8G8B8A8;
+			return false;
+		}
+		default: // 2D & cube
+		{
+			// 2D/cube textures support anything but depth formats
+			if (!isDepth(format))
+				return true;
+
+			format = PF_R8G8B8A8;
+			return false;
+		}
+		}
+	}
+
 	bool PixelUtil::isValidExtent(UINT32 width, UINT32 height, UINT32 depth, PixelFormat format)
 	{
 		if(isCompressed(format))
@@ -1095,7 +1091,7 @@ namespace bs
 		}
 	}
 
-    void PixelUtil::getBitDepths(PixelFormat format, int rgba[4])
+    void PixelUtil::getBitDepths(PixelFormat format, int (&rgba)[4])
     {
         const PixelFormatDescription& des = getDescriptionFor(format);
         rgba[0] = des.rbits;
@@ -1104,7 +1100,7 @@ namespace bs
         rgba[3] = des.abits;
     }
 
-	void PixelUtil::getBitMasks(PixelFormat format, UINT32 rgba[4])
+	void PixelUtil::getBitMasks(PixelFormat format, UINT32 (&rgba)[4])
     {
         const PixelFormatDescription& des = getDescriptionFor(format);
         rgba[0] = des.rmask;
@@ -1113,7 +1109,7 @@ namespace bs
         rgba[3] = des.amask;
     }
 
-	void PixelUtil::getBitShifts(PixelFormat format, UINT8 rgba[4])
+	void PixelUtil::getBitShifts(PixelFormat format, UINT8 (&rgba)[4])
 	{
 		const PixelFormatDescription& des = getDescriptionFor(format);
 		rgba[0] = des.rshift;
@@ -1512,31 +1508,6 @@ namespace bs
             return;
         }
 
-		// Converting to PF_X8R8G8B8 is exactly the same as converting to
-		// PF_A8R8G8B8. (same with PF_X8B8G8R8 and PF_A8B8G8R8)
-		if(dst.getFormat() == PF_X8R8G8B8 || dst.getFormat() == PF_X8B8G8R8)
-		{
-			// Do the same conversion, with PF_A8R8G8B8, which has a lot of
-			// optimized conversions
-			PixelFormat tempFormat = dst.getFormat() == PF_X8R8G8B8?PF_A8R8G8B8:PF_A8B8G8R8;
-			PixelData tempdst(dst.getWidth(), dst.getHeight(), dst.getDepth(), tempFormat);
-			bulkPixelConversion(src, tempdst);
-			return;
-		}
-
-		// Converting from PF_X8R8G8B8 is exactly the same as converting from
-		// PF_A8R8G8B8, given that the destination format does not have alpha.
-		if((src.getFormat() == PF_X8R8G8B8 || src.getFormat() == PF_X8B8G8R8) && !hasAlpha(dst.getFormat()))
-		{
-			// Do the same conversion, with PF_A8R8G8B8, which has a lot of
-			// optimized conversions
-			PixelFormat tempFormat = src.getFormat()==PF_X8R8G8B8?PF_A8R8G8B8:PF_A8B8G8R8;
-			PixelData tempsrc(src.getWidth(), src.getHeight(), src.getDepth(), tempFormat);
-			tempsrc.setExternalBuffer(src.getData());
-			bulkPixelConversion(tempsrc, dst);
-			return;
-		}
-
 		const UINT32 srcPixelSize = PixelUtil::getNumElemBytes(src.getFormat());
 		const UINT32 dstPixelSize = PixelUtil::getNumElemBytes(dst.getFormat());
         UINT8 *srcptr = static_cast<UINT8*>(src.getData())
@@ -1628,8 +1599,6 @@ namespace bs
 			case PF_R8G8:
 			case PF_R8G8B8: case PF_B8G8R8:
 			case PF_R8G8B8A8: case PF_B8G8R8A8:
-			case PF_A8B8G8R8: case PF_A8R8G8B8:
-			case PF_X8B8G8R8: case PF_X8R8G8B8:
 				if(src.getFormat() == scaled.getFormat()) 
 				{
 					// No intermediate buffer needed
@@ -1676,6 +1645,138 @@ namespace bs
 				LinearResampler::scale(src, scaled);
 			}
 			break;
+		}
+	}
+
+	void PixelUtil::copy(const PixelData& src, PixelData& dst, UINT32 offsetX, UINT32 offsetY, UINT32 offsetZ)
+	{
+		if(src.getFormat() != dst.getFormat())
+		{
+			LOGERR("Source format is different from destination format for copy(). This operation cannot be used for "
+				   "a format conversion. Aborting copy.");
+			return;
+		}
+
+		UINT32 right = offsetX + dst.getWidth();
+		UINT32 bottom = offsetY + dst.getHeight();
+		UINT32 back = offsetZ + dst.getDepth();
+
+		if(right > src.getWidth() || bottom > src.getHeight() || back > src.getDepth())
+		{
+			LOGERR("Provided offset or destination size is too large and is referencing pixels that are out of bounds"
+				   " on the source texture. Aborting copy().");
+			return;
+		}
+
+		UINT8* srcPtr = (UINT8*)src.getData() + offsetZ * src.getSlicePitch();
+		UINT8* dstPtr = (UINT8*)dst.getData();
+
+		UINT32 elemSize = getNumElemBytes(dst.getFormat());
+		UINT32 rowSize = dst.getWidth() * elemSize;
+
+		for(UINT32 z = 0; z < dst.getDepth(); z++)
+		{
+			UINT8* srcRowPtr = srcPtr + offsetY * src.getRowPitch() * elemSize;
+			UINT8* dstRowPtr = dstPtr;
+
+			for(UINT32 y = 0; y < dst.getHeight(); y++)
+			{
+				memcpy(dstRowPtr, srcRowPtr + offsetX * elemSize, rowSize);
+
+				srcRowPtr += src.getRowPitch() * elemSize;
+				dstRowPtr += dst.getRowPitch() * elemSize;
+			}
+
+			srcPtr += src.getSlicePitch() * elemSize;
+			dstPtr += dst.getSlicePitch() * elemSize;
+		}
+	}
+
+	void PixelUtil::mirror(PixelData& pixelData, MirrorMode mode)
+	{
+		UINT32 width = pixelData.getWidth();
+		UINT32 height = pixelData.getHeight();
+		UINT32 depth = pixelData.getDepth();
+
+		UINT32 elemSize = getNumElemBytes(pixelData.getFormat());
+
+		if (mode.isSet(MirrorModeBits::Z))
+		{
+			UINT32 sliceSize = width * height * elemSize;
+			UINT8* sliceTemp = bs_stack_alloc<UINT8>(sliceSize);
+
+			UINT8* dataPtr = pixelData.getData();
+			UINT32 halfDepth = depth / 2;
+			for (UINT32 z = 0; z < halfDepth; z++)
+			{
+				UINT32 srcZ = z * sliceSize;
+				UINT32 dstZ = (depth - z - 1) * sliceSize;
+
+				memcpy(sliceTemp, &dataPtr[dstZ], sliceSize);
+				memcpy(&dataPtr[srcZ], &dataPtr[srcZ], sliceSize);
+				memcpy(&dataPtr[dstZ], sliceTemp, sliceSize);
+			}
+
+			// Note: If flipping Y or X as well I could do it here without an extra set of memcpys
+
+			bs_stack_free(sliceTemp);
+		}
+
+		if(mode.isSet(MirrorModeBits::Y))
+		{
+			UINT32 rowSize = width * elemSize;
+			UINT8* rowTemp = bs_stack_alloc<UINT8>(rowSize);
+
+			UINT8* slicePtr = pixelData.getData();
+			for (UINT32 z = 0; z < depth; z++)
+			{
+				UINT32 halfHeight = height / 2;
+				for (UINT32 y = 0; y < halfHeight; y++)
+				{
+					UINT32 srcY = y * rowSize;
+					UINT32 dstY = (height - y - 1) * rowSize;
+
+					memcpy(rowTemp, &slicePtr[dstY], rowSize);
+					memcpy(&slicePtr[dstY], &slicePtr[srcY], rowSize);
+					memcpy(&slicePtr[srcY], rowTemp, rowSize);
+				}
+
+				// Note: If flipping X as well I could do it here without an extra set of memcpys
+
+				slicePtr += pixelData.getSlicePitch() * elemSize;
+			}
+
+			bs_stack_free(rowTemp);
+		}
+
+		if (mode.isSet(MirrorModeBits::X))
+		{
+			UINT8* elemTemp = bs_stack_alloc<UINT8>(elemSize);
+
+			UINT8* slicePtr = pixelData.getData();
+			for (UINT32 z = 0; z < depth; z++)
+			{
+				UINT8* rowPtr = slicePtr;
+				for (UINT32 y = 0; y < height; y++)
+				{
+					UINT32 halfWidth = width / 2;
+					for (UINT32 x = 0; x < halfWidth; x++)
+					{
+						UINT32 srcX = x * elemSize;
+						UINT32 dstX = (width - x - 1) * elemSize;
+
+						memcpy(elemTemp, &rowPtr[dstX], elemSize);
+						memcpy(&rowPtr[dstX], &rowPtr[srcX], elemSize);
+						memcpy(&rowPtr[srcX], elemTemp, elemSize);
+					}
+
+					rowPtr += pixelData.getRowPitch() * elemSize;
+				}
+
+				slicePtr += pixelData.getSlicePitch() * elemSize;
+			}
+
+			bs_stack_free(elemTemp);
 		}
 	}
 
@@ -1745,7 +1846,7 @@ namespace bs
 			return;
 		}
 
-		PixelData bgraData(src.getWidth(), src.getHeight(), 1, PF_B8G8R8A8);
+		PixelData bgraData(src.getWidth(), src.getHeight(), 1, PF_R8G8B8A8);
 		bgraData.allocateInternalBuffer();
 		bulkPixelConversion(src, bgraData);
 
@@ -1803,13 +1904,13 @@ namespace bs
 			return outputMipBuffers;
 		}
 
-		PixelData argbData(src.getWidth(), src.getHeight(), 1, PF_A8R8G8B8);
-		argbData.allocateInternalBuffer();
-		bulkPixelConversion(src, argbData);
+		PixelData rgbaData(src.getWidth(), src.getHeight(), 1, PF_R8G8B8A8);
+		rgbaData.allocateInternalBuffer();
+		bulkPixelConversion(src, rgbaData);
 
 		nvtt::InputOptions io;
 		io.setTextureLayout(nvtt::TextureType_2D, src.getWidth(), src.getHeight());
-		io.setMipmapData(argbData.getData(), src.getWidth(), src.getHeight());
+		io.setMipmapData(rgbaData.getData(), src.getWidth(), src.getHeight());
 		io.setMipmapGeneration(true);
 		io.setNormalMap(options.isNormalMap);
 		io.setNormalizeMipmaps(options.normalizeMipmaps);
@@ -1820,7 +1921,7 @@ namespace bs
 		
 		UINT32 numMips = getMaxMipmaps(src.getWidth(), src.getHeight(), 1, src.getFormat());
 
-		Vector<SPtr<PixelData>> argbMipBuffers;
+		Vector<SPtr<PixelData>> rgbaMipBuffers;
 
 		// Note: This can be done more effectively without creating so many temp buffers
 		// and working with the original formats directly, but it would complicate the code
@@ -1829,8 +1930,8 @@ namespace bs
 		UINT32 curHeight = src.getHeight();
 		for (UINT32 i = 0; i < numMips; i++)
 		{
-			argbMipBuffers.push_back(bs_shared_ptr_new<PixelData>(curWidth, curHeight, 1, PF_A8R8G8B8));
-			argbMipBuffers.back()->allocateInternalBuffer();
+			rgbaMipBuffers.push_back(bs_shared_ptr_new<PixelData>(curWidth, curHeight, 1, PF_R8G8B8A8));
+			rgbaMipBuffers.back()->allocateInternalBuffer();
 
 			if (curWidth > 1) 
 				curWidth = curWidth / 2;
@@ -1839,10 +1940,10 @@ namespace bs
 				curHeight = curHeight / 2;
 		}
 
-		argbMipBuffers.push_back(bs_shared_ptr_new<PixelData>(curWidth, curHeight, 1, PF_A8R8G8B8));
-		argbMipBuffers.back()->allocateInternalBuffer();
+		rgbaMipBuffers.push_back(bs_shared_ptr_new<PixelData>(curWidth, curHeight, 1, PF_R8G8B8A8));
+		rgbaMipBuffers.back()->allocateInternalBuffer();
 
-		NVTTMipmapOutputHandler outputHandler(argbMipBuffers);
+		NVTTMipmapOutputHandler outputHandler(rgbaMipBuffers);
 
 		nvtt::OutputOptions oo;
 		oo.setOutputHeader(false);
@@ -1855,11 +1956,11 @@ namespace bs
 			return outputMipBuffers;
 		}
 
-		argbData.freeInternalBuffer();
+		rgbaData.freeInternalBuffer();
 
-		for (UINT32 i = 0; i < (UINT32)argbMipBuffers.size(); i++)
+		for (UINT32 i = 0; i < (UINT32)rgbaMipBuffers.size(); i++)
 		{
-			SPtr<PixelData> argbBuffer = argbMipBuffers[i];
+			SPtr<PixelData> argbBuffer = rgbaMipBuffers[i];
 			SPtr<PixelData> outputBuffer = bs_shared_ptr_new<PixelData>(argbBuffer->getWidth(), argbBuffer->getHeight(), 1, src.getFormat());
 			outputBuffer->allocateInternalBuffer();
 

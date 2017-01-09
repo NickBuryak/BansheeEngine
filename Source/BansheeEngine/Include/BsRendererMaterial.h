@@ -23,7 +23,7 @@
 
 /** @} */
 
-namespace bs
+namespace bs { namespace ct
 {
 	/** @addtogroup Renderer-Engine-Internal
 	 *  @{
@@ -32,7 +32,7 @@ namespace bs
 	/**	Contains data common to all render material instances of a specific type. */
 	struct RendererMaterialMetaData
 	{
-		SPtr<ShaderCore> shader;
+		SPtr<Shader> shader;
 		ShaderDefines defines;
 	};
 
@@ -43,16 +43,16 @@ namespace bs
 		virtual ~RendererMaterialBase() { }
 
 		/**	Returns the internal material. */
-		SPtr<MaterialCore> getMaterial() const { return mMaterial; }
+		SPtr<Material> getMaterial() const { return mMaterial; }
 
 		/** Returns the internal parameter set containing GPU bindable parameters. */
-		SPtr<GpuParamsSetCore> getParamsSet() const { return mParamsSet; }
+		SPtr<GpuParamsSet> getParamsSet() const { return mParamsSet; }
 
 	protected:
 		friend class RendererMaterialManager;
 
-		SPtr<MaterialCore> mMaterial;
-		SPtr<GpuParamsSetCore> mParamsSet;
+		SPtr<Material> mMaterial;
+		SPtr<GpuParamsSet> mParamsSet;
 	};
 
 	/**	Helper class to initialize all renderer materials as soon as the library is loaded. */
@@ -77,7 +77,7 @@ namespace bs
 		RendererMaterial()
 		{
 			mInitOnStart.instantiate();
-			mMaterial = MaterialCore::create(mMetaData.shader);
+			mMaterial = Material::create(mMetaData.shader);
 			mParamsSet = mMaterial->createParamsSet();
 		}
 
@@ -97,4 +97,4 @@ namespace bs
 	RendererMaterialMetaData RendererMaterial<T>::mMetaData;
 
 	/** @} */
-}
+}}

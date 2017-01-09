@@ -9,35 +9,56 @@
 
 #define GL_DEPTH24_STENCIL8_EXT 0x88F0
 
-namespace bs 
+namespace bs
 {  
 	/** @addtogroup GL
 	 *  @{
 	 */
 
-	class GLRenderTexture;
+	/**
+	 * OpenGL implementation of a render texture.
+	 *
+	 * @note	Sim thread only.
+	 */
+	class GLRenderTexture : public RenderTexture
+	{
+	public:
+		virtual ~GLRenderTexture() { }
 
+	protected:
+		friend class GLTextureManager;
+
+		GLRenderTexture(const RENDER_TEXTURE_DESC& desc);
+
+		/** @copydoc RenderTexture::getProperties */
+		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
+
+		RenderTextureProperties mProperties;
+	};
+
+	namespace ct
+	{
 	/**
 	 * OpenGL implementation of a render texture.
 	 *
 	 * @note	Core thread only.
 	 */
-    class BS_RSGL_EXPORT GLRenderTextureCore : public RenderTextureCore
+    class BS_RSGL_EXPORT GLRenderTexture : public RenderTexture
     {
 	public:
-		GLRenderTextureCore(const RENDER_TEXTURE_DESC_CORE& desc, UINT32 deviceIdx);
-		virtual ~GLRenderTextureCore();
+		GLRenderTexture(const RENDER_TEXTURE_DESC& desc, UINT32 deviceIdx);
+		virtual ~GLRenderTexture();
 
-		/** @copydoc RenderTextureCore::getCustomAttribute */
+		/** @copydoc RenderTexture::getCustomAttribute */
 		void getCustomAttribute(const String& name, void* data) const override;
 
 	protected:
-		friend class GLRenderTexture;
+		friend class bs::GLRenderTexture;
 
-		/** @copydoc RenderTextureCore::initialize */
+		/** @copydoc RenderTexture::initialize */
 		void initialize() override;
 
-		/** @copydoc RenderTextureCore::getProperties */
+		/** @copydoc RenderTexture::getProperties */
 		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
 
 		RenderTextureProperties mProperties;
@@ -102,27 +123,6 @@ namespace bs
 		GLuint mBlitReadFBO;
 		GLuint mBlitWriteFBO;
     };
-
-	/**
-	 * OpenGL implementation of a render texture.
-	 *
-	 * @note	Sim thread only.
-	 */
-	class GLRenderTexture : public RenderTexture
-	{
-	public:
-		virtual ~GLRenderTexture() { }
-
-	protected:
-		friend class GLTextureManager;
-
-		GLRenderTexture(const RENDER_TEXTURE_DESC& desc);
-
-		/** @copydoc RenderTexture::getProperties */
-		const RenderTargetProperties& getPropertiesInternal() const override { return mProperties; }
-
-		RenderTextureProperties mProperties;
-	};
-
+	}
 	/** @} */
 }

@@ -6,23 +6,23 @@
 #include "BsIndexBuffer.h"
 #include "BsGLBuffer.h"
 
-namespace bs 
+namespace bs { namespace ct
 { 
 	/** @addtogroup GL
 	 *  @{
 	 */
 
 	/**	OpenGL implementation of an index buffer. */
-    class BS_RSGL_EXPORT GLIndexBufferCore : public IndexBufferCore
+    class BS_RSGL_EXPORT GLIndexBuffer : public IndexBuffer
     {
     public:
-		GLIndexBufferCore(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
-		~GLIndexBufferCore();
+		GLIndexBuffer(const INDEX_BUFFER_DESC& desc, GpuDeviceFlags deviceMask);
+		~GLIndexBuffer();
 
-		/** @copydoc IndexBufferCore::readData */
+		/** @copydoc IndexBuffer::readData */
         void readData(UINT32 offset, UINT32 length, void* dest, UINT32 deviceIdx = 0, UINT32 queueIdx = 0) override;
 
-		/** @copydoc IndexBufferCore::writeData */
+		/** @copydoc IndexBuffer::writeData */
         void writeData(UINT32 offset, UINT32 length, const void* source, 
 			BufferWriteType writeFlags = BWT_NORMAL, UINT32 queueIdx = 0) override;
 
@@ -30,13 +30,13 @@ namespace bs
         GLuint getGLBufferId() const { return mBuffer.getGLBufferId(); }
 
 	protected:
-		/** @copydoc IndexBufferCore::initialize */
+		/** @copydoc IndexBuffer::initialize */
 		void initialize() override;	
 
-		/** @copydoc IndexBufferCore::map */
+		/** @copydoc IndexBuffer::map */
 		void* map(UINT32 offset, UINT32 length, GpuLockOptions options, UINT32 deviceIdx, UINT32 queueIdx) override;
 
-		/** @copydoc IndexBufferCore::unmap */
+		/** @copydoc IndexBuffer::unmap */
 		void unmap() override;
 
 	private:
@@ -45,4 +45,4 @@ namespace bs
     };
 
 	/** @} */
-}
+}}

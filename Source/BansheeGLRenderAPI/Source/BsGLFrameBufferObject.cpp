@@ -6,7 +6,7 @@
 #include "BsGLRenderTexture.h"
 #include "BsRenderStats.h"
 
-namespace bs 
+namespace bs { namespace ct
 {
     GLFrameBufferObject::GLFrameBufferObject()
     {
@@ -64,7 +64,7 @@ namespace bs
         // Store basic stats
         UINT32 width = mColor[0].buffer->getWidth();
         UINT32 height = mColor[0].buffer->getHeight();
-        UINT16 maxSupportedMRTs = RenderAPICore::instancePtr()->getCapabilities(0).getNumMultiRenderTargets();
+        UINT16 maxSupportedMRTs = RenderAPI::instancePtr()->getCapabilities(0).getNumMultiRenderTargets();
 
 		// Bind simple buffer to add color attachments
 		glBindFramebuffer(GL_FRAMEBUFFER, mFB);
@@ -148,4 +148,4 @@ namespace bs
     {
 		glBindFramebuffer(GL_FRAMEBUFFER, mFB);
     }
-}
+}}

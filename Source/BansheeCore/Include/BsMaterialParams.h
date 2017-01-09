@@ -17,7 +17,7 @@ namespace bs
 	struct SHADER_DATA_PARAM_DESC;
 	struct SHADER_OBJECT_PARAM_DESC;
 
-	/** Common functionality for MaterialParams and MaterialParamsCore. */
+	/** Common functionality for MaterialParams and ct::MaterialParams. */
 	class BS_CORE_EXPORT MaterialParamsBase
 	{
 	public:
@@ -260,7 +260,7 @@ namespace bs
 	class BS_CORE_EXPORT MaterialParamTextureDataCore
 	{
 	public:
-		SPtr<TextureCore> value;
+		SPtr<ct::Texture> value;
 		bool isLoadStore;
 		TextureSurface surface;
 	};
@@ -282,7 +282,7 @@ namespace bs
 	class BS_CORE_EXPORT MaterialParamBufferDataCore
 	{
 	public:
-		SPtr<GpuBufferCore> value;
+		SPtr<ct::GpuBuffer> value;
 	};
 
 	/** Data for a single buffer parameter. */
@@ -296,7 +296,7 @@ namespace bs
 	class BS_CORE_EXPORT MaterialParamSamplerStateDataCore
 	{
 	public:
-		SPtr<SamplerStateCore> value;
+		SPtr<ct::SamplerState> value;
 	};
 
 	/** Data for a single sampler state parameter. */
@@ -324,19 +324,19 @@ namespace bs
 
 	template<> struct TMaterialParamsTypes < true >
 	{
-		typedef GpuParamsCore GpuParamsType;
-		typedef SPtr<TextureCore> TextureType;
-		typedef SPtr<GpuBufferCore> BufferType;
-		typedef SPtr<SamplerStateCore> SamplerType;
-		typedef SPtr<GpuParamBlockBufferCore> ParamsBufferType;
+		typedef ct::GpuParams GpuParamsType;
+		typedef SPtr<ct::Texture> TextureType;
+		typedef SPtr<ct::GpuBuffer> BufferType;
+		typedef SPtr<ct::SamplerState> SamplerType;
+		typedef SPtr<ct::GpuParamBlockBuffer> ParamsBufferType;
 		typedef MaterialParamStructDataCore StructParamDataType;
 		typedef MaterialParamTextureDataCore TextureParamDataType;
 		typedef MaterialParamBufferDataCore BufferParamDataType;
 		typedef MaterialParamSamplerStateDataCore SamplerStateParamDataType;
-		typedef SPtr<ShaderCore> ShaderType;
+		typedef SPtr<ct::Shader> ShaderType;
 	};
 
-	/** Common code that may be specialized for both MaterialParams and MaterialParamsCore. */
+	/** Common code that may be specialized for both MaterialParams and ct::MaterialParams. */
 	template<bool Core>
 	class BS_CORE_EXPORT TMaterialParams : public MaterialParamsBase
 	{
@@ -558,28 +558,6 @@ namespace bs
 		SamplerType* mDefaultSamplerStateParams = nullptr;
 	};
 
-	class MaterialParams;
-
-	/** Core thread version of MaterialParams. */
-	class BS_CORE_EXPORT MaterialParamsCore : public TMaterialParams<true>
-	{
-	public:
-		/** Initializes the core thread version of MaterialParams from its sim thread counterpart. */
-		MaterialParamsCore(const SPtr<ShaderCore>& shader, const SPtr<MaterialParams>& params);
-		
-		/** @copydoc TMaterialParams::TMaterialParams(const ShaderType&) */
-		MaterialParamsCore(const SPtr<ShaderCore>& shader);
-
-		/** 
-		 * Updates the stored parameters from the provided buffer, allowing changes to be transfered between the sim and 
-		 * core thread material param objects. Buffer must be retrieved from MaterialParams::getSyncData. 
-		 *
-		 * @param[in]		buffer		Buffer containing the dirty data.
-		 * @param[in, out]	size		Size of the provided buffer.
-		 */
-		void setSyncData(UINT8* buffer, UINT32 size);
-	};
-
 	/** 
 	 * Contains all parameter values set in a Material. This is similar to GpuParams which also stores parameter values,
 	 * however GpuParams are built for use on the GPU-side and don't store parameters that don't exist in a compiled GPU
@@ -603,7 +581,7 @@ namespace bs
 
 		/** 
 		 * Populates the provided buffer with parameters that can be used for syncing this object with its core-thread
-		 * counterpart. Can be applied by calling MaterialParamsCore::setSyncData.
+		 * counterpart. Can be applied by calling ct::MaterialParams::setSyncData.
 		 *
 		 * @param[in]		buffer		Pre-allocated buffer to store the sync data in. Set to null to calculate the size
 		 *								of the required buffer.
@@ -613,7 +591,7 @@ namespace bs
 		void getSyncData(UINT8* buffer, UINT32& size);
 
 	private:
-		friend class MaterialParamsCore;
+		friend class ct::MaterialParams;
 
 		UINT64 mLastSyncVersion;
 
@@ -628,5 +606,27 @@ namespace bs
 		RTTITypeBase* getRTTI() const override;
 	};
 
+	namespace ct
+	{
+	/** Core thread version of MaterialParams. */
+	class BS_CORE_EXPORT MaterialParams : public TMaterialParams<true>
+	{
+	public:
+		/** Initializes the core thread version of MaterialParams from its sim thread counterpart. */
+		MaterialParams(const SPtr<Shader>& shader, const SPtr<bs::MaterialParams>& params);
+		
+		/** @copydoc TMaterialParams::TMaterialParams(const ShaderType&) */
+		MaterialParams(const SPtr<Shader>& shader);
+
+		/** 
+		 * Updates the stored parameters from the provided buffer, allowing changes to be transfered between the sim and 
+		 * core thread material param objects. Buffer must be retrieved from bs::MaterialParams::getSyncData. 
+		 *
+		 * @param[in]		buffer		Buffer containing the dirty data.
+		 * @param[in, out]	size		Size of the provided buffer.
+		 */
+		void setSyncData(UINT8* buffer, UINT32 size);
+	};
+	}
 	/** @} */
 }

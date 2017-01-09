@@ -5,7 +5,7 @@
 #include "BsD3D11Prerequisites.h"
 #include "BsTextureManager.h"
 
-namespace bs 
+namespace bs
 {
 	/** @addtogroup D3D11
 	 *  @{
@@ -23,18 +23,21 @@ namespace bs
 		SPtr<RenderTexture> createRenderTextureImpl(const RENDER_TEXTURE_DESC& desc) override;
 	};
 
+	namespace ct
+	{
 	/**	Handles creation of DirectX 11 textures. */
-	class BS_D3D11_EXPORT D3D11TextureCoreManager : public TextureCoreManager
+	class BS_D3D11_EXPORT D3D11TextureManager : public TextureManager
 	{
 	protected:
-		/** @copydoc TextureCoreManager::createTextureInternal */
-		SPtr<TextureCore> createTextureInternal(const TEXTURE_DESC& desc, 
+		/** @copydoc TextureManager::createTextureInternal */
+		SPtr<Texture> createTextureInternal(const TEXTURE_DESC& desc, 
 			const SPtr<PixelData>& initialData = nullptr, GpuDeviceFlags deviceMask = GDF_DEFAULT) override;
 
-		/** @copydoc TextureCoreManager::createRenderTextureInternal */
-		SPtr<RenderTextureCore> createRenderTextureInternal(const RENDER_TEXTURE_DESC_CORE& desc, 
+		/** @copydoc TextureManager::createRenderTextureInternal */
+		SPtr<RenderTexture> createRenderTextureInternal(const RENDER_TEXTURE_DESC& desc, 
 			UINT32 deviceIdx = 0) override;
 	};
+	}
 
 	/** @} */
 }

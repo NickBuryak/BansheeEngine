@@ -108,7 +108,7 @@ namespace bs
 		const GpuBufferProperties& getProperties() const { return mProperties; }
 
 		/** Retrieves a core implementation of a GPU buffer usable only from the core thread. */
-		SPtr<GpuBufferCore> getCore() const;
+		SPtr<ct::GpuBuffer> getCore() const;
 
 		/** Returns the size of a single element in the buffer, of the provided format, in bytes. */
 		static UINT32 getFormatSize(GpuBufferFormat format);
@@ -122,38 +122,41 @@ namespace bs
 		GpuBuffer(const GPU_BUFFER_DESC& desc);
 
 		/** @copydoc CoreObject::createCore */
-		SPtr<CoreObjectCore> createCore() const override;
+		SPtr<ct::CoreObject> createCore() const override;
 
 		GpuBufferProperties mProperties;
     };
 
 	/** @} */
 
+	namespace ct
+	{
 	/** @addtogroup RenderAPI-Internal
 	 *  @{
 	 */
 
 	/**
-	 * Core thread version of a GpuBuffer.
+	 * Core thread version of a bs::GpuBuffer.
 	 *
 	 * @note	Core thread only.
 	 */
-	class BS_CORE_EXPORT GpuBufferCore : public CoreObjectCore, public HardwareBuffer
+	class BS_CORE_EXPORT GpuBuffer : public CoreObject, public HardwareBuffer
 	{
 	public:
-		virtual ~GpuBufferCore();
+		virtual ~GpuBuffer();
 
 		/** Returns properties describing the buffer. */
 		const GpuBufferProperties& getProperties() const { return mProperties; }
 
-		/** @copydoc HardwareBufferCoreManager::createGpuBuffer */
-		static SPtr<GpuBufferCore> create(const GPU_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
+		/** @copydoc HardwareBufferManager::createGpuBuffer */
+		static SPtr<GpuBuffer> create(const GPU_BUFFER_DESC& desc, GpuDeviceFlags deviceMask = GDF_DEFAULT);
 
 	protected:
-		GpuBufferCore(const GPU_BUFFER_DESC& desc, UINT32 deviceMask);
+		GpuBuffer(const GPU_BUFFER_DESC& desc, UINT32 deviceMask);
 
 		GpuBufferProperties mProperties;
 	};
 
 	/** @} */
+	}
 }

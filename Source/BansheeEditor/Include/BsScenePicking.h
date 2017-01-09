@@ -29,7 +29,7 @@ namespace bs
 		float depth;
 	};
 
-	class ScenePickingCore;
+	namespace ct { class ScenePicking; }
 
 	/**	Handles picking of scene objects with a pointer in scene view. */
 	class BS_ED_EXPORT ScenePicking : public Module<ScenePicking>
@@ -37,7 +37,7 @@ namespace bs
 		/**	Contains information about a single pickable item (mesh). */
 		struct RenderablePickData
 		{
-			SPtr<MeshCore> mesh;
+			SPtr<ct::Mesh> mesh;
 			UINT32 index;
 			Matrix4 wvpTransform;
 			bool alpha;
@@ -80,7 +80,7 @@ namespace bs
 			Vector<HSceneObject>& ignoreRenderables, SnapData* data = nullptr);
 
 	private:
-		friend class ScenePickingCore;
+		friend class ct::ScenePicking;
 
 		typedef Set<RenderablePickData, std::function<bool(const RenderablePickData&, const RenderablePickData&)>> RenderableSet;
 
@@ -90,10 +90,13 @@ namespace bs
 		/** Decodes a color into a unique object identifier. Color should have initially been encoded with encodeIndex(). */
 		static UINT32 decodeIndex(Color color);
 
-		ScenePickingCore* mCore;
+		ct::ScenePicking* mCore;
 	};
 
 	/** @} */
+
+	namespace ct
+	{
 	/** @addtogroup Scene-Editor-Internal
 	 *  @{
 	 */
@@ -107,7 +110,7 @@ namespace bs
 	extern PickingParamBlockDef gPickingParamBlockDef;
 
 	/** Core thread version of the ScenePicking manager. Handles actual rendering. */
-	class ScenePickingCore
+	class ScenePicking
 	{
 	public:
 		/**	Initializes the manager. Must be called right after construction. */
@@ -127,8 +130,8 @@ namespace bs
 		 * @param[in]	position		Position of the pointer where to pick objects, in pixels relative to viewport.
 		 * @param[in]	area			Width/height of the area to pick objects, in pixels.
 		 */
-		void corePickingBegin(const SPtr<RenderTargetCore>& target, const Rect2& viewportArea, 
-			const ScenePicking::RenderableSet& renderables, const Vector2I& position, const Vector2I& area);
+		void corePickingBegin(const SPtr<RenderTarget>& target, const Rect2& viewportArea, 
+			const bs::ScenePicking::RenderableSet& renderables, const Vector2I& position, const Vector2I& area);
 		
 		/**
 		 * Ends picking operation started by corePickingBegin(). Render target is resolved and objects in the picked area
@@ -142,20 +145,21 @@ namespace bs
 		 * @param[out]	asyncOp			Async operation handle that when complete will contain the results of the picking
 		 *								operation in the form of Vector<SelectedObject>.
 		 */
-		void corePickingEnd(const SPtr<RenderTargetCore>& target, const Rect2& viewportArea, const Vector2I& position,
+		void corePickingEnd(const SPtr<RenderTarget>& target, const Rect2& viewportArea, const Vector2I& position,
 			const Vector2I& area, bool gatherSnapData, AsyncOp& asyncOp);
 
 	private:
-		friend class ScenePicking;
+		friend class bs::ScenePicking;
 
 		static const float ALPHA_CUTOFF;
 
-		SPtr<RenderTextureCore> mPickingTexture;
+		SPtr<RenderTexture> mPickingTexture;
 
-		SPtr<MaterialCore> mMaterials[6];
-		Vector<SPtr<GpuParamsSetCore>> mParamSets[6];
-		Vector<SPtr<GpuParamBlockBufferCore>> mParamBuffers;
+		SPtr<Material> mMaterials[6];
+		Vector<SPtr<GpuParamsSet>> mParamSets[6];
+		Vector<SPtr<GpuParamBlockBuffer>> mParamBuffers;
 	};
 
 	/** @} */
+	}
 }

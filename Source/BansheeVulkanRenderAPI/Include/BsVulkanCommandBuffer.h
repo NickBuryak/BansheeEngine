@@ -8,7 +8,7 @@
 #include "BsVulkanResource.h"
 #include "BsVulkanGpuPipelineState.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	class VulkanImage;
 	/** @addtogroup Vulkan
@@ -131,7 +131,7 @@ namespace bs
 		 *							from the actual VulkanQueue index since multiple command buffer queue indices can map
 		 *							to the same queue.
 		 * @param[in]	syncMask	Mask that controls which other command buffers does this command buffer depend upon
-		 *							(if any). See description of @p syncMask parameter in RenderAPICore::executeCommands().
+		 *							(if any). See description of @p syncMask parameter in RenderAPI::executeCommands().
 		 */
 		void submit(VulkanQueue* queue, UINT32 queueIdx, UINT32 syncMask);
 
@@ -196,7 +196,6 @@ namespace bs
 		 * updates the externally visible image layout field to @p finalLayout (once submitted).
 		 * 
 		 * @param[in]	res						Image to register with the command buffer.
-		 * @param[in]	accessFlags				Destination access flags used for the provided layout transition.
 		 * @param[in]	newLayout				Layout the image needs to be transitioned in before use. Set to undefined
 		 *										layout if no transition is required.
 		 * @param[in]	finalLayout				Determines what value the externally visible image layout will be set after
@@ -206,8 +205,8 @@ namespace bs
 		 * @param[in]	isFBAttachment			Determines if the image is being used as a framebuffer attachment (if true),
 		 *										or just as regular shader input (if false).
 		 */
-		void registerResource(VulkanImage* res, VkAccessFlags accessFlags, VkImageLayout newLayout, 
-			VkImageLayout finalLayout, VulkanUseFlags flags, bool isFBAttachment = false);
+		void registerResource(VulkanImage* res, VkImageLayout newLayout, VkImageLayout finalLayout, VulkanUseFlags flags, 
+			bool isFBAttachment = false);
 
 		/** 
 		 * Lets the command buffer know that the provided image resource has been queued on it, and will be used by the
@@ -236,7 +235,7 @@ namespace bs
 		 * Assigns a render target the the command buffer. This render target's framebuffer and render pass will be used
 		 * when beginRenderPass() is called. Command buffer must not be currently recording a render pass.
 		 */
-		void setRenderTarget(const SPtr<RenderTargetCore>& rt, bool readOnlyDepthStencil, RenderSurfaceMask loadMask);
+		void setRenderTarget(const SPtr<RenderTarget>& rt, bool readOnlyDepthStencil, RenderSurfaceMask loadMask);
 
 		/** Clears the entirety currently bound render target. */
 		void clearRenderTarget(UINT32 buffers, const Color& color, float depth, UINT16 stencil, UINT8 targetMask);
@@ -245,13 +244,13 @@ namespace bs
 		void clearViewport(UINT32 buffers, const Color& color, float depth, UINT16 stencil, UINT8 targetMask);
 
 		/** Assigns a pipeline state to use for subsequent draw commands. */
-		void setPipelineState(const SPtr<GraphicsPipelineStateCore>& state);
+		void setPipelineState(const SPtr<GraphicsPipelineState>& state);
 
 		/** Assigns a pipeline state to use for subsequent dispatch commands. */
-		void setPipelineState(const SPtr<ComputePipelineStateCore>& state);
+		void setPipelineState(const SPtr<ComputePipelineState>& state);
 
 		/** Assign GPU params to the GPU programs bound by the pipeline state. */
-		void setGpuParams(const SPtr<GpuParamsCore>& gpuParams);
+		void setGpuParams(const SPtr<GpuParams>& gpuParams);
 
 		/** Sets the current viewport which determine to which portion of the render target to render to. */
 		void setViewport(const Rect2& area);
@@ -269,13 +268,13 @@ namespace bs
 		void setDrawOp(DrawOperationType drawOp);
 
 		/** Sets one or multiple vertex buffers that will be used for subsequent draw() or drawIndexed() calls. */
-		void setVertexBuffers(UINT32 index, SPtr<VertexBufferCore>* buffers, UINT32 numBuffers);
+		void setVertexBuffers(UINT32 index, SPtr<VertexBuffer>* buffers, UINT32 numBuffers);
 
 		/** Sets an index buffer that will be used for subsequent drawIndexed() calls. */
-		void setIndexBuffer(const SPtr<IndexBufferCore>& buffer);
+		void setIndexBuffer(const SPtr<IndexBuffer>& buffer);
 
 		/** Sets a declaration that determines how are vertex buffer contents interpreted. */
-		void setVertexDeclaration(const SPtr<VertexDeclarationCore>& decl);
+		void setVertexDeclaration(const SPtr<VertexDeclaration>& decl);
 
 		/** Executes a draw command using the currently bound graphics pipeline, vertex buffer and render target. */
 		void draw(UINT32 vertexOffset, UINT32 vertexCount, UINT32 instanceCount);
@@ -320,7 +319,6 @@ namespace bs
 		/** Contains information about a single Vulkan image resource bound/used on this command buffer. */
 		struct ImageInfo
 		{
-			VkAccessFlags accessFlags;
 			VkImageSubresourceRange range;
 			ResourceUseHandle useHandle;
 
@@ -333,6 +331,8 @@ namespace bs
 			bool isFBAttachment : 1;
 			bool isShaderInput : 1;
 			bool hasTransitioned : 1;
+			bool isReadOnly : 1;
+			bool isInitialReadOnly : 1;
 		};
 
 		/** Checks if all the prerequisites for rendering have been made (e.g. render target and pipeline state are set. */
@@ -394,9 +394,9 @@ namespace bs
 		Vector<ImageInfo> mImageInfos;
 		UINT32 mGlobalQueueIdx;
 
-		SPtr<VulkanGraphicsPipelineStateCore> mGraphicsPipeline;
-		SPtr<VulkanComputePipelineStateCore> mComputePipeline;
-		SPtr<VertexDeclarationCore> mVertexDecl;
+		SPtr<VulkanGraphicsPipelineState> mGraphicsPipeline;
+		SPtr<VulkanComputePipelineState> mComputePipeline;
+		SPtr<VertexDeclaration> mVertexDecl;
 		Rect2 mViewport;
 		Rect2I mScissor;
 		UINT32 mStencilRef;
@@ -434,7 +434,7 @@ namespace bs
 		 * Submits the command buffer for execution. 
 		 * 
 		 * @param[in]	syncMask	Mask that controls which other command buffers does this command buffer depend upon
-		 *							(if any). See description of @p syncMask parameter in RenderAPICore::executeCommands().
+		 *							(if any). See description of @p syncMask parameter in RenderAPI::executeCommands().
 		 */
 		void submit(UINT32 syncMask);
 
@@ -464,4 +464,4 @@ namespace bs
 	};
 
 	/** @} */
-}
+}}

@@ -6,20 +6,20 @@
 #include "BsD3D11Mappings.h"
 #include "BsRenderStats.h"
 
-namespace bs
+namespace bs { namespace ct
 {
-	D3D11SamplerStateCore::D3D11SamplerStateCore(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask)
-		:SamplerStateCore(desc, deviceMask), mSamplerState(nullptr)
+	D3D11SamplerState::D3D11SamplerState(const SAMPLER_STATE_DESC& desc, GpuDeviceFlags deviceMask)
+		:SamplerState(desc, deviceMask), mSamplerState(nullptr)
 	{ }
 
-	D3D11SamplerStateCore::~D3D11SamplerStateCore()
+	D3D11SamplerState::~D3D11SamplerState()
 	{
 		SAFE_RELEASE(mSamplerState);
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_SamplerState);
 	}
 
-	void D3D11SamplerStateCore::createInternal()
+	void D3D11SamplerState::createInternal()
 	{
 		D3D11_SAMPLER_DESC samplerState;
 		ZeroMemory(&samplerState, sizeof(D3D11_SAMPLER_DESC));
@@ -94,7 +94,7 @@ namespace bs
 			samplerState.Filter = (D3D11_FILTER)(0x80 | samplerState.Filter);
 		}
 
-		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPICore::instancePtr());
+		D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 		D3D11Device& device = rs->getPrimaryDevice();
 		HRESULT hr = device.getD3D11Device()->CreateSamplerState(&samplerState, &mSamplerState);
 
@@ -106,6 +106,6 @@ namespace bs
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_SamplerState);
 
-		SamplerStateCore::createInternal();
+		SamplerState::createInternal();
 	}
-}
+}}

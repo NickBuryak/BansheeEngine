@@ -4,7 +4,7 @@
 #include "BsGLHardwareBufferManager.h"
 #include "BsException.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	GLBuffer::GLBuffer()
 		:mTarget(0), mBufferId(0), mZeroLocked(false)
@@ -38,7 +38,7 @@ namespace bs
 		}
 
 		glBindBuffer(target, mBufferId);
-		glBufferData(target, size, nullptr, GLHardwareBufferCoreManager::getGLUsage(usage));
+		glBufferData(target, size, nullptr, GLHardwareBufferManager::getGLUsage(usage));
 	}
 
 	void* GLBuffer::lock(UINT32 offset, UINT32 length, GpuLockOptions options)
@@ -113,4 +113,4 @@ namespace bs
 		memcpy(bufferData, pSource, length);
 		unlock();
 	}
-}
+}}

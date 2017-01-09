@@ -32,12 +32,12 @@
 #include "BsD3D11GpuBuffer.h"
 #include "BsD3D11CommandBuffer.h"
 
-namespace bs
+namespace bs { namespace ct
 {
 	D3D11RenderAPI::D3D11RenderAPI()
 		: mDXGIFactory(nullptr), mDevice(nullptr), mDriverList(nullptr), mActiveD3DDriver(nullptr)
-		, mFeatureLevel(D3D_FEATURE_LEVEL_11_0), mHLSLFactory(nullptr), mIAManager(nullptr), mStencilRef(0)
-		, mActiveDrawOp(DOT_TRIANGLE_LIST), mViewportNorm(0.0f, 0.0f, 1.0f, 1.0f)
+		, mFeatureLevel(D3D_FEATURE_LEVEL_11_0), mHLSLFactory(nullptr), mIAManager(nullptr), mPSUAVsBound(false)
+		, mCSUAVsBound(false), mStencilRef(0), mActiveDrawOp(DOT_TRIANGLE_LIST), mViewportNorm(0.0f, 0.0f, 1.0f, 1.0f)
 	{ }
 
 	D3D11RenderAPI::~D3D11RenderAPI()
@@ -98,41 +98,41 @@ namespace bs
 		mDevice = bs_new<D3D11Device>(device);
 		
 		// Create the texture manager for use by others		
+		bs::TextureManager::startUp<bs::D3D11TextureManager>();
 		TextureManager::startUp<D3D11TextureManager>();
-		TextureCoreManager::startUp<D3D11TextureCoreManager>();
 
 		// Create hardware buffer manager		
-		HardwareBufferManager::startUp();
-		HardwareBufferCoreManager::startUp<D3D11HardwareBufferCoreManager>(std::ref(*mDevice));
+		bs::HardwareBufferManager::startUp();
+		HardwareBufferManager::startUp<D3D11HardwareBufferManager>(std::ref(*mDevice));
 
 		// Create render window manager
+		bs::RenderWindowManager::startUp<bs::D3D11RenderWindowManager>(this);
 		RenderWindowManager::startUp<D3D11RenderWindowManager>(this);
-		RenderWindowCoreManager::startUp<D3D11RenderWindowCoreManager>(this);
 
 		// Create & register HLSL factory		
 		mHLSLFactory = bs_new<D3D11HLSLProgramFactory>();
 
 		// Create render state manager
-		RenderStateCoreManager::startUp<D3D11RenderStateCoreManager>();
+		RenderStateManager::startUp<D3D11RenderStateManager>();
 
 		mNumDevices = 1;
 		mCurrentCapabilities = bs_newN<RenderAPICapabilities>(mNumDevices);
 		initCapabilites(selectedAdapter, mCurrentCapabilities[0]);
 				
-		GpuProgramCoreManager::instance().addFactory(mHLSLFactory);
+		GpuProgramManager::instance().addFactory(mHLSLFactory);
 
 		mIAManager = bs_new<D3D11InputLayoutManager>();
 
-		RenderAPICore::initialize();
+		RenderAPI::initialize();
 	}
 
-	void D3D11RenderAPI::initializeWithWindow(const SPtr<RenderWindowCore>& primaryWindow)
+	void D3D11RenderAPI::initializeWithWindow(const SPtr<RenderWindow>& primaryWindow)
 	{
 		D3D11RenderUtility::startUp(mDevice);
 
 		QueryManager::startUp<D3D11QueryManager>();
 
-		RenderAPICore::initializeWithWindow(primaryWindow);
+		RenderAPI::initializeWithWindow(primaryWindow);
 	}
 
     void D3D11RenderAPI::destroyCore()
@@ -179,13 +179,13 @@ namespace bs
 		mActiveRenderTarget = nullptr;
 		mActiveDepthStencilState = nullptr;
 
-		RenderStateCoreManager::shutDown();
-		RenderWindowCoreManager::shutDown();
+		RenderStateManager::shutDown();
 		RenderWindowManager::shutDown();
-		HardwareBufferCoreManager::shutDown();
+		bs::RenderWindowManager::shutDown();
 		HardwareBufferManager::shutDown();
-		TextureCoreManager::shutDown();
+		bs::HardwareBufferManager::shutDown();
 		TextureManager::shutDown();
+		bs::TextureManager::shutDown();
 
 		SAFE_RELEASE(mDXGIFactory);
 
@@ -203,50 +203,50 @@ namespace bs
 
 		mActiveD3DDriver = nullptr;
 
-		RenderAPICore::destroyCore();
+		RenderAPI::destroyCore();
 	}
 
-	void D3D11RenderAPI::setGraphicsPipeline(const SPtr<GraphicsPipelineStateCore>& pipelineState,
+	void D3D11RenderAPI::setGraphicsPipeline(const SPtr<GraphicsPipelineState>& pipelineState,
 		const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<GraphicsPipelineStateCore>& pipelineState)
+		auto executeRef = [&](const SPtr<GraphicsPipelineState>& pipelineState)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
-			D3D11BlendStateCore* d3d11BlendState;
-			D3D11RasterizerStateCore* d3d11RasterizerState;
+			D3D11BlendState* d3d11BlendState;
+			D3D11RasterizerState* d3d11RasterizerState;
 
-			D3D11GpuFragmentProgramCore* d3d11FragmentProgram;
-			D3D11GpuGeometryProgramCore* d3d11GeometryProgram;
-			D3D11GpuDomainProgramCore* d3d11DomainProgram;
-			D3D11GpuHullProgramCore* d3d11HullProgram;
+			D3D11GpuFragmentProgram* d3d11FragmentProgram;
+			D3D11GpuGeometryProgram* d3d11GeometryProgram;
+			D3D11GpuDomainProgram* d3d11DomainProgram;
+			D3D11GpuHullProgram* d3d11HullProgram;
 
 			if(pipelineState != nullptr)
 			{
-				d3d11BlendState = static_cast<D3D11BlendStateCore*>(pipelineState->getBlendState().get());
-				d3d11RasterizerState = static_cast<D3D11RasterizerStateCore*>(pipelineState->getRasterizerState().get());
-				mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilStateCore>(pipelineState->getDepthStencilState());
+				d3d11BlendState = static_cast<D3D11BlendState*>(pipelineState->getBlendState().get());
+				d3d11RasterizerState = static_cast<D3D11RasterizerState*>(pipelineState->getRasterizerState().get());
+				mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilState>(pipelineState->getDepthStencilState());
 
-				mActiveVertexShader = std::static_pointer_cast<D3D11GpuVertexProgramCore>(pipelineState->getVertexProgram());
-				d3d11FragmentProgram = static_cast<D3D11GpuFragmentProgramCore*>(pipelineState->getFragmentProgram().get());
-				d3d11GeometryProgram = static_cast<D3D11GpuGeometryProgramCore*>(pipelineState->getGeometryProgram().get());
-				d3d11DomainProgram = static_cast<D3D11GpuDomainProgramCore*>(pipelineState->getDomainProgram().get());
-				d3d11HullProgram = static_cast<D3D11GpuHullProgramCore*>(pipelineState->getHullProgram().get());
+				mActiveVertexShader = std::static_pointer_cast<D3D11GpuVertexProgram>(pipelineState->getVertexProgram());
+				d3d11FragmentProgram = static_cast<D3D11GpuFragmentProgram*>(pipelineState->getFragmentProgram().get());
+				d3d11GeometryProgram = static_cast<D3D11GpuGeometryProgram*>(pipelineState->getGeometryProgram().get());
+				d3d11DomainProgram = static_cast<D3D11GpuDomainProgram*>(pipelineState->getDomainProgram().get());
+				d3d11HullProgram = static_cast<D3D11GpuHullProgram*>(pipelineState->getHullProgram().get());
 
 				if (d3d11BlendState == nullptr)
-					d3d11BlendState = static_cast<D3D11BlendStateCore*>(BlendStateCore::getDefault().get());
+					d3d11BlendState = static_cast<D3D11BlendState*>(BlendState::getDefault().get());
 
 				if (d3d11RasterizerState == nullptr)
-					d3d11RasterizerState = static_cast<D3D11RasterizerStateCore*>(RasterizerStateCore::getDefault().get());
+					d3d11RasterizerState = static_cast<D3D11RasterizerState*>(RasterizerState::getDefault().get());
 
 				if (mActiveDepthStencilState == nullptr)
-					mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilStateCore>(DepthStencilStateCore::getDefault());
+					mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilState>(DepthStencilState::getDefault());
 			}
 			else
 			{
-				d3d11BlendState = static_cast<D3D11BlendStateCore*>(BlendStateCore::getDefault().get());
-				d3d11RasterizerState = static_cast<D3D11RasterizerStateCore*>(RasterizerStateCore::getDefault().get());
-				mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilStateCore>(DepthStencilStateCore::getDefault());
+				d3d11BlendState = static_cast<D3D11BlendState*>(BlendState::getDefault().get());
+				d3d11RasterizerState = static_cast<D3D11RasterizerState*>(RasterizerState::getDefault().get());
+				mActiveDepthStencilState = std::static_pointer_cast<D3D11DepthStencilState>(DepthStencilState::getDefault());
 
 				mActiveVertexShader = nullptr;
 				d3d11FragmentProgram = nullptr;
@@ -262,7 +262,7 @@ namespace bs
 
 			if (mActiveVertexShader != nullptr)
 			{
-				D3D11GpuVertexProgramCore* vertexProgram = static_cast<D3D11GpuVertexProgramCore*>(mActiveVertexShader.get());
+				D3D11GpuVertexProgram* vertexProgram = static_cast<D3D11GpuVertexProgram*>(mActiveVertexShader.get());
 				d3d11Context->VSSetShader(vertexProgram->getVertexShader(), nullptr, 0);
 			}
 			else
@@ -303,20 +303,20 @@ namespace bs
 		BS_INC_RENDER_STAT(NumPipelineStateChanges);
 	}
 
-	void D3D11RenderAPI::setComputePipeline(const SPtr<ComputePipelineStateCore>& pipelineState,
+	void D3D11RenderAPI::setComputePipeline(const SPtr<ComputePipelineState>& pipelineState,
 		const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<ComputePipelineStateCore>& pipelineState)
+		auto executeRef = [&](const SPtr<ComputePipelineState>& pipelineState)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
-			SPtr<GpuProgramCore> program;
+			SPtr<GpuProgram> program;
 			if (pipelineState != nullptr)
 				program = pipelineState->getProgram();
 
 			if (program != nullptr && program->getProperties().getType() == GPT_COMPUTE_PROGRAM)
 			{
-				D3D11GpuComputeProgramCore *d3d11ComputeProgram = static_cast<D3D11GpuComputeProgramCore*>(program.get());
+				D3D11GpuComputeProgram *d3d11ComputeProgram = static_cast<D3D11GpuComputeProgram*>(program.get());
 				mDevice->getImmediateContext()->CSSetShader(d3d11ComputeProgram->getComputeShader(), nullptr, 0);
 			}
 			else
@@ -336,11 +336,37 @@ namespace bs
 		BS_INC_RENDER_STAT(NumPipelineStateChanges);
 	}
 
-	void D3D11RenderAPI::setGpuParams(const SPtr<GpuParamsCore>& gpuParams, const SPtr<CommandBuffer>& commandBuffer)
+	void D3D11RenderAPI::setGpuParams(const SPtr<GpuParams>& gpuParams, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<GpuParamsCore>& gpuParams)
+		auto executeRef = [&](const SPtr<GpuParams>& gpuParams)
 		{
 			THROW_IF_NOT_CORE_THREAD;
+
+			ID3D11DeviceContext* context = mDevice->getImmediateContext();
+
+			// Clear any previously bound UAVs (otherwise shaders attempting to read resources viewed by those view will
+			// be unable to)
+			if (mPSUAVsBound || mCSUAVsBound)
+			{
+				ID3D11UnorderedAccessView* emptyUAVs[D3D11_PS_CS_UAV_REGISTER_COUNT];
+				bs_zero_out(emptyUAVs);
+
+				if(mPSUAVsBound)
+				{
+					context->OMSetRenderTargetsAndUnorderedAccessViews(
+						D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL, nullptr, nullptr, 0, 
+						D3D11_PS_CS_UAV_REGISTER_COUNT, emptyUAVs, nullptr);
+
+					mPSUAVsBound = false;
+				}
+
+				if(mCSUAVsBound)
+				{
+					context->CSSetUnorderedAccessViews(0, D3D11_PS_CS_UAV_REGISTER_COUNT, emptyUAVs, nullptr);
+
+					mCSUAVsBound = false;
+				}
+			}
 
 			bs_frame_mark();
 			{
@@ -363,14 +389,14 @@ namespace bs
 					for (auto iter = paramDesc->textures.begin(); iter != paramDesc->textures.end(); ++iter)
 					{
 						UINT32 slot = iter->second.slot;
-						SPtr<TextureCore> texture = gpuParams->getTexture(iter->second.set, slot);
+						SPtr<Texture> texture = gpuParams->getTexture(iter->second.set, slot);
 
 						while (slot >= (UINT32)srvs.size())
 							srvs.push_back(nullptr);
 
 						if (texture != nullptr)
 						{
-							D3D11TextureCore* d3d11Texture = static_cast<D3D11TextureCore*>(texture.get());
+							D3D11Texture* d3d11Texture = static_cast<D3D11Texture*>(texture.get());
 							srvs[slot] = d3d11Texture->getSRV();
 						}
 					}
@@ -378,7 +404,7 @@ namespace bs
 					for (auto iter = paramDesc->buffers.begin(); iter != paramDesc->buffers.end(); ++iter)
 					{
 						UINT32 slot = iter->second.slot;
-						SPtr<GpuBufferCore> buffer = gpuParams->getBuffer(iter->second.set, slot);
+						SPtr<GpuBuffer> buffer = gpuParams->getBuffer(iter->second.set, slot);
 
 						bool isLoadStore = iter->second.type != GPOT_BYTE_BUFFER &&
 							iter->second.type != GPOT_STRUCTURED_BUFFER;
@@ -390,7 +416,7 @@ namespace bs
 
 							if (buffer != nullptr)
 							{
-								D3D11GpuBufferCore* d3d11buffer = static_cast<D3D11GpuBufferCore*>(buffer.get());
+								D3D11GpuBuffer* d3d11buffer = static_cast<D3D11GpuBuffer*>(buffer.get());
 								srvs[slot] = d3d11buffer->getSRV();
 							}
 						}
@@ -401,7 +427,7 @@ namespace bs
 
 							if (buffer != nullptr)
 							{
-								D3D11GpuBufferCore* d3d11buffer = static_cast<D3D11GpuBufferCore*>(buffer.get());
+								D3D11GpuBuffer* d3d11buffer = static_cast<D3D11GpuBuffer*>(buffer.get());
 								uavs[slot] = d3d11buffer->getUAV();
 							}
 						}
@@ -411,7 +437,7 @@ namespace bs
 					{
 						UINT32 slot = iter->second.slot;
 
-						SPtr<TextureCore> texture = gpuParams->getLoadStoreTexture(iter->second.set, slot);
+						SPtr<Texture> texture = gpuParams->getLoadStoreTexture(iter->second.set, slot);
 						const TextureSurface& surface = gpuParams->getLoadStoreSurface(iter->second.set, slot);
 
 						while (slot >= (UINT32)uavs.size())
@@ -419,7 +445,7 @@ namespace bs
 
 						if (texture != nullptr)
 						{
-							SPtr<TextureView> texView = TextureCore::requestView(texture, surface.mipLevel, 1,
+							SPtr<TextureView> texView = Texture::requestView(texture, surface.mipLevel, 1,
 								surface.arraySlice, surface.numArraySlices, GVU_RANDOMWRITE);
 
 							D3D11TextureView* d3d11texView = static_cast<D3D11TextureView*>(texView.get());
@@ -437,30 +463,30 @@ namespace bs
 							if (mBoundUAVs[slot].second != nullptr)
 								mBoundUAVs[slot].first->releaseView(mBoundUAVs[slot].second);
 
-							mBoundUAVs[slot] = std::pair<SPtr<TextureCore>, SPtr<TextureView>>();
+							mBoundUAVs[slot] = std::pair<SPtr<Texture>, SPtr<TextureView>>();
 						}
 					}
 
 					for (auto iter = paramDesc->samplers.begin(); iter != paramDesc->samplers.end(); ++iter)
 					{
 						UINT32 slot = iter->second.slot;
-						SPtr<SamplerStateCore> samplerState = gpuParams->getSamplerState(iter->second.set, slot);
+						SPtr<SamplerState> samplerState = gpuParams->getSamplerState(iter->second.set, slot);
 
 						while (slot >= (UINT32)samplers.size())
 							samplers.push_back(nullptr);
 
 						if (samplerState == nullptr)
-							samplerState = SamplerStateCore::getDefault();
+							samplerState = SamplerState::getDefault();
 
-						D3D11SamplerStateCore* d3d11SamplerState = 
-							static_cast<D3D11SamplerStateCore*>(const_cast<SamplerStateCore*>(samplerState.get()));
+						D3D11SamplerState* d3d11SamplerState = 
+							static_cast<D3D11SamplerState*>(const_cast<SamplerState*>(samplerState.get()));
 						samplers[slot] = d3d11SamplerState->getInternal();
 					}
 
 					for (auto iter = paramDesc->paramBlocks.begin(); iter != paramDesc->paramBlocks.end(); ++iter)
 					{
 						UINT32 slot = iter->second.slot;
-						SPtr<GpuParamBlockBufferCore> buffer = gpuParams->getParamBlockBuffer(iter->second.set, slot);
+						SPtr<GpuParamBlockBuffer> buffer = gpuParams->getParamBlockBuffer(iter->second.set, slot);
 
 						while (slot >= (UINT32)constBuffers.size())
 							constBuffers.push_back(nullptr);
@@ -469,14 +495,12 @@ namespace bs
 						{
 							buffer->flushToGPU();
 
-							const D3D11GpuParamBlockBufferCore* d3d11paramBlockBuffer =
-								static_cast<const D3D11GpuParamBlockBufferCore*>(buffer.get());
+							const D3D11GpuParamBlockBuffer* d3d11paramBlockBuffer =
+								static_cast<const D3D11GpuParamBlockBuffer*>(buffer.get());
 							constBuffers[slot] = d3d11paramBlockBuffer->getD3D11Buffer();
 						}
 					}
 				};
-
-				ID3D11DeviceContext* context = mDevice->getImmediateContext();
 
 				UINT32 numSRVs = 0;
 				UINT32 numUAVs = 0;
@@ -485,18 +509,11 @@ namespace bs
 
 				populateViews(GPT_VERTEX_PROGRAM);
 				numSRVs = (UINT32)srvs.size();
-				numUAVs = (UINT32)uavs.size();
 				numConstBuffers = (UINT32)constBuffers.size();
 				numSamplers = (UINT32)samplers.size();
 
 				if(numSRVs > 0)
 					context->VSSetShaderResources(0, numSRVs, srvs.data());
-
-				if(numUAVs > 0)
-				{
-					context->OMSetRenderTargetsAndUnorderedAccessViews(D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL, nullptr,
-						nullptr, 0, numUAVs, uavs.data(), nullptr);
-				}
 
 				if (numConstBuffers > 0)
 					context->VSSetConstantBuffers(0, numConstBuffers, constBuffers.data());
@@ -506,11 +523,19 @@ namespace bs
 
 				populateViews(GPT_FRAGMENT_PROGRAM);
 				numSRVs = (UINT32)srvs.size();
+				numUAVs = (UINT32)uavs.size();
 				numConstBuffers = (UINT32)constBuffers.size();
 				numSamplers = (UINT32)samplers.size();
 
 				if (numSRVs > 0)
 					context->PSSetShaderResources(0, numSRVs, srvs.data());
+
+				if (numUAVs > 0)
+				{
+					context->OMSetRenderTargetsAndUnorderedAccessViews(
+						D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL, nullptr, nullptr, 0, numUAVs, uavs.data(), nullptr);
+					mPSUAVsBound = true;
+				}
 
 				if (numConstBuffers > 0)
 					context->PSSetConstantBuffers(0, numConstBuffers, constBuffers.data());
@@ -569,8 +594,11 @@ namespace bs
 				if (numSRVs > 0)
 					context->CSSetShaderResources(0, numSRVs, srvs.data());
 
-				if(numUAVs > 0)
+				if (numUAVs > 0)
+				{
 					context->CSSetUnorderedAccessViews(0, numUAVs, uavs.data(), nullptr);
+					mCSUAVsBound = true;
+				}
 
 				if (numConstBuffers > 0)
 					context->CSSetConstantBuffers(0, numConstBuffers, constBuffers.data());
@@ -619,10 +647,10 @@ namespace bs
 		}
 	}
 
-	void D3D11RenderAPI::setVertexBuffers(UINT32 index, SPtr<VertexBufferCore>* buffers, UINT32 numBuffers, 
+	void D3D11RenderAPI::setVertexBuffers(UINT32 index, SPtr<VertexBuffer>* buffers, UINT32 numBuffers, 
 		const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](UINT32 index, SPtr<VertexBufferCore>* buffers, UINT32 numBuffers)
+		auto executeRef = [&](UINT32 index, SPtr<VertexBuffer>* buffers, UINT32 numBuffers)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
@@ -639,7 +667,7 @@ namespace bs
 
 			for (UINT32 i = 0; i < numBuffers; i++)
 			{
-				SPtr<D3D11VertexBufferCore> vertexBuffer = std::static_pointer_cast<D3D11VertexBufferCore>(buffers[i]);
+				SPtr<D3D11VertexBuffer> vertexBuffer = std::static_pointer_cast<D3D11VertexBuffer>(buffers[i]);
 				const VertexBufferProperties& vbProps = vertexBuffer->getProperties();
 
 				dx11buffers[i] = vertexBuffer->getD3DVertexBuffer();
@@ -664,13 +692,13 @@ namespace bs
 		BS_INC_RENDER_STAT(NumVertexBufferBinds);
 	}
 
-	void D3D11RenderAPI::setIndexBuffer(const SPtr<IndexBufferCore>& buffer, const SPtr<CommandBuffer>& commandBuffer)
+	void D3D11RenderAPI::setIndexBuffer(const SPtr<IndexBuffer>& buffer, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<IndexBufferCore>& buffer)
+		auto executeRef = [&](const SPtr<IndexBuffer>& buffer)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
-			SPtr<D3D11IndexBufferCore> indexBuffer = std::static_pointer_cast<D3D11IndexBufferCore>(buffer);
+			SPtr<D3D11IndexBuffer> indexBuffer = std::static_pointer_cast<D3D11IndexBuffer>(buffer);
 
 			DXGI_FORMAT indexFormat = DXGI_FORMAT_R16_UINT;
 			if (indexBuffer->getProperties().getType() == IT_16BIT)
@@ -696,10 +724,10 @@ namespace bs
 		BS_INC_RENDER_STAT(NumIndexBufferBinds);
 	}
 
-	void D3D11RenderAPI::setVertexDeclaration(const SPtr<VertexDeclarationCore>& vertexDeclaration, 
+	void D3D11RenderAPI::setVertexDeclaration(const SPtr<VertexDeclaration>& vertexDeclaration, 
 		const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<VertexDeclarationCore>& vertexDeclaration)
+		auto executeRef = [&](const SPtr<VertexDeclaration>& vertexDeclaration)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
@@ -1014,10 +1042,10 @@ namespace bs
 		BS_INC_RENDER_STAT(NumClears);
 	}
 
-	void D3D11RenderAPI::setRenderTarget(const SPtr<RenderTargetCore>& target, bool readOnlyDepthStencil, 
+	void D3D11RenderAPI::setRenderTarget(const SPtr<RenderTarget>& target, bool readOnlyDepthStencil, 
 		RenderSurfaceMask loadMask, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<RenderTargetCore>& target, bool readOnlyDepthStencil)
+		auto executeRef = [&](const SPtr<RenderTarget>& target, bool readOnlyDepthStencil)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
@@ -1061,7 +1089,7 @@ namespace bs
 		BS_INC_RENDER_STAT(NumRenderTargetChanges);
 	}
 
-	void D3D11RenderAPI::swapBuffers(const SPtr<RenderTargetCore>& target, UINT32 syncMask)
+	void D3D11RenderAPI::swapBuffers(const SPtr<RenderTarget>& target, UINT32 syncMask)
 	{
 		THROW_IF_NOT_CORE_THREAD;
 		target->swapBuffers();
@@ -1080,6 +1108,9 @@ namespace bs
 	void D3D11RenderAPI::submitCommandBuffer(const SPtr<CommandBuffer>& commandBuffer, UINT32 syncMask)
 	{
 		SPtr<D3D11CommandBuffer> cb = std::static_pointer_cast<D3D11CommandBuffer>(commandBuffer);
+		if (cb == nullptr)
+			return;
+
 		cb->executeCommands();
 		cb->clear();
 	}
@@ -1331,7 +1362,7 @@ namespace bs
 
 		for (auto& param : params)
 		{
-			const GpuParamDataTypeInfo& typeInfo = GpuParams::PARAM_SIZES.lookup[param.type];
+			const GpuParamDataTypeInfo& typeInfo = bs::GpuParams::PARAM_SIZES.lookup[param.type];
 			UINT32 size = typeInfo.size / 4;
 
 			if (param.arraySize > 1)
@@ -1409,4 +1440,4 @@ namespace bs
 
 		mDevice->getImmediateContext()->IASetInputLayout(ia);
 	}
-}
+}}

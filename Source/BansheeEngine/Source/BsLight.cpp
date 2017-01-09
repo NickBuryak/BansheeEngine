@@ -120,99 +120,6 @@ namespace bs
 		}
 	}
 
-	const UINT32 LightCore::LIGHT_CONE_NUM_SIDES = 20;
-	const UINT32 LightCore::LIGHT_CONE_NUM_SLICES = 10;
-
-	LightCore::LightCore(LightType type, Color color,
-		float intensity, float range, bool castsShadows, Degree spotAngle, Degree spotFalloffAngle)
-		:LightBase(type, color, intensity, range, castsShadows, spotAngle, spotFalloffAngle), mRendererId(0)
-	{
-
-	}
-
-	LightCore::~LightCore()
-	{
-		gRenderer()->notifyLightRemoved(this);
-	}
-
-	void LightCore::initialize()
-	{
-		updateBounds();
-		gRenderer()->notifyLightAdded(this);
-
-		CoreObjectCore::initialize();
-	}
-
-	void LightCore::syncToCore(const CoreSyncData& data)
-	{
-		char* dataPtr = (char*)data.getBuffer();
-
-		UINT32 dirtyFlags = 0;
-		bool oldIsActive = mIsActive;
-		LightType oldType = mType;
-
-		dataPtr = rttiReadElem(mPosition, dataPtr);
-		dataPtr = rttiReadElem(mRotation, dataPtr);
-		dataPtr = rttiReadElem(mType, dataPtr);
-		dataPtr = rttiReadElem(mCastsShadows, dataPtr);
-		dataPtr = rttiReadElem(mColor, dataPtr);
-		dataPtr = rttiReadElem(mRange, dataPtr);
-		dataPtr = rttiReadElem(mIntensity, dataPtr);
-		dataPtr = rttiReadElem(mSpotAngle, dataPtr);
-		dataPtr = rttiReadElem(mSpotFalloffAngle, dataPtr);
-		dataPtr = rttiReadElem(mPhysCorrectAtten, dataPtr);
-		dataPtr = rttiReadElem(mIsActive, dataPtr);
-		dataPtr = rttiReadElem(dirtyFlags, dataPtr);
-		dataPtr = rttiReadElem(mBounds, dataPtr);
-
-		updateBounds();
-
-		if (dirtyFlags == (UINT32)LightDirtyFlag::Transform)
-		{
-			if (mIsActive)
-				gRenderer()->notifyLightUpdated(this);
-		}
-		else
-		{
-			if (oldIsActive != mIsActive)
-			{
-				if (mIsActive)
-					gRenderer()->notifyLightAdded(this);
-				else
-				{
-					LightType newType = mType;
-					mType = oldType;
-					gRenderer()->notifyLightRemoved(this);
-					mType = newType;
-				}
-			}
-			else
-			{
-				LightType newType = mType;
-				mType = oldType;
-				gRenderer()->notifyLightRemoved(this);
-				mType = newType;
-
-				gRenderer()->notifyLightAdded(this);
-			}
-		}
-	}
-
-	SPtr<MeshCore> LightCore::getMesh() const
-	{
-		switch (mType)
-		{
-		case LightType::Directional:
-			return nullptr;
-		case LightType::Point:
-			return RendererUtility::instance().getPointLightStencil();
-		case LightType::Spot:
-			return RendererUtility::instance().getSpotLightStencil();
-		}
-
-		return nullptr;
-	}
-
 	Light::Light()
 		:mLastUpdateHash(0)
 	{
@@ -228,9 +135,9 @@ namespace bs
 		updateBounds();
 	}
 
-	SPtr<LightCore> Light::getCore() const
+	SPtr<ct::Light> Light::getCore() const
 	{
-		return std::static_pointer_cast<LightCore>(mCoreSpecific);
+		return std::static_pointer_cast<ct::Light>(mCoreSpecific);
 	}
 
 	SPtr<Light> Light::create(LightType type, Color color,
@@ -254,11 +161,11 @@ namespace bs
 		return handlerPtr;
 	}
 
-	SPtr<CoreObjectCore> Light::createCore() const
+	SPtr<ct::CoreObject> Light::createCore() const
 	{
-		LightCore* handler = new (bs_alloc<LightCore>()) 
-			LightCore(mType, mColor, mIntensity, mRange, mCastsShadows, mSpotAngle, mSpotFalloffAngle);
-		SPtr<LightCore> handlerPtr = bs_shared_ptr<LightCore>(handler);
+		ct::Light* handler = new (bs_alloc<ct::Light>())
+			ct::Light(mType, mColor, mIntensity, mRange, mCastsShadows, mSpotAngle, mSpotFalloffAngle);
+		SPtr<ct::Light> handlerPtr = bs_shared_ptr<ct::Light>(handler);
 		handlerPtr->_setThisPtr(handlerPtr);
 
 		return handlerPtr;
@@ -325,5 +232,101 @@ namespace bs
 	RTTITypeBase* Light::getRTTI() const
 	{
 		return Light::getRTTIStatic();
+	}
+
+	namespace ct
+	{
+	const UINT32 Light::LIGHT_CONE_NUM_SIDES = 20;
+	const UINT32 Light::LIGHT_CONE_NUM_SLICES = 10;
+
+	Light::Light(LightType type, Color color,
+		float intensity, float range, bool castsShadows, Degree spotAngle, Degree spotFalloffAngle)
+		:LightBase(type, color, intensity, range, castsShadows, spotAngle, spotFalloffAngle), mRendererId(0)
+	{
+
+	}
+
+	Light::~Light()
+	{
+		gRenderer()->notifyLightRemoved(this);
+	}
+
+	void Light::initialize()
+	{
+		updateBounds();
+		gRenderer()->notifyLightAdded(this);
+
+		CoreObject::initialize();
+	}
+
+	void Light::syncToCore(const CoreSyncData& data)
+	{
+		char* dataPtr = (char*)data.getBuffer();
+
+		UINT32 dirtyFlags = 0;
+		bool oldIsActive = mIsActive;
+		LightType oldType = mType;
+
+		dataPtr = rttiReadElem(mPosition, dataPtr);
+		dataPtr = rttiReadElem(mRotation, dataPtr);
+		dataPtr = rttiReadElem(mType, dataPtr);
+		dataPtr = rttiReadElem(mCastsShadows, dataPtr);
+		dataPtr = rttiReadElem(mColor, dataPtr);
+		dataPtr = rttiReadElem(mRange, dataPtr);
+		dataPtr = rttiReadElem(mIntensity, dataPtr);
+		dataPtr = rttiReadElem(mSpotAngle, dataPtr);
+		dataPtr = rttiReadElem(mSpotFalloffAngle, dataPtr);
+		dataPtr = rttiReadElem(mPhysCorrectAtten, dataPtr);
+		dataPtr = rttiReadElem(mIsActive, dataPtr);
+		dataPtr = rttiReadElem(dirtyFlags, dataPtr);
+		dataPtr = rttiReadElem(mBounds, dataPtr);
+
+		updateBounds();
+
+		if (dirtyFlags == (UINT32)LightDirtyFlag::Transform)
+		{
+			if (mIsActive)
+				gRenderer()->notifyLightUpdated(this);
+		}
+		else
+		{
+			if (oldIsActive != mIsActive)
+			{
+				if (mIsActive)
+					gRenderer()->notifyLightAdded(this);
+				else
+				{
+					LightType newType = mType;
+					mType = oldType;
+					gRenderer()->notifyLightRemoved(this);
+					mType = newType;
+				}
+			}
+			else
+			{
+				LightType newType = mType;
+				mType = oldType;
+				gRenderer()->notifyLightRemoved(this);
+				mType = newType;
+
+				gRenderer()->notifyLightAdded(this);
+			}
+		}
+	}
+
+	SPtr<Mesh> Light::getMesh() const
+	{
+		switch (mType)
+		{
+		case LightType::Directional:
+			return nullptr;
+		case LightType::Point:
+			return RendererUtility::instance().getPointLightStencil();
+		case LightType::Spot:
+			return RendererUtility::instance().getSpotLightStencil();
+		}
+
+		return nullptr;
+	}
 	}
 }
