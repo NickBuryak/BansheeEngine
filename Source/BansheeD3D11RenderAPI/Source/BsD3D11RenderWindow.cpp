@@ -104,9 +104,6 @@ namespace bs
 			mWindow = nullptr;
 		}
 
-		if (mDepthStencilView != nullptr)
-			Texture::releaseView(mDepthStencilView);
-
 		destroySizeDependedD3DResources();
 	}
 
@@ -693,11 +690,7 @@ namespace bs
 			BS_EXCEPT(RenderingAPIException, "Unable to create rendertagert view\nError Description:" + errorDescription);
 		}
 
-		if (mDepthStencilView != nullptr)
-		{
-			Texture::releaseView(mDepthStencilView);
-			mDepthStencilView = nullptr;
-		}
+		mDepthStencilView = nullptr;
 
 		if (mDesc.depthBuffer)
 		{
@@ -710,7 +703,7 @@ namespace bs
 			texDesc.numSamples = getProperties().getMultisampleCount();
 
 			mDepthStencilBuffer = Texture::create(texDesc);
-			mDepthStencilView = Texture::requestView(mDepthStencilBuffer, 0, 1, 0, 1, GVU_DEPTHSTENCIL);
+			mDepthStencilView = mDepthStencilBuffer->requestView(0, 1, 0, 1, GVU_DEPTHSTENCIL);
 		}
 		else
 			mDepthStencilBuffer = nullptr;

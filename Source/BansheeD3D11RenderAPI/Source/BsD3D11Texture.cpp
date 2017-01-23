@@ -25,6 +25,8 @@ namespace bs { namespace ct
 
 	D3D11Texture::~D3D11Texture()
 	{ 
+		clearBufferViews();
+
 		SAFE_RELEASE(mTex);
 		SAFE_RELEASE(m1DTex);
 		SAFE_RELEASE(m2DTex);
@@ -335,8 +337,7 @@ namespace bs { namespace ct
 			viewDesc.numArraySlices = desc.ArraySize;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
-			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
+			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(this, viewDesc));
 		}
 	}
 
@@ -385,23 +386,16 @@ namespace bs { namespace ct
 			desc.Usage			= D3D11_USAGE_DEFAULT;
 			desc.BindFlags		= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE; // TODO - Add flags to allow RT be created without shader resource flags (might be more optimal)
 			desc.CPUAccessFlags = 0;
-			desc.MipLevels		= 1;
 
 			DXGI_SAMPLE_DESC sampleDesc;
 			D3D11RenderAPI* rs = static_cast<D3D11RenderAPI*>(RenderAPI::instancePtr());
 			rs->determineMultisampleSettings(sampleCount, d3dPF, &sampleDesc);
 			desc.SampleDesc		= sampleDesc;
-
-			if (texType == TEX_TYPE_CUBE_MAP)
-			{
-				BS_EXCEPT(NotImplementedException, "Cube map not yet supported as a render target."); // TODO: Will be once I add proper texture array support
-			}
 		}
 		else if((usage & TU_DEPTHSTENCIL) != 0)
 		{
 			desc.Usage			= D3D11_USAGE_DEFAULT;
 			desc.CPUAccessFlags = 0;
-			desc.MipLevels		= 1;
 			desc.Format			= D3D11Mappings::getTypelessDepthStencilPF(closestFormat);
 
 			if(readableDepth)
@@ -414,11 +408,6 @@ namespace bs { namespace ct
 			rs->determineMultisampleSettings(sampleCount, d3dPF, &sampleDesc);
 			desc.SampleDesc		= sampleDesc;
 
-			if (texType == TEX_TYPE_CUBE_MAP)
-			{
-				BS_EXCEPT(NotImplementedException, "Cube map not yet supported as a depth stencil target."); // TODO: Will be once I add proper texture array support
-			}
-
 			mDXGIColorFormat = D3D11Mappings::getShaderResourceDepthStencilPF(closestFormat);
 			mDXGIDepthStencilFormat = d3dPF;
 		}
@@ -428,17 +417,17 @@ namespace bs { namespace ct
 			desc.BindFlags		= D3D11_BIND_SHADER_RESOURCE;
 			desc.CPUAccessFlags = D3D11Mappings::getAccessFlags((GpuBufferUsage)usage);
 
-			// Determine total number of mipmaps including main one (d3d11 convention)
-			desc.MipLevels		= (numMips == MIP_UNLIMITED || (1U << numMips) > width) ? 0 : numMips + 1;
-
 			DXGI_SAMPLE_DESC sampleDesc;
 			sampleDesc.Count	= 1;
 			sampleDesc.Quality	= 0;
 			desc.SampleDesc		= sampleDesc;
 		}
 
+		// Determine total number of mipmaps including main one (d3d11 convention)
+		desc.MipLevels = (numMips == MIP_UNLIMITED || (1U << numMips) > width) ? 0 : numMips + 1;
+
 		if (texType == TEX_TYPE_CUBE_MAP)
-            desc.MiscFlags      |= D3D11_RESOURCE_MISC_TEXTURECUBE;
+            desc.MiscFlags |= D3D11_RESOURCE_MISC_TEXTURECUBE;
 
 		if ((usage & TU_LOADSTORE) != 0)
 			desc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
@@ -483,8 +472,7 @@ namespace bs { namespace ct
 			viewDesc.numArraySlices = desc.ArraySize;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
-			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
+			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(this, viewDesc));
 		}
 	}
 
@@ -601,8 +589,7 @@ namespace bs { namespace ct
 			viewDesc.numArraySlices = 1;
 			viewDesc.usage = GVU_DEFAULT;
 
-			SPtr<Texture> thisPtr = std::static_pointer_cast<Texture>(getThisPtr());
-			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(thisPtr, viewDesc));
+			mShaderResourceView = bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(this, viewDesc));
 		}
 	}
 
@@ -755,8 +742,8 @@ namespace bs { namespace ct
 		}
 	}
 
-	SPtr<TextureView> D3D11Texture::createView(const SPtr<Texture>& texture, const TEXTURE_VIEW_DESC& desc)
+	SPtr<TextureView> D3D11Texture::createView(const TEXTURE_VIEW_DESC& desc)
 	{
-		return bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(texture, desc));
+		return bs_shared_ptr<D3D11TextureView>(new (bs_alloc<D3D11TextureView>()) D3D11TextureView(this, desc));
 	}
 }}
