@@ -39,13 +39,13 @@ namespace bs { namespace ct
 	}
 
 	RendererCamera::RendererCamera()
-		: mUsingRenderTargets(false)
+		: mUsingGBuffer(false)
 	{
 		mParamBuffer = gPerCameraParamDef.createBuffer();
 	}
 
 	RendererCamera::RendererCamera(const RENDERER_VIEW_DESC& desc)
-		: mViewDesc(desc), mUsingRenderTargets(false)
+		: mViewDesc(desc), mUsingGBuffer(false)
 	{
 		mParamBuffer = gPerCameraParamDef.createBuffer();
 
@@ -77,17 +77,21 @@ namespace bs { namespace ct
 		mPostProcessInfo.settingDirty = true;
 	}
 
-	void RendererCamera::setTransform(const Vector3& origin, const Vector3& direction, const Matrix4& view, const Matrix4& proj)
+	void RendererCamera::setTransform(const Vector3& origin, const Vector3& direction, const Matrix4& view, 
+									  const Matrix4& proj, const ConvexVolume& worldFrustum)
 	{
 		mViewDesc.viewOrigin = origin;
 		mViewDesc.viewDirection = direction;
 		mViewDesc.viewTransform = view;
 		mViewDesc.projTransform = proj;
+		mViewDesc.cullFrustum = worldFrustum;
 	}
 
 	void RendererCamera::setView(const RENDERER_VIEW_DESC& desc)
 	{
 		mViewDesc = desc;
+
+		setStateReductionMode(desc.stateReduction);
 	}
 
 	void RendererCamera::beginRendering(bool useGBuffer)
@@ -103,7 +107,7 @@ namespace bs { namespace ct
 				mRenderTargets = RenderTargets::create(mViewDesc.target, mViewDesc.isHDR);
 
 			mRenderTargets->allocate();
-			mUsingRenderTargets = true;
+			mUsingGBuffer = true;
 		}
 	}
 
@@ -112,60 +116,43 @@ namespace bs { namespace ct
 		mOpaqueQueue->clear();
 		mTransparentQueue->clear();
 
-		if(mUsingRenderTargets)
+		if(mUsingGBuffer)
 		{
 			mRenderTargets->release();
-			mUsingRenderTargets = false;
+			mUsingGBuffer = false;
 		}
 	}
 
-	void RendererCamera::determineVisible(const Vector<RendererObject*>& renderables, const Vector<Bounds>& renderableBounds,
+	void RendererCamera::determineVisible(const Vector<RendererObject*>& renderables, const Vector<CullInfo>& cullInfos,
 		Vector<bool>* visibility)
 	{
-		mVisibility.clear();
-		mVisibility.resize(renderables.size(), false);
+		mVisibility.renderables.clear();
+		mVisibility.renderables.resize(renderables.size(), false);
 
 		if (mViewDesc.isOverlay)
 			return;
 
-		UINT64 cameraLayers = mViewDesc.visibleLayers;
-		const ConvexVolume& worldFrustum = mViewDesc.cullFrustum;
+		calculateVisibility(cullInfos, mVisibility.renderables);
 
 		// Update per-object param buffers and queue render elements
-		for(UINT32 i = 0; i < (UINT32)renderables.size(); i++)
+		for(UINT32 i = 0; i < (UINT32)cullInfos.size(); i++)
 		{
-			Renderable* renderable = renderables[i]->renderable;
-			UINT32 rendererId = renderable->getRendererId();
-
-			if ((renderable->getLayer() & cameraLayers) == 0)
+			if (!mVisibility.renderables[i])
 				continue;
 
-			// Do frustum culling
-			// Note: This is bound to be a bottleneck at some point. When it is ensure that intersect methods use vector
-			// operations, as it is trivial to update them. Also consider spatial partitioning.
-			const Sphere& boundingSphere = renderableBounds[rendererId].getSphere();
-			if (worldFrustum.intersects(boundingSphere))
+			const AABox& boundingBox = cullInfos[i].bounds.getBox();
+			float distanceToCamera = (mViewDesc.viewOrigin - boundingBox.getCenter()).length();
+
+			for (auto& renderElem : renderables[i]->elements)
 			{
-				// More precise with the box
-				const AABox& boundingBox = renderableBounds[rendererId].getBox();
+				// Note: I could keep opaque and transparent renderables in two separate arrays, so I don't need to do the
+				// check here
+				bool isTransparent = (renderElem.material->getShader()->getFlags() & (UINT32)ShaderFlags::Transparent) != 0;
 
-				if (worldFrustum.intersects(boundingBox))
-				{
-					mVisibility[i] = true;
-
-					float distanceToCamera = (mViewDesc.viewOrigin - boundingBox.getCenter()).length();
-
-					for (auto& renderElem : renderables[i]->elements)
-					{
-						bool isTransparent = (renderElem.material->getShader()->getFlags() & (UINT32)ShaderFlags::Transparent) != 0;
-
-						if (isTransparent)
-							mTransparentQueue->add(&renderElem, distanceToCamera);
-						else
-							mOpaqueQueue->add(&renderElem, distanceToCamera);
-					}
-
-				}
+				if (isTransparent)
+					mTransparentQueue->add(&renderElem, distanceToCamera);
+				else
+					mOpaqueQueue->add(&renderElem, distanceToCamera);
 			}
 		}
 
@@ -175,12 +162,37 @@ namespace bs { namespace ct
 			{
 				bool visible = (*visibility)[i];
 
-				(*visibility)[i] = visible || mVisibility[i];
+				(*visibility)[i] = visible || mVisibility.renderables[i];
 			}
 		}
 
 		mOpaqueQueue->sort();
 		mTransparentQueue->sort();
+	}
+
+	void RendererCamera::calculateVisibility(const Vector<CullInfo>& cullInfos, Vector<bool>& visibility) const
+	{
+		UINT64 cameraLayers = mViewDesc.visibleLayers;
+		const ConvexVolume& worldFrustum = mViewDesc.cullFrustum;
+
+		for (UINT32 i = 0; i < (UINT32)cullInfos.size(); i++)
+		{
+			if ((cullInfos[i].layer & cameraLayers) == 0)
+				continue;
+
+			// Do frustum culling
+			// Note: This is bound to be a bottleneck at some point. When it is ensure that intersect methods use vector
+			// operations, as it is trivial to update them. Also consider spatial partitioning.
+			const Sphere& boundingSphere = cullInfos[i].bounds.getSphere();
+			if (worldFrustum.intersects(boundingSphere))
+			{
+				// More precise with the box
+				const AABox& boundingBox = cullInfos[i].bounds.getBox();
+
+				if (worldFrustum.intersects(boundingBox))
+					visibility[i] = true;
+			}
+		}
 	}
 
 	Vector2 RendererCamera::getDeviceZTransform(const Matrix4& projMatrix) const
