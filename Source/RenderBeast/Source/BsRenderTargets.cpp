@@ -10,7 +10,7 @@
 namespace bs { namespace ct
 {
 	RenderTargets::RenderTargets(const RENDERER_VIEW_TARGET_DESC& view, bool hdr)
-		:mViewTarget(view), mHDR(hdr)
+		:mViewTarget(view), mHDR(hdr), mWidth(view.targetWidth), mHeight(view.targetHeight)
 	{
 		// Note: Consider customizable HDR format via options? e.g. smaller PF_FLOAT_R11G11B10 or larger 32-bit format
 		mSceneColorFormat = hdr ? PF_FLOAT16_RGBA : PF_R8G8B8A8;
@@ -34,8 +34,8 @@ namespace bs { namespace ct
 		// then back into sRGB when writing to albedo, and back to linear when reading from albedo during light pass. This /might/ have
 		// a performance impact. In which case we could just use a higher precision albedo buffer, which can then store linear color
 		// directly (storing linear in 8bit buffer causes too much detail to be lost in the blacks).
-		SPtr<PooledRenderTexture> newColorRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mSceneColorFormat, width, height, TU_RENDERTARGET,
-			mViewTarget.numSamples, false));
+		SPtr<PooledRenderTexture> newColorRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mSceneColorFormat, width, 
+			height, TU_RENDERTARGET | TU_LOADSTORE, mViewTarget.numSamples, false));
 		SPtr<PooledRenderTexture> newAlbedoRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mAlbedoFormat, width, 
 			height, TU_RENDERTARGET, mViewTarget.numSamples, true));
 		SPtr<PooledRenderTexture> newNormalRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mNormalFormat, width, 
@@ -129,6 +129,11 @@ namespace bs { namespace ct
 
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
 		rapi.setViewport(area);
+	}
+
+	SPtr<Texture> RenderTargets::getSceneColor() const
+	{
+		return mSceneColorTex->texture;
 	}
 
 	SPtr<Texture> RenderTargets::getTextureA() const
