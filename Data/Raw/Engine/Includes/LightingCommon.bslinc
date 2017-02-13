@@ -1,19 +1,11 @@
-#include "$ENGINE$\PerCameraData.bslinc"
-
-Blocks =
-{
-	Block PerCamera : auto("PerCamera");
-};
-
 Technique
- : base("LightingCommon")
- : inherits("PerCameraData") =
+ : base("LightingCommon") =
 {
 	Language = "HLSL11";
 	
 	Pass =
 	{
-		Compute = 
+		Common = 
 		{
 			#define PI 3.1415926
 			#define HALF_PI 1.5707963
@@ -28,12 +20,7 @@ Technique
 				float radiusSqrdInv;
 				float3 color;
 			};
-			
-			float convertFromDeviceZ(float deviceZ)
-			{
-				return (1.0f / (deviceZ + gDeviceZToWorldZ.y)) * gDeviceZToWorldZ.x;
-			}
-			
+						
 			float getSpotAttenuation(float3 worldPosToLight, float3 direction, float3 angles)
 			{
 				float output = saturate((dot(-worldPosToLight, direction) - angles.y) * angles.z);
@@ -88,14 +75,13 @@ Technique
 };
 
 Technique
- : base("LightingCommon")
- : inherits("PerCameraData") =
+ : base("LightingCommon") =
 {
 	Language = "GLSL";
 	
 	Pass =
 	{
-		Compute = 
+		Common = 
 		{
 			#define PI 3.1415926
 			#define HALF_PI 1.5707963
@@ -110,12 +96,7 @@ Technique
 				float radiusSqrdInv;
 				vec3 color;
 			};
-			
-			float convertFromDeviceZ(float deviceZ)
-			{
-				return (1.0f / (deviceZ + gDeviceZToWorldZ.y)) * gDeviceZToWorldZ.x;	
-			}
-						
+									
 			float getSpotAttenuation(vec3 worldPosToLight, vec3 direction, vec3 angles)
 			{
 				float atten = clamp((dot(-worldPosToLight, direction) - angles.y) * angles.z, 0.0, 1.0);
