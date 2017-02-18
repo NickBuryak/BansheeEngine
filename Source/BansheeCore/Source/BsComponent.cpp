@@ -7,11 +7,11 @@
 namespace bs
 {
 	Component::Component()
-		:mNotifyFlags(TCF_None)
+		:mNotifyFlags(TCF_None), mSceneManagerId(-1)
 	{ }
 
 	Component::Component(const HSceneObject& parent)
-		:mNotifyFlags(TCF_None), mParent(parent)
+		:mNotifyFlags(TCF_None), mParent(parent), mSceneManagerId(-1)
 	{
 		setName("Component");
 	}

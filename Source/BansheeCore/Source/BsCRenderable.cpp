@@ -11,10 +11,17 @@
 
 namespace bs
 {
+	CRenderable::CRenderable()
+	{
+		setName("Renderable");
+		setFlag(ComponentFlag::AlwaysRun, true);
+	}
+
 	CRenderable::CRenderable(const HSceneObject& parent)
 		:Component(parent)
 	{
 		setName("Renderable");
+		setFlag(ComponentFlag::AlwaysRun, true);
 	}
 
 	void CRenderable::setMesh(HMesh mesh)

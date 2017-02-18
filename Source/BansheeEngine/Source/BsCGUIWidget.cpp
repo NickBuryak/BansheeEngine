@@ -8,9 +8,16 @@
 
 namespace bs
 {
+	CGUIWidget::CGUIWidget()
+	{
+		setFlag(ComponentFlag::AlwaysRun, true);
+	}
+
 	CGUIWidget::CGUIWidget(const HSceneObject& parent, const SPtr<Camera>& camera)
 		:Component(parent), mCamera(camera), mParentHash((UINT32)-1)
 	{
+		setFlag(ComponentFlag::AlwaysRun, true);
+
 		mInternal = GUIWidget::create(camera);
 		mOwnerTargetResizedConn = mInternal->onOwnerTargetResized.connect(
 			std::bind(&CGUIWidget::ownerTargetResized, this));

@@ -53,14 +53,14 @@ namespace bs { namespace ct
 
 	void RenderBeast::initialize()
 	{
-		CoreRenderer::initialize();
+		Renderer::initialize();
 
 		gCoreThread().queueCommand(std::bind(&RenderBeast::initializeCore, this), CTQF_InternalQueue);
 	}
 
 	void RenderBeast::destroy()
 	{
-		CoreRenderer::destroy();
+		Renderer::destroy();
 
 		gCoreThread().queueCommand(std::bind(&RenderBeast::destroyCore, this));
 		gCoreThread().submit(true);
@@ -606,13 +606,13 @@ namespace bs { namespace ct
 		return output;
 	}
 
-	void RenderBeast::setOptions(const SPtr<CoreRendererOptions>& options)
+	void RenderBeast::setOptions(const SPtr<RendererOptions>& options)
 	{
 		mOptions = std::static_pointer_cast<RenderBeastOptions>(options);
 		mOptionsDirty = true;
 	}
 
-	SPtr<CoreRendererOptions> RenderBeast::getOptions() const
+	SPtr<RendererOptions> RenderBeast::getOptions() const
 	{
 		return mOptions;
 	}
@@ -963,7 +963,7 @@ namespace bs { namespace ct
 			}
 
 			// Post-processing code also takes care of writting to the final output target
-			PostProcessing::instance().postProcess(viewInfo, renderTargets->getSceneColor(), frameDelta);
+			PostProcessing::instance().postProcess(viewInfo, renderTargets->getSceneColorNonMSAA(), frameDelta);
 		}
 		else
 		{
