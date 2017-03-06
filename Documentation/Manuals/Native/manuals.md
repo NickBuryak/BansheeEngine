@@ -59,6 +59,9 @@ Manuals									{#manuals}
  - [Bones](@ref bones)
  - [Advanced animation](@ref advancedAnimation)
 - **Advanced**
+ - [Manipulating textures](@ref advancedTextures)
+ - [Offscreen rendering](@ref offscreenRendering)
+ - [Creating meshes](@ref creatingMeshes)
  - [Advanced RTTI](@ref advancedRtti) 
  
 # Developer guides

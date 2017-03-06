@@ -350,6 +350,7 @@ namespace bs
 	class MorphChannel;
 	class GraphicsPipelineState;
 	class ComputePipelineState;
+	class ReflectionProbe;
 	// Asset import
 	class SpecificImporter;
 	class Importer;
@@ -450,6 +451,7 @@ namespace bs
 		class RenderWindowManager;
 		class RenderStateManager;
 		class HardwareBufferManager;
+		class ReflectionProbe;
 	}
 }
 
@@ -568,6 +570,9 @@ namespace bs
 		TID_MorphShape = 1128,
 		TID_MorphShapes = 1129,
 		TID_MorphChannel = 1130,
+		TID_ReflectionProbe = 1131,
+		TID_CReflectionProbe = 1132,
+		TID_CachedTextureData = 1133,
 
 		// Moved from Engine layer
 		TID_CCamera = 30000,

@@ -13,7 +13,7 @@ namespace bs { namespace ct
 		:mViewTarget(view), mHDR(hdr), mWidth(view.targetWidth), mHeight(view.targetHeight)
 	{
 		// Note: Consider customizable HDR format via options? e.g. smaller PF_FLOAT_R11G11B10 or larger 32-bit format
-		mSceneColorFormat = hdr ? PF_FLOAT16_RGBA : PF_R8G8B8A8;
+		mSceneColorFormat = PF_FLOAT16_RGBA;
 		mAlbedoFormat = PF_R8G8B8A8; // Note: Also consider customizable format (e.g. 16-bit float?)
 		mNormalFormat = PF_UNORM_R10G10B10A2; // Note: Also consider customizable format (e.g. 16-bit float?)
 	}
@@ -44,6 +44,8 @@ namespace bs { namespace ct
 			height, TU_RENDERTARGET, mViewTarget.numSamples, true));
 		SPtr<PooledRenderTexture> newNormalRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mNormalFormat, width, 
 			height, TU_RENDERTARGET, mViewTarget.numSamples, false));
+		SPtr<PooledRenderTexture> newRoughMetalRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(PF_FLOAT16_RG, width,
+			height, TU_RENDERTARGET, mViewTarget.numSamples, false));
 		SPtr<PooledRenderTexture> newDepthRT = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(PF_D32_S8X24, width, height, 
 			TU_DEPTHSTENCIL, mViewTarget.numSamples, false));
 
@@ -64,27 +66,29 @@ namespace bs { namespace ct
 																					 height, TU_RENDERTARGET, 1, false));
 		}
 
-		bool rebuildTargets = newColorRT != mSceneColorTex || newAlbedoRT != mAlbedoTex || newNormalRT != mNormalTex || newDepthRT != mDepthTex;
+		bool rebuildTargets = newColorRT != mSceneColorTex || newAlbedoRT != mAlbedoTex || newNormalRT != mNormalTex 
+			|| newRoughMetalRT != mRoughMetalTex || newDepthRT != mDepthTex;
 
 		mSceneColorTex = newColorRT;
 		mAlbedoTex = newAlbedoRT;
 		mNormalTex = newNormalRT;
+		mRoughMetalTex = newRoughMetalRT;
 		mDepthTex = newDepthRT;
 
 		if (mGBufferRT == nullptr || mSceneColorRT == nullptr || rebuildTargets)
 		{
 			RENDER_TEXTURE_DESC gbufferDesc;
-			gbufferDesc.colorSurfaces[0].texture = mSceneColorTex->texture;
+			gbufferDesc.colorSurfaces[0].texture = mAlbedoTex->texture;
 			gbufferDesc.colorSurfaces[0].face = 0;
 			gbufferDesc.colorSurfaces[0].numFaces = 1;
 			gbufferDesc.colorSurfaces[0].mipLevel = 0;
 
-			gbufferDesc.colorSurfaces[1].texture = mAlbedoTex->texture;
+			gbufferDesc.colorSurfaces[1].texture = mNormalTex->texture;
 			gbufferDesc.colorSurfaces[1].face = 0;
 			gbufferDesc.colorSurfaces[1].numFaces = 1;
 			gbufferDesc.colorSurfaces[1].mipLevel = 0;
 
-			gbufferDesc.colorSurfaces[2].texture = mNormalTex->texture;
+			gbufferDesc.colorSurfaces[2].texture = mRoughMetalTex->texture;
 			gbufferDesc.colorSurfaces[2].face = 0;
 			gbufferDesc.colorSurfaces[2].numFaces = 1;
 			gbufferDesc.colorSurfaces[2].mipLevel = 0;
@@ -137,15 +141,15 @@ namespace bs { namespace ct
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
 		rapi.setViewport(area);
 
-		// Clear scene color, depth, stencil according to user defined values
-		UINT32 clearFlags = mViewTarget.clearFlags;
+		// Clear depth & stencil according to user defined values, don't clear color as all values will get written to
+		UINT32 clearFlags = mViewTarget.clearFlags & ~FBT_COLOR;
 		if (clearFlags != 0)
 		{
 			RenderAPI::instance().clearViewport(clearFlags, mViewTarget.clearColor,
 												mViewTarget.clearDepthValue, mViewTarget.clearStencilValue, 0x01);
 		}
 
-		// Clear all others
+		// Clear all non primary targets (Note: I could perhaps clear all but albedo, since it stores a per-pixel write mask)
 		RenderAPI::instance().clearViewport(FBT_COLOR, Color::ZERO, 1.0f, 0, 0xFF & ~0x01);
 	}
 
@@ -171,6 +175,11 @@ namespace bs { namespace ct
 	SPtr<Texture> RenderTargets::getTextureB() const
 	{
 		return mNormalTex->texture;
+	}
+
+	SPtr<Texture> RenderTargets::getTextureC() const
+	{
+		return mRoughMetalTex->texture;
 	}
 
 	SPtr<Texture> RenderTargets::getTextureDepth() const
