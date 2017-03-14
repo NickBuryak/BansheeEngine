@@ -41,10 +41,21 @@ using namespace std::placeholders;
 
 namespace bs { namespace ct
 {
+    // Limited by max number of array elements in texture for DX11 hardware
+    constexpr UINT32 MaxReflectionCubemaps = 2048 / 6;
+
 	RenderBeast::RenderBeast()
-		: mDefaultMaterial(nullptr), mTiledDeferredLightingMats(), mFlatFramebufferToTextureMat(nullptr)
-		, mSkyboxMat(nullptr), mSkyboxSolidColorMat(nullptr), mGPULightData(nullptr), mLightGrid(nullptr)
-		, mObjectRenderer(nullptr), mOptions(bs_shared_ptr_new<RenderBeastOptions>()), mOptionsDirty(true)
+		: mDefaultMaterial(nullptr)
+		, mTiledDeferredLightingMats()
+		, mFlatFramebufferToTextureMat(nullptr)
+		, mSkyboxMat(nullptr)
+		, mSkyboxSolidColorMat(nullptr)
+		, mGPULightData(nullptr)
+		, mGPUReflProbeData(nullptr)
+		, mLightGrid(nullptr)
+		, mObjectRenderer(nullptr)
+		, mOptions(bs_shared_ptr_new<RenderBeastOptions>())
+		, mOptionsDirty(true)
 	{ }
 
 	const StringID& RenderBeast::getName() const
@@ -86,6 +97,7 @@ namespace bs { namespace ct
 		mTiledDeferredLightingMats[3] = bs_new<TTiledDeferredLightingMat<8>>();
 
 		mGPULightData = bs_new<GPULightData>();
+		mGPUReflProbeData = bs_new<GPUReflProbeData>();
 		mLightGrid = bs_new<LightGrid>();
 
 		GpuResourcePool::startUp();
@@ -108,6 +120,8 @@ namespace bs { namespace ct
 		mRenderables.clear();
 		mRenderableVisibility.clear();
 
+		mCubemapArrayTex = nullptr;
+
 		PostProcessing::shutDown();
 		GpuResourcePool::shutDown();
 
@@ -115,6 +129,7 @@ namespace bs { namespace ct
 		bs_delete(mSkyboxMat);
 		bs_delete(mSkyboxSolidColorMat);
 		bs_delete(mGPULightData);
+		bs_delete(mGPUReflProbeData);
 		bs_delete(mLightGrid);
 		bs_delete(mFlatFramebufferToTextureMat);
 
@@ -453,15 +468,8 @@ namespace bs { namespace ct
 		UINT32 probeId = (UINT32)mReflProbes.size();
 		probe->setRendererId(probeId);
 
-		mReflProbes.push_back(ReflProbeInfo());
-		ReflProbeInfo& probeInfo = mReflProbes.back();
-		probeInfo.probe = probe;
-		probeInfo.arrayIdx = -1;
-		probeInfo.texture = probe->getCustomTexture();
-		probeInfo.customTexture = probeInfo.texture != nullptr;
-		probeInfo.textureDirty = ReflectionCubemapCache::instance().isDirty(probe->getUUID());
-		probeInfo.arrayDirty = true;
-		probeInfo.errorFlagged = false;
+		mReflProbes.push_back(RendererReflectionProbe(probe));
+		RendererReflectionProbe& probeInfo = mReflProbes.back();
 
 		mReflProbeWorldBounds.push_back(probe->getBounds());
 
@@ -485,6 +493,12 @@ namespace bs { namespace ct
 				probeInfo.arrayIdx = numArrayEntries;
 				mCubemapArrayUsedSlots.push_back(true);
 			}
+
+            if(probeInfo.arrayIdx > MaxReflectionCubemaps)
+            {
+                LOGERR("Reached the maximum number of allowed reflection probe cubemaps at once. "
+                       "Ignoring reflection probe data.");
+            }
 		}
 	}
 
@@ -494,14 +508,11 @@ namespace bs { namespace ct
 		UINT32 probeId = probe->getRendererId();
 		mReflProbeWorldBounds[probeId] = probe->getBounds();
 
-		ReflProbeInfo& probeInfo = mReflProbes[probeId];
+		RendererReflectionProbe& probeInfo = mReflProbes[probeId];
 		probeInfo.arrayDirty = true;
 
-		if (!probeInfo.customTexture)
-		{
-			ReflectionCubemapCache::instance().notifyDirty(probe->getUUID());
-			probeInfo.textureDirty = true;
-		}
+		ReflectionCubemapCache::instance().notifyDirty(probe->getUUID());
+		probeInfo.textureDirty = true;
 	}
 
 	void RenderBeast::notifyReflectionProbeRemoved(ReflectionProbe* probe)
@@ -842,6 +853,36 @@ namespace bs { namespace ct
 		mLightDataTemp.clear();
 		mLightVisibilityTemp.clear();
 
+		// Gemerate reflection probes and their GPU buffers
+		UINT32 numProbes = (UINT32)mReflProbes.size();
+
+		mReflProbeVisibilityTemp.resize(numProbes, false);
+		for (UINT32 i = 0; i < numViews; i++)
+			views[i]->calculateVisibility(mReflProbeWorldBounds, mReflProbeVisibilityTemp);
+
+		for(UINT32 i = 0; i < numProbes; i++)
+		{
+			if (!mReflProbeVisibilityTemp[i])
+				continue;
+
+			mReflProbeDataTemp.push_back(ReflProbeData());
+			mReflProbes[i].getParameters(mReflProbeDataTemp.back());
+		}
+
+        // Sort probes so bigger ones get accessed first, this way we overlay smaller ones on top of biggers ones when
+	    // rendering
+        auto sorter = [](const ReflProbeData& lhs, const ReflProbeData& rhs)
+        {
+            return rhs.radius < lhs.radius;
+        };
+
+        std::sort(mReflProbeDataTemp.begin(), mReflProbeDataTemp.end(), sorter);
+
+		mGPUReflProbeData->setProbes(mReflProbeDataTemp, numProbes);
+
+		mReflProbeDataTemp.clear();
+		mReflProbeVisibilityTemp.clear();
+
 		// Update various buffers required by each renderable
 		UINT32 numRenderables = (UINT32)mRenderables.size();
 		for (UINT32 i = 0; i < numRenderables; i++)
@@ -1171,16 +1212,18 @@ namespace bs { namespace ct
 
 		bs_frame_mark();
 		{		
+            UINT32 currentCubeArraySize = mCubemapArrayTex->getProperties().getNumArraySlices();
+
 			bool forceArrayUpdate = false;
-			if(mCubemapArrayTex == nullptr || mCubemapArrayTex->getProperties().getNumArraySlices() < numProbes)
+			if(mCubemapArrayTex == nullptr || (currentCubeArraySize < numProbes && currentCubeArraySize != MaxReflectionCubemaps))
 			{
 				TEXTURE_DESC cubeMapDesc;
 				cubeMapDesc.type = TEX_TYPE_CUBE_MAP;
-				cubeMapDesc.format = PF_FLOAT16_RGBA;
+				cubeMapDesc.format = PF_FLOAT_R11G11B10;
 				cubeMapDesc.width = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
 				cubeMapDesc.height = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
 				cubeMapDesc.numMips = PixelUtil::getMaxMipmaps(cubeMapDesc.width, cubeMapDesc.height, 1, cubeMapDesc.format);
-				cubeMapDesc.numArraySlices = numProbes + 4; // Keep a few empty entries
+				cubeMapDesc.numArraySlices = std::min(MaxReflectionCubemaps, numProbes + 4); // Keep a few empty entries
 
 				mCubemapArrayTex = Texture::create(cubeMapDesc);
 
@@ -1189,33 +1232,62 @@ namespace bs { namespace ct
 
 			auto& cubemapArrayProps = mCubemapArrayTex->getProperties();
 
+			TEXTURE_DESC cubemapDesc;
+			cubemapDesc.type = TEX_TYPE_CUBE_MAP;
+			cubemapDesc.format = PF_FLOAT_R11G11B10;
+			cubemapDesc.width = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
+			cubemapDesc.height = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
+			cubemapDesc.numMips = PixelUtil::getMaxMipmaps(cubemapDesc.width, cubemapDesc.height, 1, cubemapDesc.format);
+
+			SPtr<Texture> scratchCubemap;
+			if (numProbes > 0)
+				scratchCubemap = Texture::create(cubemapDesc);
+
 			FrameQueue<UINT32> emptySlots;
 			for (UINT32 i = 0; i < numProbes; i++)
 			{
-				ReflProbeInfo& probeInfo = mReflProbes[i];
-				if (!probeInfo.customTexture)
+				RendererReflectionProbe& probeInfo = mReflProbes[i];
+
+                if (probeInfo.arrayIdx > MaxReflectionCubemaps)
+                    continue;
+
+				if (probeInfo.probe->getType() != ReflectionProbeType::Plane)
 				{
-					if (probeInfo.probe->getType() != ReflectionProbeType::Plane)
+					if (probeInfo.texture == nullptr)
+						probeInfo.texture = ReflectionCubemapCache::instance().getCachedTexture(probeInfo.probe->getUUID());
+
+					if (probeInfo.texture == nullptr || probeInfo.textureDirty)
 					{
-						if (probeInfo.texture == nullptr)
-							probeInfo.texture = ReflectionCubemapCache::instance().getCachedTexture(probeInfo.probe->getUUID());
+						probeInfo.texture = Texture::create(cubemapDesc);
 
-						if (probeInfo.texture == nullptr || probeInfo.textureDirty)
+						if (!probeInfo.customTexture)
 						{
-							TEXTURE_DESC cubemapDesc;
-							cubemapDesc.type = TEX_TYPE_CUBE_MAP;
-							cubemapDesc.format = PF_FLOAT16_RGBA;
-							cubemapDesc.width = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
-							cubemapDesc.height = ReflectionProbes::REFLECTION_CUBEMAP_SIZE;
-							cubemapDesc.numMips = PixelUtil::getMaxMipmaps(cubemapDesc.width, cubemapDesc.height, 1, cubemapDesc.format);
-
-							probeInfo.texture = Texture::create(cubemapDesc);
-
 							captureSceneCubeMap(probeInfo.texture, probeInfo.probe->getPosition(), true, frameInfo);
-							ReflectionProbes::filterCubemapForSpecular(probeInfo.texture);
-
-							ReflectionCubemapCache::instance().setCachedTexture(probeInfo.probe->getUUID(), probeInfo.texture);
 						}
+						else
+						{
+							SPtr<Texture> customTexture = probeInfo.probe->getCustomTexture();
+
+							// Note: If the Texture class supported scale on copy we could avoid using CPU reads & buffers
+							auto& texProps = probeInfo.texture->getProperties();
+							SPtr<PixelData> scaledFaceData = texProps.allocBuffer(0, 0);
+
+							auto& customTexProps = customTexture->getProperties();
+							SPtr<PixelData> originalFaceData = customTexProps.allocBuffer(0, 0);
+							for (UINT32 j = 0; j < 6; j++)
+							{
+								if (j < customTexProps.getNumFaces())
+									customTexture->readData(*originalFaceData, 0, j);
+
+								PixelUtil::scale(*originalFaceData, *scaledFaceData);
+
+								probeInfo.texture->writeData(*scaledFaceData, 0, j);
+
+							}
+						}
+
+						ReflectionProbes::filterCubemapForSpecular(probeInfo.texture, scratchCubemap);
+						ReflectionCubemapCache::instance().setCachedTexture(probeInfo.probe->getUUID(), probeInfo.texture);
 					}
 				}
 
