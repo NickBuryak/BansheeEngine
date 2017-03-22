@@ -2,7 +2,7 @@ Manuals									{#manuals}
 ===============
 
 # Quick start
-[Getting started](@ref gettingStarted) - This is a short guide on how to create a fully functional Banshee application, aimed to get you up and running quickly, without going into too much detail.
+TODO - [Getting started](@ref gettingStarted) - This is a short guide on how to create a fully functional Banshee application, aimed to get you up and running quickly, without going into too much detail.
 
 # User manuals
 A complete set of manuals covering all major functionality provided by Banshee, starting with basics and slowly guiding you through more advanced concepts. This should be the primary entry point for new users.
@@ -72,15 +72,24 @@ A complete set of manuals covering all major functionality provided by Banshee, 
  
 # Developer manuals
 A set of manuals covering advanced functionality intented for those wanting to extend the engine or tinker with the internals, rather than for normal users. You are expected to have read the user manuals first.
+- [Architecture overview](@ref architecture) 
+- **Low level rendering API**
+ - [Core thread](@ref coreThread)
+ - [GPU programs](@ref gpuPrograms)
+ - [Non-programmable states](@ref nonProgrammableStates)
+ - [Geometry](@ref geometry)
+ - [Render targets](@ref renderTargets)
+ - [Drawing](@ref drawing) 
+ - [Load-store textures](@ref loadStoreTextures)
+ - [Generic buffers](@ref genericBuffers)
+ - [Compute](@ref compute)
+ - [Command buffers](@ref commandBuffers)
 
 ## General guides
 Name                                      | Description
 ------------------------------------------|-------------
-[Architecture](@ref architecture)         | Gives you an overview of the entire architecture of Banshee. Useful starting point for those modifying engine internals as it provides a way to identify major systems.
 [Utilities](@ref utilities)               | Provides an overview of a variety of utility systems used throughout Banshee.
-[Core thread](@ref coreThread)            | Explains how core (rendering) thread works, how it interacts with simulation thread, what are core objects and how to create your own.
 [Resources](@ref resources)  			  | Explains how resources work, including saving, loading and creating brand new resource types.
-[Game objects](@ref gameObjects)          | Explains what are scene objects and components and how can you use them to create your scene.
 [Scripting](@ref scripting)               | Shows you how to interact with the scripting system, and how to expose C++ objects to the scripting API.
 [Renderer](@ref renderer)    	  		  | Explains how the renderer works on the low level, and how to create a custom renderer so you may fully customize the look of your application.
 [BSLFX](@ref bslfx)    	  		  		  | Provides a reference for the Banshee Shading Language FX syntax.
@@ -95,9 +104,7 @@ Name                                      | Description
 
 Name                                      | Description
 ------------------------------------------|-------------
-[Render API](@ref renderAPI)              | Explains how to use the render API to use the graphics pipeline and draw objects. 
 [Textures](@ref textures)                 | Shows you how to create, use and manipulate textures.
 [Meshes](@ref meshes)                     | Shows you how to create, use and manipulate meshes.
-[Render targets](@ref renderTargets)	  | Shows you how to create and use render textures and windows.
-[GPU programs](@ref gpuPrograms)		  | Shows you how to create and use GPU programs.
 [Materials](@ref materials)				  | Shows you how to create and use materials and shaders.
+[Render API](@ref renderAPI)

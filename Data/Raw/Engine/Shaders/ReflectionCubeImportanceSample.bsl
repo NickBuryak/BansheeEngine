@@ -52,7 +52,7 @@ Technique
 				// See GGXImportanceSample.nb for derivation (essentially, take base GGX, normalize it,
 				// generate PDF, split PDF into marginal probability for theta and conditional probability
 				// for phi. Plug those into the CDF, invert it.)				
-				float cosTheta = sqrt((1.0f - e.x) / (1.0f + (roughness4 - 1.0f) * e.y));
+				float cosTheta = sqrt((1.0f - e.x) / (1.0f + (roughness4 - 1.0f) * e.x));
 				float phi = 2.0f * PI * e.y;
 				
 				return float2(cosTheta, phi);
@@ -78,6 +78,7 @@ Technique
 			{
 				int gCubeFace;
 				int gMipLevel;
+				int gNumMips;
 				float gPrecomputedMipFactor;
 			}	
 		
@@ -94,7 +95,7 @@ Technique
 				// Determine which mip level to sample from depending on PDF and cube -> sphere mapping distortion
 				float distortion = rcp(pow(N.x * N.x + N.y * N.y + N.z * N.z, 3.0f/2.0f));
 				
-				float roughness = mapMipLevelToRoughness(gMipLevel);
+				float roughness = mapMipLevelToRoughness(gMipLevel, gNumMips);
 				float roughness2 = roughness * roughness;
 				float roughness4 = roughness2 * roughness2;
 				
@@ -107,7 +108,7 @@ Technique
 					float cosTheta = sphericalH.x;
 					float phi = sphericalH.y;
 					
-					float sinTheta = sqrt(1.0f - cosTheta);
+					float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
 					
 					float3 H = sphericalToCartesian(cosTheta, sinTheta, phi);
 					float PDF = pdfGGX(cosTheta, sinTheta, roughness4);
@@ -125,8 +126,15 @@ Technique
 					// Note: Adding +1 bias as it looks better
 					mipLevel++;
 					
-					// sum += H * GGX / PDF. In GGX/PDF most factors cancel out and we're left with 1/sin*cos
-					sum += gInputTex.SampleLevel(gInputSamp, H, mipLevel) / (cosTheta * sinTheta);
+					// We need a light direction to properly evaluate the NoL term of the evaluation integral
+					//  Li(u) * brdf(u, v) * (u.n) / pdf(u, v)
+					// which we don't have, so we assume a viewing direction is equal to normal and calculate lighting dir from it and half-vector
+					float3 L = 2 * dot(N, H) * H - N;
+					float NoL = saturate(dot(N, L));
+					
+					// sum += radiance * GGX(h, roughness) * NoL / PDF. In GGX/PDF most factors cancel out and we're left with 1/cos (sine factor of the PDF only needed for the integral (I think), so we don't include it)
+					if(NoL > 0)
+						sum += gInputTex.SampleLevel(gInputSamp, H, mipLevel) * NoL / cosTheta;
 				}
 				
 				return sum / NUM_SAMPLES;

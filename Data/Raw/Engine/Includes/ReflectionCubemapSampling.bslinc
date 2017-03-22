@@ -20,10 +20,13 @@ Technique : base("ReflectionCubemapSampling") =
 				uint type; // 0 - Sphere, 1 - Box
 			};
 		
-			TextureCube gSkyCubemapTex;
-			SamplerState gSkyCubemapSamp;
+			TextureCube gSkyReflectionTex;
+			SamplerState gSkyReflectionSamp;
 			
-			TextureCubeArray gReflProbeCubmaps;
+			TextureCube gSkyIrradianceTex;
+			SamplerState gSkyIrradianceSamp;
+			
+			TextureCubeArray gReflProbeCubemaps;
 			SamplerState gReflProbeSamp;
 			
 			Texture2D gPreintegratedEnvBRDF;
@@ -45,12 +48,9 @@ Technique : base("ReflectionCubemapSampling") =
 				uint gSkyCubemapNumMips;
 			}	
 			
-			float3 getSkyReflection(float3 dir, float roughness)
+			float3 getSkyIndirectDiffuse(float3 dir)
 			{
-				float mipLevel = mapRoughnessToMipLevel(roughness, gReflCubemapNumMips);
-				float3 reflection = gSkyCubemapTex.SampleLevel(gSkyCubemapSamp, dir, mipLevel);
-
-				return reflection;
+				return gSkyIrradianceTex.SampleLevel(gSkyIrradianceSamp, dir, 0).rgb;
 			}
 			
 			float3 getSphereReflectionContribution(float normalizedDistance)
@@ -171,10 +171,10 @@ Technique : base("ReflectionCubemapSampling") =
 							correctedDir = getLookupForBoxProxy(worldPos, dir, probeData.position, probeData.boxExtents, probeData.invBoxTransform, probeData.transitionDistance, contribution);
 						}
 						
-						float4 sample = gReflProbeCubmaps.SampleLevel(gReflProbeSamp, float4(correctedDir, probeData.cubemapIdx), mipLevel);
+						float4 sample = gReflProbeCubemaps.SampleLevel(gReflProbeSamp, float4(correctedDir, probeData.cubemapIdx), mipLevel);
 						sample *= contribution;
 						
-						output += sample * leftoverContribution; 
+						output += sample.rgb * leftoverContribution; 
 						leftoverContribution *= (1.0f - contribution);
 					}
 				}
@@ -182,9 +182,9 @@ Technique : base("ReflectionCubemapSampling") =
 				if(gSkyCubemapAvailable > 0)
 				{
 					float skyMipLevel = mapRoughnessToMipLevel(roughness, gSkyCubemapNumMips);
-					float4 sample = gSkyCubemapTex.SampleLevel(gSkyCubemapSamp, dir, skyMipLevel);
+					float4 sample = gSkyReflectionTex.SampleLevel(gSkyReflectionSamp, dir, skyMipLevel);
 					
-					output += sample * leftoverContribution; 
+					output += sample.rgb * leftoverContribution; 
 				}
 						
 				return output;
@@ -203,7 +203,7 @@ Technique : base("ReflectionCubemapSampling") =
 				float3 specularColor = lerp(float3(0.04f, 0.04f, 0.04f), surfaceData.albedo.rgb, surfaceData.metalness);
 				
 				float3 R = 2 * dot(V, N) * N - V;
-				float radiance = gatherReflectionRadiance(worldPos, R, surfaceData.roughness, 0, 0);
+				float3 radiance = gatherReflectionRadiance(worldPos, R, surfaceData.roughness, 0, 0);
 				
 				float2 envBRDF = gPreintegratedEnvBRDF.SampleLevel(gPreintegratedEnvBRDFSamp, float2(NoV, surfaceData.roughness), 0).rg;
 				

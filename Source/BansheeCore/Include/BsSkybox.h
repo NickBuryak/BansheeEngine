@@ -12,13 +12,20 @@ namespace bs
 	 *  @{
 	 */
 
+	/**	Signals which portion of a skybox is dirty. */
+	enum class SkyboxDirtyFlag
+	{
+		Texture = 0x01,
+		Everything = 0x02
+	};
+
 	/** Base class for both core and sim thread implementations of a skybox. */
 	class BS_CORE_EXPORT SkyboxBase
 	{
 	public:
-        SkyboxBase();
+		SkyboxBase();
 		virtual ~SkyboxBase() { }
-        
+
 		/**	Checks whether the skybox should be used or not. */
 		bool getIsActive() const { return mIsActive; }
 
@@ -28,11 +35,11 @@ namespace bs
 		/** Returns an identifier that uniquely identifies the skybox. */
 		const String& getUUID() const { return mUUID; }
 
-		/** 
-		 * Marks the simulation thread object as dirty and notifies the system its data should be synced with its core 
-		 * thread counterpart. 
+		/**
+		 * Marks the simulation thread object as dirty and notifies the system its data should be synced with its core
+		 * thread counterpart.
 		 */
-		virtual void _markCoreDirty() { }
+		virtual void _markCoreDirty(SkyboxDirtyFlag flags = SkyboxDirtyFlag::Everything) { }
 
 	protected:
 		String mUUID; /**< Identifier that uniquely identifies the skybox. */
@@ -46,14 +53,14 @@ namespace bs
 		typedef typename TTextureType<Core>::Type TextureType;
 
 	public:
-        TSkybox();
+		TSkybox();
 		virtual ~TSkybox() { }
 
-		/** 
+		/**
 		 * Assigns an environment map to use for sampling skybox radiance. Must be a cube-map texture, and should ideally
 		 * contain HDR data.
 		 */
-		void setTexture(const TextureType& texture) { mTexture = texture; _markCoreDirty(); }
+		void setTexture(const TextureType& texture) { mTexture = texture; _markCoreDirty(SkyboxDirtyFlag::Texture); }
 
 		/** Gets the texture assigned through setTexture(). */
 		TextureType getTexture() const { return mTexture; }
@@ -80,13 +87,13 @@ namespace bs
 		static SPtr<Skybox> create();
 
 	protected:
-        Skybox();
+		Skybox();
 
 		/** @copydoc CoreObject::createCore */
 		SPtr<ct::CoreObject> createCore() const override;
 
 		/** @copydoc SkyboxBase::_markCoreDirty */
-		void _markCoreDirty() override;
+		void _markCoreDirty(SkyboxDirtyFlag flags = SkyboxDirtyFlag::Everything) override;
 
 		/** @copydoc CoreObject::syncToCore */
 		CoreSyncData syncToCore(FrameAlloc* allocator) override;
@@ -102,23 +109,23 @@ namespace bs
 
 	namespace ct
 	{
-	/** Core thread usable version of a bs::Skybox */
-	class BS_CORE_EXPORT Skybox : public CoreObject, public TSkybox<true>
-	{
-	public:
-		~Skybox();
+		/** Core thread usable version of a bs::Skybox */
+		class BS_CORE_EXPORT Skybox : public CoreObject, public TSkybox<true>
+		{
+		public:
+			~Skybox();
 
-	protected:
-		friend class bs::Skybox;
+		protected:
+			friend class bs::Skybox;
 
-        Skybox();
+			Skybox();
 
-		/** @copydoc CoreObject::initialize */
-		void initialize() override;
+			/** @copydoc CoreObject::initialize */
+			void initialize() override;
 
-		/** @copydoc CoreObject::syncToCore */
-		void syncToCore(const CoreSyncData& data) override;
-	};
+			/** @copydoc CoreObject::syncToCore */
+			void syncToCore(const CoreSyncData& data) override;
+		};
 	}
 
 	/** @} */

@@ -10,6 +10,7 @@
 #include "BsGpuBuffer.h"
 #include "BsLight.h"
 #include "BsRendererUtility.h"
+#include "BsReflectionProbeSampling.h"
 
 namespace bs { namespace ct
 {
@@ -39,11 +40,11 @@ namespace bs { namespace ct
 	}
 
 	GPULightData::GPULightData()
-		:mNumLights {}
+		:mNumLights{}
 	{ }
 
 	void GPULightData::setLights(const Vector<LightData>& lightData, UINT32 numDirLights, UINT32 numRadialLights,
-				   UINT32 numSpotLights)
+									UINT32 numSpotLights)
 	{
 		mNumLights[0] = numDirLights;
 		mNumLights[1] = numRadialLights;
@@ -84,8 +85,8 @@ namespace bs { namespace ct
 
 	const UINT32 TiledDeferredLighting::TILE_SIZE = 16;
 
-	TiledDeferredLighting::TiledDeferredLighting(const SPtr<Material>& material, const SPtr<GpuParamsSet>& paramsSet, 
-												 UINT32 sampleCount)
+	TiledDeferredLighting::TiledDeferredLighting(const SPtr<Material>& material, const SPtr<GpuParamsSet>& paramsSet,
+													UINT32 sampleCount)
 		:mSampleCount(sampleCount), mMaterial(material), mParamsSet(paramsSet), mLightOffsets()
 	{
 		SPtr<GpuParams> params = mParamsSet->getGpuParams();
@@ -105,7 +106,7 @@ namespace bs { namespace ct
 
 		params->getBufferParam(GPT_COMPUTE_PROGRAM, "gLights", mLightBufferParam);
 
-		if(params->hasLoadStoreTexture(GPT_COMPUTE_PROGRAM, "gOutput"))
+		if (params->hasLoadStoreTexture(GPT_COMPUTE_PROGRAM, "gOutput"))
 			params->getLoadStoreTextureParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputTextureParam);
 
 		if (params->hasBuffer(GPT_COMPUTE_PROGRAM, "gOutput"))
@@ -113,10 +114,33 @@ namespace bs { namespace ct
 
 		mParamBuffer = gTiledLightingParamDef.createBuffer();
 		mParamsSet->setParamBlockBuffer("Params", mParamBuffer, true);
+
+		// Sky
+		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gSkyReflectionTex", mSkyReflectionsParam);
+		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gSkyIrradianceTex", mSkyIrradianceParam);
+
+		// Reflections
+		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gReflProbeCubemaps", mReflectionProbeCubemapsParam);
+		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gPreintegratedEnvBRDF", mPreintegratedEnvBRDFParam);
+
+		params->getBufferParam(GPT_COMPUTE_PROGRAM, "gReflectionProbes", mReflectionProbesParam);
+
+		mReflectionsParamBuffer = gReflProbeParamsParamDef.createBuffer();
+		mParamsSet->setParamBlockBuffer("ReflProbeParams", mReflectionsParamBuffer);
+
+		SAMPLER_STATE_DESC reflSamplerDesc;
+		reflSamplerDesc.magFilter = FO_LINEAR;
+		reflSamplerDesc.minFilter = FO_LINEAR;
+		reflSamplerDesc.mipFilter = FO_LINEAR;
+
+		mReflectionSamplerState = SamplerState::create(reflSamplerDesc);
+
+		params->setSamplerState(GPT_COMPUTE_PROGRAM, "gSkyReflectionSamp", mReflectionSamplerState);
+		params->setSamplerState(GPT_COMPUTE_PROGRAM, "gReflProbeSamp", mReflectionSamplerState);
 	}
 
-	void TiledDeferredLighting::execute(const SPtr<RenderTargets>& gbuffer,
-										const SPtr<GpuParamBlockBuffer>& perCamera, bool noLighting)
+	void TiledDeferredLighting::execute(const SPtr<RenderTargets>& gbuffer, const SPtr<GpuParamBlockBuffer>& perCamera,
+										const SPtr<Texture>& preintegratedGF, bool noLighting)
 	{
 		Vector2I framebufferSize;
 		framebufferSize[0] = gbuffer->getWidth();
@@ -137,11 +161,14 @@ namespace bs { namespace ct
 			gTiledLightingParamDef.gLightOffsets.set(mParamBuffer, mLightOffsets);
 		}
 		mParamBuffer->flushToGPU();
+		mReflectionsParamBuffer->flushToGPU();
 
 		mGBufferA.set(gbuffer->getTextureA());
 		mGBufferB.set(gbuffer->getTextureB());
 		mGBufferC.set(gbuffer->getTextureC());
 		mGBufferDepth.set(gbuffer->getTextureDepth());
+
+		mPreintegratedEnvBRDFParam.set(preintegratedGF);
 
 		mParamsSet->setParamBlockBuffer("PerCamera", perCamera, true);
 
@@ -178,6 +205,38 @@ namespace bs { namespace ct
 		mLightOffsets[2] = mLightOffsets[1] + lightData.getNumSpotLights();
 	}
 
+	void TiledDeferredLighting::setReflectionProbes(const GPUReflProbeData& probeData,
+													const SPtr<Texture>& reflectionCubemaps)
+	{
+		mReflectionProbesParam.set(probeData.getProbeBuffer());
+		mReflectionProbeCubemapsParam.set(reflectionCubemaps);
+
+		gReflProbeParamsParamDef.gNumProbes.set(mReflectionsParamBuffer, probeData.getNumProbes());
+
+		UINT32 numMips = 0;
+		if (reflectionCubemaps != nullptr)
+			numMips = reflectionCubemaps->getProperties().getNumMipmaps() + 1;
+
+		gReflProbeParamsParamDef.gReflCubemapNumMips.set(mReflectionsParamBuffer, numMips);
+	}
+
+	void TiledDeferredLighting::setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance)
+	{
+		mSkyReflectionsParam.set(skyReflections);
+		mSkyIrradianceParam.set(skyIrradiance);
+
+		UINT32 skyReflectionsAvailable = 0;
+		UINT32 numMips = 0;
+		if (skyReflections != nullptr)
+		{
+			numMips = skyReflections->getProperties().getNumMipmaps() + 1;
+			skyReflectionsAvailable = 1;
+		}
+
+		gReflProbeParamsParamDef.gSkyCubemapNumMips.set(mReflectionsParamBuffer, numMips);
+		gReflProbeParamsParamDef.gSkyCubemapAvailable.set(mReflectionsParamBuffer, skyReflectionsAvailable);
+	}
+
 	// Reverse bits functions used for Hammersley sequence
 	float reverseBits(UINT32 bits)
 	{
@@ -187,7 +246,7 @@ namespace bs { namespace ct
 		bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
 		bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
 
-		return float(bits) * 2.3283064365386963e-10f; // 0x100000000
+		return (float)(double(bits) / (double)0x100000000LL);
 	}
 
 	void hammersleySequence(UINT32 i, UINT32 count, float& e0, float& e1)
@@ -212,7 +271,7 @@ namespace bs { namespace ct
 	{
 		// See GGXImportanceSample.nb for derivation (essentially, take base GGX, normalize it, generate PDF, split PDF into
 		// marginal probability for theta and conditional probability for phi. Plug those into the CDF, invert it.)				
-		cosTheta = sqrt((1.0f - e0) / (1.0f + (roughness4 - 1.0f) * e1));
+		cosTheta = sqrt((1.0f - e0) / (1.0f + (roughness4 - 1.0f) * e0));
 		phi = 2.0f * Math::PI * e1;
 	}
 
@@ -231,12 +290,9 @@ namespace bs { namespace ct
 		desc.format = PF_FLOAT16_RG;
 		desc.width = 128;
 		desc.height = 32;
-		
+
 		SPtr<Texture> texture = Texture::create(desc);
 		PixelData pixelData = texture->lock(GBL_WRITE_ONLY_DISCARD);
-
-		UINT16* rawPixels = (UINT16*)pixelData.getData();
-		UINT32 rowPitch = pixelData.getRowPitch();
 
 		for (UINT32 y = 0; y < desc.height; y++)
 		{
@@ -289,20 +345,28 @@ namespace bs { namespace ct
 					// We calculate the G part
 					float G = calcMicrofacetShadowingSmithGGX(m2, NoV, NoL);
 
-					// Note: PDF?
+					// When we factor out G and F, then divide D by PDF, this is what's left
+					//float pdfFactor = 1.0f / NoH;
+
+					// Note: This is based on PDF: D * NoH / (4 * VoH), but I'm not sure where does the (4 * VoH) factor
+					// come from. I'm keeping it since it seems to look better.
+					float pdfFactor = 4.0f * VoH / NoH;
+
 					if (NoL > 0.0f)
 					{
-						scale += NoL * G * fresnelScale;
-						offset += NoL * G * fresnelOffset;
+						scale += NoL * pdfFactor * G * fresnelScale;
+						offset += NoL * pdfFactor * G * fresnelOffset;
 					}
 				}
 
 				scale /= NumSamples;
 				offset /= NumSamples;
 
-				UINT16* dest = rawPixels + x * 2 + y * rowPitch;
-				dest[0] = (UINT16)(Math::clamp01(scale) * 65535.0f + 0.5f);
-				dest[1] = (UINT16)(Math::clamp01(offset) * 65535.0f + 0.5f);
+				Color color;
+				color.r = Math::clamp01(scale);
+				color.g = Math::clamp01(offset);
+
+				pixelData.setColorAt(color, x, y);
 			}
 		}
 
@@ -311,37 +375,92 @@ namespace bs { namespace ct
 		return texture;
 	}
 
-	template<int MSAA_COUNT>
-	TTiledDeferredLightingMat<MSAA_COUNT>::TTiledDeferredLightingMat()
+	template<int MSAA_COUNT, bool FixedReflColor>
+	TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::TTiledDeferredLightingMat()
 		:mInternal(mMaterial, mParamsSet, MSAA_COUNT)
 	{
 
 	}
 
-	template<int MSAA_COUNT>
-	void TTiledDeferredLightingMat<MSAA_COUNT>::_initDefines(ShaderDefines& defines)
+	template<int MSAA_COUNT, bool FixedReflColor>
+	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::_initDefines(ShaderDefines& defines)
 	{
 		defines.set("TILE_SIZE", TiledDeferredLighting::TILE_SIZE);
 		defines.set("MSAA_COUNT", MSAA_COUNT);
+		defines.set("FIXED_REFLECTION_COLOR", FixedReflColor);
 	}
 
-	template<int MSAA_COUNT>
-	void TTiledDeferredLightingMat<MSAA_COUNT>::execute(const SPtr<RenderTargets>& gbuffer,
-													const SPtr<GpuParamBlockBuffer>& perCamera, bool noLighting)
+	template<int MSAA_COUNT, bool FixedReflColor>
+	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::execute(const SPtr<RenderTargets>& gbuffer,
+		const SPtr<GpuParamBlockBuffer>& perCamera, const SPtr<Texture>& preintegratedGF, bool noLighting)
 	{
-		mInternal.execute(gbuffer, perCamera, noLighting);
+		mInternal.execute(gbuffer, perCamera, preintegratedGF, noLighting);
 	}
 
-	template<int MSAA_COUNT>
-	void TTiledDeferredLightingMat<MSAA_COUNT>::setLights(const GPULightData& lightData)
+	template<int MSAA_COUNT, bool FixedReflColor>
+	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setLights(const GPULightData& lightData)
 	{
 		mInternal.setLights(lightData);
 	}
 
-	template class TTiledDeferredLightingMat<1>;
-	template class TTiledDeferredLightingMat<2>;
-	template class TTiledDeferredLightingMat<4>;
-	template class TTiledDeferredLightingMat<8>;
+	template<int MSAA_COUNT, bool FixedReflColor>
+	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setReflectionProbes(const GPUReflProbeData& probeData, 
+		const SPtr<Texture>& reflectionCubemaps)
+	{
+		mInternal.setReflectionProbes(probeData, reflectionCubemaps);
+	}
+
+	template<int MSAA_COUNT, bool FixedReflColor>
+	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setSky(const SPtr<Texture>& skyReflections, 
+		const SPtr<Texture>& skyIrradiance)
+	{
+		mInternal.setSky(skyReflections, skyIrradiance);
+	}
+
+	TiledDeferredLightingMaterials::TiledDeferredLightingMaterials()
+	{
+		mInstances[0] = bs_new<TTiledDeferredLightingMat<1, false>>();
+		mInstances[1] = bs_new<TTiledDeferredLightingMat<2, false>>();
+		mInstances[2] = bs_new<TTiledDeferredLightingMat<4, false>>();
+		mInstances[3] = bs_new<TTiledDeferredLightingMat<8, false>>();
+
+		mInstances[4] = bs_new<TTiledDeferredLightingMat<1, true>>();
+		mInstances[5] = bs_new<TTiledDeferredLightingMat<2, true>>();
+		mInstances[6] = bs_new<TTiledDeferredLightingMat<4, true>>();
+		mInstances[7] = bs_new<TTiledDeferredLightingMat<8, true>>();
+	}
+
+	TiledDeferredLightingMaterials::~TiledDeferredLightingMaterials()
+	{
+		for (UINT32 i = 0; i < 8; i++)
+			bs_delete(mInstances[i]);
+	}
+
+	ITiledDeferredLightingMat* TiledDeferredLightingMaterials::get(UINT32 msaa, bool fixedReflColor)
+	{
+		if (!fixedReflColor)
+		{
+			if (msaa == 1)
+				return mInstances[0];
+			else if (msaa == 2)
+				return mInstances[1];
+			else if (msaa == 4)
+				return mInstances[2];
+			else
+				return mInstances[3];
+		}
+		else
+		{
+			if (msaa == 1)
+				return mInstances[4];
+			else if (msaa == 2)
+				return mInstances[5];
+			else if (msaa == 4)
+				return mInstances[6];
+			else
+				return mInstances[7];
+		}
+	}
 
 	FlatFramebufferToTextureParamDef gFlatFramebufferToTextureParamDef;
 
