@@ -29,14 +29,25 @@ namespace bs { namespace ct
 		Color color = mInternal->getColor();
 
 		output.position = mInternal->getPosition();
-		output.radius = mInternal->getBounds().getRadius();
+		output.attRadius = mInternal->getBounds().getRadius();
+		output.srcRadius = mInternal->getSourceRadius();
 		output.direction = mInternal->getRotation().zAxis();
-		output.intensity = mInternal->getIntensity();
+		output.luminance = mInternal->getLuminance();
 		output.spotAngles.x = spotAngle.valueRadians();
 		output.spotAngles.y = Math::cos(output.spotAngles.x);
-		output.spotAngles.z = 1.0f / (Math::cos(spotFalloffAngle) - output.spotAngles.y);
-		output.radiusSqrdInv = 1.0f / (output.radius * output.radius);
+		output.spotAngles.z = 1.0f / std::max(Math::cos(spotFalloffAngle) - output.spotAngles.y, 0.001f);
+		output.attRadiusSqrdInv = 1.0f / (output.attRadius * output.attRadius);
 		output.color = Vector3(color.r, color.g, color.b);
+
+		// If directional lights, convert angular radius in degrees to radians
+		if (mInternal->getType() == LightType::Directional)
+			output.srcRadius *= Math::DEG2RAD;
+
+		// Create position for fake attenuation for area spot lights (with disc center)
+		if (mInternal->getType() == LightType::Spot)
+			output.shiftedLightPosition = output.position - output.direction * (output.srcRadius / Math::tan(spotAngle * 0.5f));
+		else
+			output.shiftedLightPosition = output.position;
 	}
 
 	GPULightData::GPULightData()
@@ -220,7 +231,8 @@ namespace bs { namespace ct
 		gReflProbeParamsParamDef.gReflCubemapNumMips.set(mReflectionsParamBuffer, numMips);
 	}
 
-	void TiledDeferredLighting::setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance)
+	void TiledDeferredLighting::setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance, 
+		float brightness)
 	{
 		mSkyReflectionsParam.set(skyReflections);
 		mSkyIrradianceParam.set(skyIrradiance);
@@ -235,6 +247,7 @@ namespace bs { namespace ct
 
 		gReflProbeParamsParamDef.gSkyCubemapNumMips.set(mReflectionsParamBuffer, numMips);
 		gReflProbeParamsParamDef.gSkyCubemapAvailable.set(mReflectionsParamBuffer, skyReflectionsAvailable);
+		gReflProbeParamsParamDef.gSkyBrightness.set(mReflectionsParamBuffer, brightness);
 	}
 
 	// Reverse bits functions used for Hammersley sequence
@@ -346,10 +359,8 @@ namespace bs { namespace ct
 					float G = calcMicrofacetShadowingSmithGGX(m2, NoV, NoL);
 
 					// When we factor out G and F, then divide D by PDF, this is what's left
-					//float pdfFactor = 1.0f / NoH;
-
-					// Note: This is based on PDF: D * NoH / (4 * VoH), but I'm not sure where does the (4 * VoH) factor
-					// come from. I'm keeping it since it seems to look better.
+					// Note: This is based on PDF: D * NoH / (4 * VoH). (4 * VoH) factor comes from the Jacobian of the
+					// transformation from half vector to light vector
 					float pdfFactor = 4.0f * VoH / NoH;
 
 					if (NoL > 0.0f)
@@ -375,46 +386,46 @@ namespace bs { namespace ct
 		return texture;
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::TTiledDeferredLightingMat()
+	template<int MSAA_COUNT, bool CapturingReflections>
+	TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::TTiledDeferredLightingMat()
 		:mInternal(mMaterial, mParamsSet, MSAA_COUNT)
 	{
 
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::_initDefines(ShaderDefines& defines)
+	template<int MSAA_COUNT, bool CapturingReflections>
+	void TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::_initDefines(ShaderDefines& defines)
 	{
 		defines.set("TILE_SIZE", TiledDeferredLighting::TILE_SIZE);
 		defines.set("MSAA_COUNT", MSAA_COUNT);
-		defines.set("FIXED_REFLECTION_COLOR", FixedReflColor);
+		defines.set("CAPTURING_REFLECTIONS", CapturingReflections);
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::execute(const SPtr<RenderTargets>& gbuffer,
+	template<int MSAA_COUNT, bool CapturingReflections>
+	void TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::execute(const SPtr<RenderTargets>& gbuffer,
 		const SPtr<GpuParamBlockBuffer>& perCamera, const SPtr<Texture>& preintegratedGF, bool noLighting)
 	{
 		mInternal.execute(gbuffer, perCamera, preintegratedGF, noLighting);
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setLights(const GPULightData& lightData)
+	template<int MSAA_COUNT, bool CapturingReflections>
+	void TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::setLights(const GPULightData& lightData)
 	{
 		mInternal.setLights(lightData);
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setReflectionProbes(const GPUReflProbeData& probeData, 
+	template<int MSAA_COUNT, bool CapturingReflections>
+	void TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::setReflectionProbes(const GPUReflProbeData& probeData,
 		const SPtr<Texture>& reflectionCubemaps)
 	{
 		mInternal.setReflectionProbes(probeData, reflectionCubemaps);
 	}
 
-	template<int MSAA_COUNT, bool FixedReflColor>
-	void TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>::setSky(const SPtr<Texture>& skyReflections, 
-		const SPtr<Texture>& skyIrradiance)
+	template<int MSAA_COUNT, bool CapturingReflections>
+	void TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>::setSky(const SPtr<Texture>& skyReflections,
+		const SPtr<Texture>& skyIrradiance, float brightness)
 	{
-		mInternal.setSky(skyReflections, skyIrradiance);
+		mInternal.setSky(skyReflections, skyIrradiance, brightness);
 	}
 
 	TiledDeferredLightingMaterials::TiledDeferredLightingMaterials()
@@ -436,9 +447,9 @@ namespace bs { namespace ct
 			bs_delete(mInstances[i]);
 	}
 
-	ITiledDeferredLightingMat* TiledDeferredLightingMaterials::get(UINT32 msaa, bool fixedReflColor)
+	ITiledDeferredLightingMat* TiledDeferredLightingMaterials::get(UINT32 msaa, bool capturingReflections)
 	{
-		if (!fixedReflColor)
+		if (!capturingReflections)
 		{
 			if (msaa == 1)
 				return mInstances[0];

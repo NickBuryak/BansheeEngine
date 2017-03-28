@@ -337,7 +337,7 @@ namespace bs { namespace ct
 		}
 		else
 		{
-			if (light->getType() == LightType::Point)
+			if (light->getType() == LightType::Radial)
 			{
 				UINT32 lightId = (UINT32)mRadialLights.size();
 				light->setRendererId(lightId);
@@ -360,7 +360,7 @@ namespace bs { namespace ct
 	{
 		UINT32 lightId = light->getRendererId();
 
-		if (light->getType() == LightType::Point)
+		if (light->getType() == LightType::Radial)
 			mPointLightWorldBounds[lightId] = light->getBounds();
 		else if(light->getType() == LightType::Spot)
 			mSpotLightWorldBounds[lightId] = light->getBounds();
@@ -386,7 +386,7 @@ namespace bs { namespace ct
 		}
 		else
 		{
-			if (light->getType() == LightType::Point)
+			if (light->getType() == LightType::Radial)
 			{
 				Light* lastLight = mRadialLights.back().getInternal();
 				UINT32 lastLightId = lastLight->getRendererId();
@@ -852,6 +852,7 @@ namespace bs { namespace ct
 		}
 
 		UINT32 numRadialLights = (UINT32)mRadialLights.size();
+		UINT32 numVisibleRadialLights = 0;
 		mLightVisibilityTemp.resize(numRadialLights, false);
 		for (UINT32 i = 0; i < numViews; i++)
 			views[i]->calculateVisibility(mPointLightWorldBounds, mLightVisibilityTemp);
@@ -863,9 +864,11 @@ namespace bs { namespace ct
 
 			mLightDataTemp.push_back(LightData());
 			mRadialLights[i].getParameters(mLightDataTemp.back());
+			numVisibleRadialLights++;
 		}
 
 		UINT32 numSpotLights = (UINT32)mSpotLights.size();
+		UINT32 numVisibleSpotLights = 0;
 		mLightVisibilityTemp.resize(numSpotLights, false);
 		for (UINT32 i = 0; i < numViews; i++)
 			views[i]->calculateVisibility(mSpotLightWorldBounds, mLightVisibilityTemp);
@@ -877,9 +880,10 @@ namespace bs { namespace ct
 
 			mLightDataTemp.push_back(LightData());
 			mSpotLights[i].getParameters(mLightDataTemp.back());
+			numVisibleSpotLights++;
 		}
 
-		mGPULightData->setLights(mLightDataTemp, numDirLights, numRadialLights, numSpotLights);
+		mGPULightData->setLights(mLightDataTemp, numDirLights, numVisibleRadialLights, numVisibleSpotLights);
 
 		mLightDataTemp.clear();
 		mLightVisibilityTemp.clear();
@@ -1040,7 +1044,7 @@ namespace bs { namespace ct
 
 		lightingMat->setLights(*mGPULightData);
 		lightingMat->setReflectionProbes(*mGPUReflProbeData, mReflCubemapArrayTex);
-		lightingMat->setSky(mSkyboxFilteredReflections, mSkyboxIrradiance);
+		lightingMat->setSky(mSkyboxFilteredReflections, mSkyboxIrradiance, mSkybox->getBrightness());
 
 		lightingMat->execute(renderTargets, perCameraBuffer, mPreintegratedEnvBRDF, viewInfo->renderWithNoLighting());
 

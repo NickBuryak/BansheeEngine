@@ -43,7 +43,7 @@ namespace bs { namespace ct
 			UINT8* positionData = meshData->getElementData(VES_POSITION);
 
 			Sphere localSphere(Vector3::ZERO, 1.0f);
-			ShapeMeshes3D::solidSphere(localSphere, positionData, nullptr, 0,
+			ShapeMeshes3D::solidSphere(localSphere, positionData, nullptr, nullptr, 0,
 				vertexDesc->getVertexStride(), indexData, 0, 3);
 
 			mPointLightStencilMesh = Mesh::create(meshData);
@@ -121,7 +121,7 @@ namespace bs { namespace ct
 			UINT8* positionData = meshData->getElementData(VES_POSITION);
 
 			AABox localBox(-Vector3::ONE * 1500.0f, Vector3::ONE * 1500.0f);
-			ShapeMeshes3D::solidAABox(localBox, positionData, nullptr, 0,
+			ShapeMeshes3D::solidAABox(localBox, positionData, nullptr, nullptr, 0,
 									   vertexDesc->getVertexStride(), indexData, 0);
 
 			mSkyBoxMesh = Mesh::create(meshData);
@@ -162,6 +162,11 @@ namespace bs { namespace ct
 
 		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setGpuParams(gpuParams);
+	}
+
+	void RendererUtility::draw(const SPtr<MeshBase>& mesh, UINT32 numInstances)
+	{
+		draw(mesh, mesh->getProperties().getSubMesh(0), numInstances);
 	}
 
 	void RendererUtility::draw(const SPtr<MeshBase>& mesh, const SubMesh& subMesh, UINT32 numInstances)

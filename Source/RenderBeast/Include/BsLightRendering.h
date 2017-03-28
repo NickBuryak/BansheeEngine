@@ -17,12 +17,14 @@ namespace bs { namespace ct
 	struct LightData
 	{
 		Vector3 position;
-		float radius;
+		float attRadius;
+		float srcRadius;
 		Vector3 direction;
-		float intensity;
+		float luminance;
 		Vector3 spotAngles;
-		float radiusSqrdInv;
+		float attRadiusSqrdInv;
 		Vector3 color;
+		Vector3 shiftedLightPosition;
 	};
 
 	/**	Renderer information specific to a single light. */
@@ -93,7 +95,7 @@ namespace bs { namespace ct
 		void setReflectionProbes(const GPUReflProbeData& probeData, const SPtr<Texture>& reflectionCubemaps);
 
 		/** Binds the sky reflection & irradiance textures. Set textures to null if not available. */
-		void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance);
+		void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance, float brightness);
 
 		/** 
 		 * Generates a 2D 2-channel texture containing a pre-integrated G and F factors of the microfactet BRDF. This is an
@@ -150,12 +152,12 @@ namespace bs { namespace ct
 		virtual void setReflectionProbes(const GPUReflProbeData& probeData, const SPtr<Texture>& reflectionCubemaps) = 0;
 
 		/** @copydoc TiledDeferredLighting::setSky() */
-		virtual void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance) = 0;
+		virtual void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance, float brightness) = 0;
 	};
 
 	/** Shader that performs a lighting pass over data stored in the Gbuffer. */
-	template<int MSAA_COUNT, bool FixedReflColor>
-	class TTiledDeferredLightingMat : public ITiledDeferredLightingMat, public RendererMaterial<TTiledDeferredLightingMat<MSAA_COUNT, FixedReflColor>>
+	template<int MSAA_COUNT, bool CapturingReflections>
+	class TTiledDeferredLightingMat : public ITiledDeferredLightingMat, public RendererMaterial<TTiledDeferredLightingMat<MSAA_COUNT, CapturingReflections>>
 	{
 		RMAT_DEF("TiledDeferredLighting.bsl");
 
@@ -173,7 +175,7 @@ namespace bs { namespace ct
 		void setReflectionProbes(const GPUReflProbeData& probeData, const SPtr<Texture>& reflectionCubemaps) override;
 
 		/** @copydoc ITiledDeferredLightingMat::setSky() */
-		void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance) override;
+		void setSky(const SPtr<Texture>& skyReflections, const SPtr<Texture>& skyIrradiance, float brightness) override;
 	private:
 		TiledDeferredLighting mInternal;
 	};
@@ -188,11 +190,12 @@ namespace bs { namespace ct
 		/**
 		 * Returns a version of the tile-deferred lighting material that matches the parameters.
 		 * 
-		 * @param[in]   msaa				Number of samples per pixel.
-		 * @param[in]   fixedReflColor		If true reflection probes will not be evaluated and instead a fixed color will
-		 *									be returned instead. Useful when rendering reflection probes.
+		 * @param[in]   msaa					Number of samples per pixel.
+		 * @param[in]   capturingReflections	If true reflection probes will not be evaluated and instead the material's
+		 *										specular color will be returned instead. Useful when rendering reflection
+		 *										probes.
 		 */
-		ITiledDeferredLightingMat* get(UINT32 msaa, bool fixedReflColor);
+		ITiledDeferredLightingMat* get(UINT32 msaa, bool capturingReflections);
 
 	private:
 		ITiledDeferredLightingMat* mInstances[8];

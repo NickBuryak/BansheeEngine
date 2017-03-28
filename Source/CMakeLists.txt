@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.6.1)
+cmake_minimum_required (VERSION 3.7.2)
 project (Banshee)
 
 # Version
@@ -193,6 +193,13 @@ function(add_engine_dependencies target_name)
 	add_dependencies(${target_name} BansheeMono BansheeSL BansheeOISInput BansheePhysX RenderBeast SBansheeEngine)
 endfunction()
 
+function(add_subdirectory_optional subdir_name)
+	get_filename_component(fullPath ${subdir_name} ABSOLUTE)
+	if(EXISTS ${fullPath}/CMakeLists.txt)
+		add_subdirectory(${subdir_name})
+	endif()
+endfunction()
+
 set_property(GLOBAL PROPERTY USE_FOLDERS TRUE)
 
 # Code generation for script bindings
@@ -249,14 +256,17 @@ if(BUILD_EDITOR OR (INCLUDE_ALL_IN_WORKFLOW AND MSVC))
 endif()
 
 ## Executables
-add_subdirectory(ExampleProject)
-add_subdirectory(ExampleLowLevelRendering)
-add_subdirectory(ExamplePhysicallyBasedShading)
+add_subdirectory(Examples/ExampleGettingStarted)
+add_subdirectory(Examples/ExampleLowLevelRendering)
+add_subdirectory(Examples/ExamplePhysicallyBasedShading)
 
 if(BUILD_EDITOR OR (INCLUDE_ALL_IN_WORKFLOW AND MSVC))
 	add_subdirectory(BansheeEditorExec)
 	add_subdirectory(Game)
 endif()
+
+## Local experimental projects (not part of main repository)
+add_subdirectory_optional(Experimental/PBS)
 
 ## Managed projects
 if(MSVC)
