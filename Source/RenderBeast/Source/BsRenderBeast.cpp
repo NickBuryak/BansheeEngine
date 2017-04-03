@@ -46,18 +46,9 @@ namespace bs { namespace ct
 	constexpr UINT32 MaxReflectionCubemaps = 2048 / 6;
 
 	RenderBeast::RenderBeast()
-		: mDefaultMaterial(nullptr)
-		, mTiledDeferredLightingMats()
-		, mFlatFramebufferToTextureMat(nullptr)
-		, mSkyboxMat(nullptr)
-		, mSkyboxSolidColorMat(nullptr)
-		, mGPULightData(nullptr)
-		, mGPUReflProbeData(nullptr)
-		, mLightGrid(nullptr)
-		, mObjectRenderer(nullptr)
-		, mOptions(bs_shared_ptr_new<RenderBeastOptions>())
-		, mOptionsDirty(true)
-	{ }
+	{
+		mOptions = bs_shared_ptr_new<RenderBeastOptions>();
+	}
 
 	const StringID& RenderBeast::getName() const
 	{
@@ -93,8 +84,9 @@ namespace bs { namespace ct
 		mFlatFramebufferToTextureMat = bs_new<FlatFramebufferToTextureMat>();
 
 		mTiledDeferredLightingMats = bs_new<TiledDeferredLightingMaterials>();
+		mTileDeferredImageBasedLightingMats = bs_new<TiledDeferredImageBasedLightingMaterials>();
 
-		mPreintegratedEnvBRDF = TiledDeferredLighting::generatePreintegratedEnvBRDF();
+		mPreintegratedEnvBRDF = TiledDeferredImageBasedLighting::generatePreintegratedEnvBRDF();
 		mGPULightData = bs_new<GPULightData>();
 		mGPUReflProbeData = bs_new<GPUReflProbeData>();
 		mLightGrid = bs_new<LightGrid>();
@@ -135,6 +127,7 @@ namespace bs { namespace ct
 		bs_delete(mLightGrid);
 		bs_delete(mFlatFramebufferToTextureMat);
 		bs_delete(mTiledDeferredLightingMats);
+		bs_delete(mTileDeferredImageBasedLightingMats);
 
 		mPreintegratedEnvBRDF = nullptr;
 
@@ -955,19 +948,31 @@ namespace bs { namespace ct
 		perCameraBuffer->flushToGPU();
 
 		Matrix4 viewProj = viewInfo->getViewProjMatrix();
+		UINT32 numSamples = viewInfo->getNumSamples();
 
 		viewInfo->beginRendering(true);
 
 		// Prepare light grid required for transparent object rendering
-		mLightGrid->updateGrid(*viewInfo, *mGPULightData, viewInfo->renderWithNoLighting());
+		mLightGrid->updateGrid(*viewInfo, *mGPULightData, *mGPUReflProbeData, viewInfo->renderWithNoLighting());
 
 		SPtr<GpuParamBlockBuffer> gridParams;
-		SPtr<GpuBuffer> gridOffsetsAndSize, gridLightIndices;
-		mLightGrid->getOutputs(gridOffsetsAndSize, gridLightIndices, gridParams);
+		SPtr<GpuBuffer> gridLightOffsetsAndSize, gridLightIndices;
+		SPtr<GpuBuffer> gridProbeOffsetsAndSize, gridProbeIndices;
+		mLightGrid->getOutputs(gridLightOffsetsAndSize, gridLightIndices, gridProbeOffsetsAndSize, gridProbeIndices, 
+			gridParams);
+
+		// Prepare image based material and its param buffer
+		ITiledDeferredImageBasedLightingMat* imageBasedLightingMat =
+			mTileDeferredImageBasedLightingMats->get(numSamples);
+
+		imageBasedLightingMat->setReflectionProbes(*mGPUReflProbeData, mReflCubemapArrayTex, viewInfo->isRenderingReflections());
+		imageBasedLightingMat->setSky(mSkyboxFilteredReflections, mSkyboxIrradiance, mSkybox->getBrightness());
 
 		// Assign camera and per-call data to all relevant renderables
 		const VisibilityInfo& visibility = viewInfo->getVisibilityMasks();
 		UINT32 numRenderables = (UINT32)mRenderables.size();
+		SPtr<GpuParamBlockBuffer> reflParamBuffer = imageBasedLightingMat->getReflectionsParamBuffer();
+		SPtr<SamplerState> reflSamplerState = imageBasedLightingMat->getReflectionsSamplerState();
 		for (UINT32 i = 0; i < numRenderables; i++)
 		{
 			if (!visibility.renderables[i])
@@ -981,16 +986,40 @@ namespace bs { namespace ct
 				if (element.perCameraBindingIdx != -1)
 					element.params->setParamBlockBuffer(element.perCameraBindingIdx, perCameraBuffer, true);
 
+				// Everything below is required only for forward rendering (ATM only used for transparent objects)
+				// Note: It would be nice to be able to set this once and keep it, only updating if the buffers actually
+				// change (e.g. when growing). Although technically the internal systems should be smart enough to
+				// avoid updates unless objects actually changed.
 				if (element.gridParamsBindingIdx != -1)
 					element.params->setParamBlockBuffer(element.gridParamsBindingIdx, gridParams, true);
 
-				element.gridOffsetsAndSizeParam.set(gridOffsetsAndSize);
+				element.gridLightOffsetsAndSizeParam.set(gridLightOffsetsAndSize);
 				element.gridLightIndicesParam.set(gridLightIndices);
 				element.lightsBufferParam.set(mGPULightData->getLightBuffer());
+
+				// Image based lighting params
+				ImageBasedLightingParams& iblParams = element.imageBasedParams;
+				if (iblParams.reflProbeParamsBindingIdx != -1)
+					element.params->setParamBlockBuffer(iblParams.reflProbeParamsBindingIdx, reflParamBuffer);
+
+				element.gridProbeOffsetsAndSizeParam.set(gridProbeOffsetsAndSize);
+
+				iblParams.reflectionProbeIndicesParam.set(gridProbeIndices);
+				iblParams.reflectionProbesParam.set(mGPUReflProbeData->getProbeBuffer());
+
+				iblParams.skyReflectionsTexParam.set(mSkyboxFilteredReflections);
+				iblParams.skyIrradianceTexParam.set(mSkyboxIrradiance);
+
+				iblParams.reflectionProbeCubemapsTexParam.set(mReflCubemapArrayTex);
+				iblParams.preintegratedEnvBRDFParam.set(mPreintegratedEnvBRDF);
+
+				iblParams.reflectionProbeCubemapsSampParam.set(reflSamplerState);
+				iblParams.skyReflectionsSampParam.set(reflSamplerState);
 			}
 		}
 
 		SPtr<RenderTargets> renderTargets = viewInfo->getRenderTargets();
+		renderTargets->allocate(RTT_GBuffer);
 		renderTargets->bindGBuffer();
 
 		// Trigger pre-base-pass callbacks
@@ -1038,18 +1067,26 @@ namespace bs { namespace ct
 		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(nullptr);
 
-		// Render light pass
-		UINT32 numSamples = viewInfo->getNumSamples();
-		ITiledDeferredLightingMat* lightingMat = mTiledDeferredLightingMats->get(numSamples, viewInfo->isRenderingReflections());
+		// Render light pass into light accumulation buffer
+		ITiledDeferredLightingMat* lightingMat = mTiledDeferredLightingMats->get(numSamples);
+
+		renderTargets->allocate(RTT_LightAccumulation);
 
 		lightingMat->setLights(*mGPULightData);
-		lightingMat->setReflectionProbes(*mGPUReflProbeData, mReflCubemapArrayTex);
-		lightingMat->setSky(mSkyboxFilteredReflections, mSkyboxIrradiance, mSkybox->getBrightness());
+		lightingMat->execute(renderTargets, perCameraBuffer, viewInfo->renderWithNoLighting());
 
-		lightingMat->execute(renderTargets, perCameraBuffer, mPreintegratedEnvBRDF, viewInfo->renderWithNoLighting());
+		renderTargets->allocate(RTT_SceneColor);
 
-		const RenderAPIInfo& rapiInfo = RenderAPI::instance().getAPIInfo();
-		bool usingFlattenedFB = numSamples > 1 && !rapiInfo.isFlagSet(RenderAPIFeatureFlag::MSAAImageStores);
+		// Render image based lighting and add it with light accumulation, output to scene color
+		// Note: Image based lighting is split from direct lighting in order to reduce load on GPU shared memory. The
+		// image based shader ends up re-doing a lot of calculations and it could be beneficial to profile and see if
+		// both methods can be squeezed into the same shader.
+		imageBasedLightingMat->execute(renderTargets, perCameraBuffer, mPreintegratedEnvBRDF);
+
+		renderTargets->release(RTT_LightAccumulation);
+		renderTargets->release(RTT_GBuffer);
+
+		bool usingFlattenedFB = numSamples > 1;
 
 		renderTargets->bindSceneColor(true);
 
@@ -1057,7 +1094,7 @@ namespace bs { namespace ct
 		// continuing
 		if(usingFlattenedFB)
 		{
-			mFlatFramebufferToTextureMat->execute(renderTargets->getFlattenedSceneColorBuffer(), 
+			mFlatFramebufferToTextureMat->execute(renderTargets->getSceneColorBuffer(), 
 												  renderTargets->getSceneColor());
 		}
 
@@ -1112,7 +1149,7 @@ namespace bs { namespace ct
 			// If using MSAA, resolve into non-MSAA texture before post-processing
 			if(numSamples > 1)
 			{
-				rapi.setRenderTarget(renderTargets->getSceneColorNonMSAART());
+				rapi.setRenderTarget(renderTargets->getResolvedSceneColorRT());
 				rapi.setViewport(viewportArea);
 
 				SPtr<Texture> sceneColor = renderTargets->getSceneColor();
@@ -1120,7 +1157,7 @@ namespace bs { namespace ct
 			}
 
 			// Post-processing code also takes care of writting to the final output target
-			PostProcessing::instance().postProcess(viewInfo, renderTargets->getSceneColorNonMSAA(), frameDelta);
+			PostProcessing::instance().postProcess(viewInfo, renderTargets->getResolvedSceneColor(), frameDelta);
 		}
 		else
 		{
@@ -1133,6 +1170,8 @@ namespace bs { namespace ct
 			SPtr<Texture> sceneColor = renderTargets->getSceneColor();
 			gRendererUtility().blit(sceneColor, Rect2I::EMPTY, viewInfo->getFlipView());
 		}
+
+		renderTargets->release(RTT_SceneColor);
 
 		// Trigger overlay callbacks
 		if (viewInfo->checkTriggerCallbacks())
