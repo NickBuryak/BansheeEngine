@@ -29,6 +29,7 @@ A complete set of manuals covering all major functionality provided by Banshee, 
  - [Materials](@ref simpleMaterial)
  - [Rendering objects](@ref renderingObjects)
  - [Lighting](@ref lights)
+ - [Image based lighting](@ref imageBasedLighting)
 - **Input**
  - [Input polling](@ref inputPolling) 
  - [Input events](@ref inputEvents) 
@@ -66,6 +67,7 @@ A complete set of manuals covering all major functionality provided by Banshee, 
  - [Creating meshes](@ref creatingMeshes)
  - [Advanced startup](@ref advancedStartup)
  - [Advanced RTTI](@ref advancedRtti)
+ - [Advanced resources](@ref advResources)
  - [Prefabs](@ref prefabs)
  - [Cursors](@ref cursors)
  - [Profiling](@ref cpuProfiling)
@@ -94,28 +96,26 @@ A set of manuals covering advanced functionality intented for those wanting to e
  - [Flags](@ref flags)
  - [Any](@ref any) 
  - [Unit tests](@ref unitTests)
+- [Advanced material](@ref advMaterial)
 - [Threading](@ref threading)
 - [Plugins](@ref plugins)
 - **Renderer**
  - [Renderer extensions](@ref rendererExtensions)
- - [Creating a renderer manually](@ref customRenderer)
+ - [Creating a renderer plugin](@ref customRenderer)
+- **Resources**
+ - [Creating new resource types](@ref customResources)
+ - [Creating custom importers](@ref customImporters)
+- **Scripting**
+ - [Exposing code to script API (automated)](@ref scriptingAuto)
+ - [TODO - Exposing code to script API (manual)](@ref scripting)
  
 ## General guides
 Name                                      | Description
 ------------------------------------------|-------------
-[Resources](@ref resources)  			  | Explains how resources work, including saving, loading and creating brand new resource types.
-[Scripting](@ref scripting)               | Shows you how to interact with the scripting system, and how to expose C++ objects to the scripting API.
-[Renderer](@ref renderer)    	  		  | Explains how the renderer works on the low level, and how to create a custom renderer so you may fully customize the look of your application.
 [BSLFX](@ref bsl)    	  		  		  | Provides a reference for the Banshee Shading Language syntax.
 [Custom GUI elements](@ref customGUI)     | Shows you how to create custom GUI elements, manually render text or modify GUI system in a general way.
-[Custom importers](@ref customImporters)  | Shows you how to create importers that handle conversion of third party resources into engine ready formats.
+[Meshes](@ref meshes)                     | Shows you how to create, use and manipulate meshes.
+[Materials](@ref materials)				  | Shows you how to create and use materials and shaders.
 [Quick reference](@ref quickref)          | Provides a few bits of commonly required information, that might be hard to remember otherwise.
 [Porting](@ref porting)                   | Information about how to go on about porting Banshee to a different operating system.
 [Code style](@ref style)                  | Information about code style used when writing Banshee.
-
-## Low level render API
-
-Name                                      | Description
-------------------------------------------|-------------
-[Meshes](@ref meshes)                     | Shows you how to create, use and manipulate meshes.
-[Materials](@ref materials)				  | Shows you how to create and use materials and shaders.

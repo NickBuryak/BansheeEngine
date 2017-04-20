@@ -10,9 +10,10 @@
 #include "BsGUIOptions.h"
 #include "BsGUIContent.h"
 #include "BsScriptGUIContent.h"
-#include "BsScriptTexture.h"
 #include "BsScriptResourceManager.h"
 #include "BsScriptResourceRef.h"
+
+#include "BsScriptTexture.generated.h"
 
 using namespace std::placeholders;
 
@@ -82,7 +83,7 @@ namespace bs
 			textureField->setValue(HTexture());
 		else
 		{
-			ScriptTextureBase* scriptTexture = ScriptTexture::toNative(value);
+			ScriptTexture* scriptTexture = ScriptTexture::toNative(value);
 			textureField->setValue(static_resource_cast<Texture>(scriptTexture->getGenericHandle()));
 		}
 	}
@@ -116,7 +117,6 @@ namespace bs
 
 	void ScriptGUITextureField::onChanged(MonoObject* instance, const WeakResourceHandle<Texture>& newHandle)
 	{
-		// TODO - Always returning a 2D texture, will not work for 3D/cube textures
 		MonoObject* managedObj = ScriptResourceRef::create(newHandle);
 		MonoUtil::invokeThunk(onChangedThunk, instance, managedObj);
 	}
@@ -126,9 +126,7 @@ namespace bs
 		if (instance == nullptr)
 			return nullptr;
 
-		ScriptTextureBase* scriptResource = nullptr;
-		ScriptResourceManager::instance().getScriptResource(instance, &scriptResource, true);
-
+		ScriptResourceBase* scriptResource = ScriptResourceManager::instance().getScriptResource(instance, true);
 		return scriptResource->getManagedInstance();
 	}
 }

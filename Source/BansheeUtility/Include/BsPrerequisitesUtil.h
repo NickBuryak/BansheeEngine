@@ -219,8 +219,8 @@
  *
  * Supported options:
  *  - n - Specify a different name for the type in the scripting API (e.g. "n:MyName"). Usable on types and methods.
- *  - v - Specify a different visibility (default is public). Supported values are "public" and "internal". Usable on types
- *		  and methods.
+ *  - v - Specify a different visibility (default is public). Supported values are "public", "internal" and "private". 
+ *		  Usable on types and methods.
  *  - f - Specify the name of the output file(s) for the script object and its potential wrappers. If not specified
  *		  the name of the type will be used for the file. Usable on types only.
  *	- pl - Specify whether the type is plain or not (default is false). Supported values are "true" or "false". Plain 
@@ -239,13 +239,17 @@
  *		  parameter and return no values. Usable on methods only.
  *	- ed - Specify that a type should be exported for use in the editor only. Supported values are "true" or "false".
  *		   Usable on types only.
+ *  - ex - Excludes an enum member from being generated in script code. Supported values are "true" or "false".
+ *  - in - When enabled ensures only the interop C# method is generated, but not a public one. It is instead expected
+ *		   the user will manually implement the public method. Supported values are "true" or "false". Default is "false".
+ *		   Only supported on methods.
  */
 
 #if BS_COMPILER == BS_COMPILER_CLANG
-	/** @copydoc scriptBindingMacro */
+	/** @ref scriptBindingMacro */
 	#define BS_SCRIPT_EXPORT(...) __attribute__((annotate("se," #__VA_ARGS__)))
 #else
-	/** @copydoc scriptBindingMacro */
+	/** @ref scriptBindingMacro */
 	#define BS_SCRIPT_EXPORT(...) 
 #endif
 

@@ -60,7 +60,6 @@
     <Compile Include="GUI\GUICanvas.cs" />
     <Compile Include="GUI\GUIScrollBar.cs" />
     <Compile Include="Rendering\PostProcessSettings.cs" />
-    <Compile Include="Rendering\Renderable2.cs" />
     <Compile Include="Serialization\ShowInInspector.cs" />
     <Compile Include="Serialization\Step.cs" />
     <Compile Include="Utility\AsyncOp.cs" />
@@ -165,7 +164,6 @@
     <Compile Include="Physics\SliderJoint.cs" />
     <Compile Include="Physics\SphereCollider.cs" />
     <Compile Include="Physics\SphericalJoint.cs" />
-    <Compile Include="Utility\PixelData.cs" />
     <Compile Include="Utility\PixelUtility.cs" />
     <Compile Include="Utility\PlainText.cs" />
     <Compile Include="Scene\Prefab.cs" />
@@ -205,14 +203,12 @@
     <Compile Include="GUI\StringTable.cs" />
     <Compile Include="GUI\StringTables.cs" />
     <Compile Include="Rendering\Texture.cs" />
-    <Compile Include="Rendering\Texture2D.cs" />
     <Compile Include="Math\Vector2.cs" />
     <Compile Include="Math\Vector3.cs" />
     <Compile Include="Math\Vector4.cs" />
-    <Compile Include="Rendering\Texture3D.cs" />
-    <Compile Include="Rendering\TextureCube.cs" />
     <Compile Include="Utility\Time.cs" />
     <Compile Include="Input\VirtualInput.cs" />
+    <Compile Include="Generated\*.cs" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

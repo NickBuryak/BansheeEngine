@@ -9,166 +9,85 @@ namespace BansheeEngine
      *  @{
      */
 
-    /// <summary>
-    /// Base class for all textures. Contains a set of pixels of certain dimensions that can be used for rendering
-    /// or read/written directly.
-    /// </summary>
-    public class Texture : Resource
+    public partial class Texture
     {
         /// <summary>
-        /// Returns the pixel format for the texture surface.
+        /// Creates a new blank 2D texture.
         /// </summary>
-        public PixelFormat PixelFormat
+        /// <param name="width">Width of the texture in pixels.</param>
+        /// <param name="height">Height of the texture in pixels.</param>
+        /// <param name="format">Format of the pixels.</param>
+        /// <param name="usage">Describes planned texture use.</param>
+        /// <param name="numSamples">If higher than 1, texture containing multiple samples per pixel is created.</param>
+        /// <param name="hasMipmaps">Should the texture allocate memory for the entire mip-map chain or only the top level.
+        ///                          </param>
+        /// <param name="gammaCorrection">If true the texture data is assumed to have be gamma corrected and will be
+        ///                               converted back to linear space when sampled on GPU, and converted to gamma space
+        ///                               before being written by the GPU.</param>
+        public static Texture Create2D(int width, int height, PixelFormat format = PixelFormat.R8G8B8A8, 
+            TextureUsage usage = TextureUsage.Default, int numSamples = 1, bool hasMipmaps = false, 
+            bool gammaCorrection = false)
         {
-            get
-            {
-                PixelFormat value;
-                Internal_GetPixelFormat(mCachedPtr, out value);
-                return value;
-            }
+            Texture texture = new Texture(true);
+            Internal_create(texture, format, width, height, 1, TextureType.Texture2D, usage, numSamples,
+                hasMipmaps, gammaCorrection);
+
+            return texture;
         }
 
         /// <summary>
-        /// Returns a value that signals the engine in what way is the texture expected to be used.
+        /// Creates a new blank 3D texture.
         /// </summary>
-        public TextureUsage Usage
+        /// <param name="width">Width of the texture in pixels.</param>
+        /// <param name="height">Height of the texture in pixels.</param>
+        /// <param name="depth">Depth of the texture in pixels.</param>
+        /// <param name="format">Format of the pixels.</param>
+        /// <param name="usage">Describes planned texture use.</param>
+        /// <param name="hasMipmaps">Should the texture allocate memory for the entire mip-map chain or only the top level.
+        ///                          </param>
+        public static Texture Create3D(int width, int height, int depth, PixelFormat format = PixelFormat.R8G8B8A8,
+            TextureUsage usage = TextureUsage.Default, bool hasMipmaps = false)
         {
-            get
-            {
-                TextureUsage value;
-                Internal_GetUsage(mCachedPtr, out value);
-                return value;
-            }
+            Texture texture = new Texture(true);
+            Internal_create(texture, format, width, height, depth, TextureType.Texture3D, usage, 1,
+                hasMipmaps, false);
+
+            return texture;
         }
 
         /// <summary>
-        /// Width of the texture in pixels.
+        /// Creates a new blank cubemap texture.
         /// </summary>
-        public int Width
+        /// <param name="size">Width & height of a single cubemap face in pixels.</param>
+        /// <param name="format">Format of the pixels.</param>
+        /// <param name="usage">Describes planned texture use.</param>
+        /// <param name="hasMipmaps">Should the texture allocate memory for the entire mip-map chain or only the top level.
+        ///                          </param>
+        /// <param name="gammaCorrection">If true the texture data is assumed to have be gamma corrected and will be
+        ///                               converted back to linear space when sampled on GPU, and converted to gamma space
+        ///                               before being written by the GPU.</param>
+        public static Texture CreateCube(int size, PixelFormat format = PixelFormat.R8G8B8A8,
+            TextureUsage usage = TextureUsage.Default, bool hasMipmaps = false, bool gammaCorrection = false)
         {
-            get
-            {
-                int value;
-                Internal_GetWidth(mCachedPtr, out value);
-                return value;
-            }
+            Texture texture = new Texture(true);
+            Internal_create(texture, format, size, size, 1, TextureType.TextureCube, usage, 1,
+                hasMipmaps, gammaCorrection);
+
+            return texture;
         }
-
-        /// <summary>
-        /// Height of the texture in pixels.
-        /// </summary>
-        public int Height
-        {
-            get
-            {
-                int value;
-                Internal_GetHeight(mCachedPtr, out value);
-                return value;
-            }
-        }
-
-        /// <summary>
-        /// Determines does the texture contain gamma corrected data. If true then the GPU will automatically convert
-        /// the pixels to linear space before reading from the texture, and convert them to gamma space when writing
-        /// to the texture.
-        /// </summary>
-        public bool GammaCorrection
-        {
-            get
-            {
-                bool value;
-                Internal_GetGammaCorrection(mCachedPtr, out value);
-                return value;
-            }
-        }
-
-        /// <summary>
-        /// Number of samples per pixel. Zero or one mean no multisampling will be used.
-        /// </summary>
-        public int SampleCount
-        {
-            get
-            {
-                int value;
-                Internal_GetSampleCount(mCachedPtr, out value);
-                return value;
-            }
-        }
-
-        /// <summary>
-        /// Returns how many mipmap levels does the texture contain.
-        /// </summary>
-        public int MipmapCount
-        {
-            get
-            {
-                int value;
-                Internal_GetMipmapCount(mCachedPtr, out value);
-                return value;
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetPixelFormat(IntPtr thisPtr, out PixelFormat value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetUsage(IntPtr thisPtr, out TextureUsage value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetWidth(IntPtr thisPtr, out int value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetHeight(IntPtr thisPtr, out int value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetGammaCorrection(IntPtr thisPtr, out bool value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetSampleCount(IntPtr thisPtr, out int value);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetMipmapCount(IntPtr thisPtr, out int value);
     }
 
     /// <summary>
-    /// Flags that describe how is a texture used.
+    /// Indices for the faces of a cube texture.
     /// </summary>
-    public enum TextureUsage // Note: Must match C++ enum TextureUsage
+    public enum CubeFace
     {
-        /// <summary>
-        /// A regular texture that is not often or ever updated from the CPU.
-        /// </summary>
-        Default = 0x1,
-
-        /// <summary>
-        /// A regular texture that is often updated by the CPU.
-        /// </summary>
-        Dynamic = 0x2,
-
-        /// <summary>
-        /// Texture that can be rendered to by the GPU.
-        /// </summary>
-        Render = 0x200,
-
-        /// <summary>
-        /// Texture used as a depth/stencil buffer by the GPU.
-        /// </summary>
-        DepthStencil = 0x400,
-
-        /// <summary>
-        /// Texture that allows load/store operations from the GPU program.
-        /// </summary>
-        LoadStore = 0x800,
-
-        /// <summary>
-        /// All mesh data will also be cached in CPU memory, making it available for fast read access from the CPU.
-        /// </summary>
-        CPUCached = 0x1000,
-
-        /// <summary>
-        /// Allows the CPU to directly read the texture data buffers from the GPU.
-        /// </summary>
-        CPUReadable = 0x2000,
+        PositiveX = 0,
+        NegativeX = 1,
+        PositiveY = 2,
+        NegativeY = 3,
+        PositiveZ = 4,
+        NegativeZ = 5,
     }
 
     /** @} */

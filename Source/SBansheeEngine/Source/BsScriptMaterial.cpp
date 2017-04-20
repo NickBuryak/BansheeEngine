@@ -8,10 +8,9 @@
 #include "BsMonoManager.h"
 #include "BsMonoUtil.h"
 #include "BsScriptShader.h"
-#include "BsScriptTexture2D.h"
-#include "BsScriptTexture3D.h"
-#include "BsScriptTextureCube.h"
-#include <BsBuiltinResources.h>
+#include "BsBuiltinResources.h"
+
+#include "BsScriptTexture.generated.h"
 
 namespace bs
 {
@@ -36,9 +35,7 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_SetMatrix3", &ScriptMaterial::internal_SetMatrix3);
 		metaData.scriptClass->addInternalCall("Internal_SetMatrix4", &ScriptMaterial::internal_SetMatrix4);
 		metaData.scriptClass->addInternalCall("Internal_SetColor", &ScriptMaterial::internal_SetColor);
-		metaData.scriptClass->addInternalCall("Internal_SetTexture2D", &ScriptMaterial::internal_SetTexture2D);
-		metaData.scriptClass->addInternalCall("Internal_SetTexture3D", &ScriptMaterial::internal_SetTexture3D);
-		metaData.scriptClass->addInternalCall("Internal_SetTextureCube", &ScriptMaterial::internal_SetTextureCube);
+		metaData.scriptClass->addInternalCall("Internal_SetTexture", &ScriptMaterial::internal_SetTexture);
 
 		metaData.scriptClass->addInternalCall("Internal_GetFloat", &ScriptMaterial::internal_GetFloat);
 		metaData.scriptClass->addInternalCall("Internal_GetVector2", &ScriptMaterial::internal_GetVector2);
@@ -47,9 +44,7 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_GetMatrix3", &ScriptMaterial::internal_GetMatrix3);
 		metaData.scriptClass->addInternalCall("Internal_GetMatrix4", &ScriptMaterial::internal_GetMatrix4);
 		metaData.scriptClass->addInternalCall("Internal_GetColor", &ScriptMaterial::internal_GetColor);
-		metaData.scriptClass->addInternalCall("Internal_GetTexture2D", &ScriptMaterial::internal_GetTexture2D);
-		metaData.scriptClass->addInternalCall("Internal_GetTexture3D", &ScriptMaterial::internal_GetTexture3D);
-		metaData.scriptClass->addInternalCall("Internal_GetTextureCube", &ScriptMaterial::internal_GetTextureCube);
+		metaData.scriptClass->addInternalCall("Internal_GetTexture", &ScriptMaterial::internal_GetTexture);
 	}
 
 	void ScriptMaterial::internal_CreateInstance(MonoObject* instance, ScriptShader* shader)
@@ -62,18 +57,14 @@ namespace bs
 			nativeShader = BuiltinResources::instance().getBuiltinShader(BuiltinShader::Standard);
 
 		HMaterial material = Material::create(nativeShader);
-
-		ScriptMaterial* scriptInstance;
-		ScriptResourceManager::instance().createScriptResource(instance, material, &scriptInstance);
+		ScriptResourceBase* scriptInstance = ScriptResourceManager::instance().createBuiltinScriptResource(material, instance);
 	}
 
 	MonoObject* ScriptMaterial::internal_Clone(ScriptMaterial* nativeInstance)
 	{
 		HMaterial clone = nativeInstance->getHandle()->clone();
 
-		ScriptMaterial* scriptClone;
-		ScriptResourceManager::instance().createScriptResource(clone, &scriptClone);
-
+		ScriptResourceBase* scriptClone = ScriptResourceManager::instance().createBuiltinScriptResource(clone);
 		return scriptClone->getManagedInstance();
 	}
 
@@ -84,9 +75,7 @@ namespace bs
 		if (shader == nullptr)
 			return nullptr;
 
-		ScriptShader* scriptShader;
-		ScriptResourceManager::instance().getScriptResource(shader, &scriptShader, true);
-
+		ScriptResourceBase* scriptShader = ScriptResourceManager::instance().getScriptResource(shader, true);
 		return scriptShader->getManagedInstance();
 	}
 
@@ -151,31 +140,7 @@ namespace bs
 		nativeInstance->getHandle()->setColor(paramName, *value);
 	}
 
-	void ScriptMaterial::internal_SetTexture2D(ScriptMaterial* nativeInstance, MonoString* name, ScriptTexture2D* value)
-	{
-		String paramName = MonoUtil::monoToString(name);
-
-		HTexture texture;
-
-		if (value != nullptr)
-			texture = value->getHandle();
-
-		nativeInstance->getHandle()->setTexture(paramName, texture);
-	}
-
-	void ScriptMaterial::internal_SetTexture3D(ScriptMaterial* nativeInstance, MonoString* name, ScriptTexture3D* value)
-	{
-		String paramName = MonoUtil::monoToString(name);
-
-		HTexture texture;
-
-		if (value != nullptr)
-			texture = value->getHandle();
-
-		nativeInstance->getHandle()->setTexture(paramName, texture);
-	}
-
-	void ScriptMaterial::internal_SetTextureCube(ScriptMaterial* nativeInstance, MonoString* name, ScriptTextureCube* value)
+	void ScriptMaterial::internal_SetTexture(ScriptMaterial* nativeInstance, MonoString* name, ScriptTexture* value)
 	{
 		String paramName = MonoUtil::monoToString(name);
 
@@ -236,7 +201,7 @@ namespace bs
 		*value = nativeInstance->getHandle()->getColor(paramName);
 	}
 
-	MonoObject* ScriptMaterial::internal_GetTexture2D(ScriptMaterial* nativeInstance, MonoString* name)
+	MonoObject* ScriptMaterial::internal_GetTexture(ScriptMaterial* nativeInstance, MonoString* name)
 	{
 		String paramName = MonoUtil::monoToString(name);
 
@@ -244,37 +209,7 @@ namespace bs
 		if (texture == nullptr)
 			return nullptr;
 
-		ScriptTexture2D* scriptTexture;
-		ScriptResourceManager::instance().getScriptResource(texture, &scriptTexture, true);
-
-		return scriptTexture->getManagedInstance();
-	}
-
-	MonoObject* ScriptMaterial::internal_GetTexture3D(ScriptMaterial* nativeInstance, MonoString* name)
-	{
-		String paramName = MonoUtil::monoToString(name);
-
-		HTexture texture = nativeInstance->getHandle()->getTexture(paramName);
-		if (texture == nullptr)
-			return nullptr;
-
-		ScriptTexture3D* scriptTexture;
-		ScriptResourceManager::instance().getScriptResource(texture, &scriptTexture, true);
-
-		return scriptTexture->getManagedInstance();
-	}
-
-	MonoObject* ScriptMaterial::internal_GetTextureCube(ScriptMaterial* nativeInstance, MonoString* name)
-	{
-		String paramName = MonoUtil::monoToString(name);
-
-		HTexture texture = nativeInstance->getHandle()->getTexture(paramName);
-		if (texture == nullptr)
-			return nullptr;
-
-		ScriptTextureCube* scriptTexture;
-		ScriptResourceManager::instance().getScriptResource(texture, &scriptTexture, true);
-
+		ScriptResourceBase* scriptTexture = ScriptResourceManager::instance().getScriptResource(texture, true);
 		return scriptTexture->getManagedInstance();
 	}
 

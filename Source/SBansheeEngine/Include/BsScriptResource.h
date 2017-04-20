@@ -12,13 +12,6 @@ namespace bs
 	 *  @{
 	 */
 
-	/**	Types of resources accessible from script code. */
-	enum class ScriptResourceType // Note: Must be the same as C# enum ResourceType
-	{
-		Texture, SpriteTexture, Mesh, Font, Shader, ShaderInclude, Material, Prefab, 
-		PlainText, ScriptCode, StringTable, GUISkin, PhysicsMaterial, PhysicsMesh, AudioClip, AnimationClip, Undefined
-	};
-
 	/**	Base class for all resource interop objects. */
 	class BS_SCR_BE_EXPORT ScriptResourceBase : public PersistentScriptObjectBase
 	{
@@ -53,8 +46,8 @@ namespace bs
 	};
 
 	/**	Base class for a specific resource's interop object. */
-	template<class ScriptClass, class ResType>
-	class BS_SCR_BE_EXPORT TScriptResource : public ScriptObject <ScriptClass, ScriptResourceBase>
+	template<class ScriptClass, class ResType, class BaseType = ScriptResourceBase>
+	class BS_SCR_BE_EXPORT TScriptResource : public ScriptObject <ScriptClass, BaseType>
 	{
 	public:
 		/**	Returns a generic handle to the internal wrapped resource. */
@@ -70,7 +63,7 @@ namespace bs
 		friend class ScriptResourceManager;
 
 		TScriptResource(MonoObject* instance, const ResourceHandle<ResType>& resource)
-			:ScriptObject<ScriptClass, ScriptResourceBase>(instance), mResource(resource)
+			:ScriptObject<ScriptClass, BaseType>(instance), mResource(resource)
 		{
 			mManagedHandle = MonoUtil::newGCHandle(instance);
 
@@ -88,7 +81,7 @@ namespace bs
 			BS_ASSERT(!mHandleValid);
 			mManagedHandle = MonoUtil::newGCHandle(this->mManagedInstance);
 
-			ScriptObject<ScriptClass, ScriptResourceBase>::endRefresh(backupData);
+			ScriptObject<ScriptClass, BaseType>::endRefresh(backupData);
 		}
 
 		/**	
@@ -120,14 +113,6 @@ namespace bs
 	public:
 		SCRIPT_OBJ(ENGINE_ASSEMBLY, "BansheeEngine", "Resource")
 
-		/**	Converts a RTTI id belonging to a resource type into a ScriptResourceType. */
-		static ScriptResourceType getTypeFromTypeId(UINT32 typeId);
-
-		/**	Converts a ScriptResourceType into a RTTI id belonging to that resource type. */
-		static UINT32 getTypeIdFromType(ScriptResourceType type);
-
-		/**	Converts a RTTI id belonging to a resource type into a managed class representing that type. */
-		static MonoClass* getClassFromTypeId(UINT32 typeId);
 	private:
 		ScriptResource(MonoObject* instance)
 			:ScriptObject(instance)

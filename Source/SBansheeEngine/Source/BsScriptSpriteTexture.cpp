@@ -7,7 +7,8 @@
 #include "BsMonoClass.h"
 #include "BsMonoManager.h"
 #include "BsSpriteTexture.h"
-#include "BsScriptTexture2D.h"
+
+#include "BsScriptTexture.generated.h"
 
 namespace bs
 {
@@ -35,26 +36,21 @@ namespace bs
 		if (texture == nullptr)
 			return nullptr;
 
-		ScriptSpriteTexture* scriptSpriteTex;
-		ScriptResourceManager::instance().getScriptResource(texture, &scriptSpriteTex, true);
-
+		ScriptResourceBase* scriptSpriteTex = ScriptResourceManager::instance().getScriptResource(texture, true);
 		return scriptSpriteTex->getManagedInstance();
 	}
 
 	void ScriptSpriteTexture::internal_createInstance(MonoObject* instance, MonoObject* texture, Vector2* offset, Vector2* scale)
 	{
-		ScriptTexture2D* scriptTexture = ScriptTexture2D::toNative(texture);
-		ScriptSpriteTexture* scriptInstance;
+		ScriptTexture* scriptTexture = ScriptTexture::toNative(texture);
+		ScriptResourceBase* scriptInstance;
 
 		if (scriptTexture == nullptr)
-		{
-			ScriptResourceManager::instance().createScriptResource(instance, SpriteTexture::dummy(), &scriptInstance);
-		}
+			scriptInstance = ScriptResourceManager::instance().createBuiltinScriptResource(SpriteTexture::dummy(), instance);
 		else
 		{
 			HSpriteTexture spriteTexture = SpriteTexture::create(*offset, *scale, scriptTexture->getHandle());
-
-			ScriptResourceManager::instance().createScriptResource(instance, spriteTexture, &scriptInstance);
+			scriptInstance = ScriptResourceManager::instance().createBuiltinScriptResource(spriteTexture, instance);
 		}
 	}
 
@@ -68,13 +64,11 @@ namespace bs
 		if (!texture.isLoaded())
 			return nullptr;
 
-		ScriptTexture2D* scriptTexture = nullptr;
-		ScriptResourceManager::instance().getScriptResource(texture, &scriptTexture, true);
-
+		ScriptResourceBase* scriptTexture = ScriptResourceManager::instance().getScriptResource(texture, true);
 		return scriptTexture->getManagedInstance();
 	}
 
-	void ScriptSpriteTexture::internal_SetTexture(ScriptSpriteTexture* thisPtr, ScriptTexture2D* value)
+	void ScriptSpriteTexture::internal_SetTexture(ScriptSpriteTexture* thisPtr, ScriptTexture* value)
 	{
 		HSpriteTexture spriteTexture = thisPtr->getHandle();
 		if (!spriteTexture.isLoaded())

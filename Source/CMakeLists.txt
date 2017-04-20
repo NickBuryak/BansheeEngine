@@ -48,6 +48,8 @@ set_property(CACHE BUILD_SCOPE PROPERTY STRINGS "Runtime" "Framework")
 
 set(INCLUDE_ALL_IN_WORKFLOW OFF CACHE BOOL "If true, all libraries (even those not selected) will be included in the generated workflow (e.g. Visual Studio solution). This is useful when working on engine internals with a need for easy access to all parts of it. Only relevant for workflow generators like Visual Studio or XCode.")
 
+set(GENERATE_SCRIPT_BINDINGS ON CACHE BOOL "If true, script binding files will be generated. Script bindings are required for the project to build properly, however they take a while to generate. If you are sure the script bindings are up to date, you can turn off their generation (temporarily) to speed up the build.")
+
 if(BUILD_SCOPE MATCHES "Runtime")
 	set(BUILD_EDITOR ON)
 else()
@@ -202,9 +204,40 @@ endfunction()
 
 set_property(GLOBAL PROPERTY USE_FOLDERS TRUE)
 
+# Config file
+## Note: Must happen before script binding generation
+## Set names of libraries used in the config file
+if(RENDER_API_MODULE MATCHES "DirectX 11")
+	set(RENDER_API_MODULE_LIB BansheeD3D11RenderAPI)
+elseif(RENDER_API_MODULE MATCHES "Vulkan")
+	set(RENDER_API_MODULE_LIB BansheeVulkanRenderAPI)
+else()
+	set(RENDER_API_MODULE_LIB BansheeGLRenderAPI)
+endif()
+
+if(AUDIO_MODULE MATCHES "FMOD")
+	set(AUDIO_MODULE_LIB BansheeFMOD)
+else() # Default to OpenAudio
+	set(AUDIO_MODULE_LIB BansheeOpenAudio)
+endif()
+
+set(RENDERER_MODULE_LIB RenderBeast)
+set(INPUT_MODULE_LIB BansheeOISInput)
+set(PHYSICS_MODULE_LIB BansheePhysX)
+
+if(BUILD_EDITOR)
+	set(BS_EDITOR_BUILD 1)
+else()
+	set(BS_EDITOR_BUILD 0)
+endif()
+
+## Generate config files)
+configure_file("${PROJECT_SOURCE_DIR}/CMake/BsEngineConfig.h.in" "${PROJECT_SOURCE_DIR}/BansheeEngine/Include/BsEngineConfig.h")
+configure_file("${PROJECT_SOURCE_DIR}/CMake/BsFrameworkConfig.h.in" "${PROJECT_SOURCE_DIR}/BansheeUtility/Include/BsFrameworkConfig.h")
+
 # Code generation for script bindings
 include(CMake/GenerateScriptBindings.cmake)
-
+	
 # Sub-directories
 ## Layers
 add_subdirectory(BansheeUtility)
@@ -285,33 +318,3 @@ if(MSVC)
 else()
 # TODO - Use Mono compiler to build the managed code as a pre-build step
 endif()
-
-# Config file
-## Set names of libraries used in the config file
-if(RENDER_API_MODULE MATCHES "DirectX 11")
-	set(RENDER_API_MODULE_LIB BansheeD3D11RenderAPI)
-elseif(RENDER_API_MODULE MATCHES "Vulkan")
-	set(RENDER_API_MODULE_LIB BansheeVulkanRenderAPI)
-else()
-	set(RENDER_API_MODULE_LIB BansheeGLRenderAPI)
-endif()
-
-if(AUDIO_MODULE MATCHES "FMOD")
-	set(AUDIO_MODULE_LIB BansheeFMOD)
-else() # Default to OpenAudio
-	set(AUDIO_MODULE_LIB BansheeOpenAudio)
-endif()
-
-set(RENDERER_MODULE_LIB RenderBeast)
-set(INPUT_MODULE_LIB BansheeOISInput)
-set(PHYSICS_MODULE_LIB BansheePhysX)
-
-if(BUILD_EDITOR)
-	set(BS_EDITOR_BUILD 1)
-else()
-	set(BS_EDITOR_BUILD 0)
-endif()
-
-## Generate config files
-configure_file("${PROJECT_SOURCE_DIR}/CMake/BsEngineConfig.h.in" "${PROJECT_SOURCE_DIR}/BansheeEngine/Include/BsEngineConfig.h")
-configure_file("${PROJECT_SOURCE_DIR}/CMake/BsFrameworkConfig.h.in" "${PROJECT_SOURCE_DIR}/BansheeUtility/Include/BsFrameworkConfig.h")

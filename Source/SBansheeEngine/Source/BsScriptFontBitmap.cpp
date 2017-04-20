@@ -6,8 +6,9 @@
 #include "BsMonoClass.h"
 #include "BsMonoManager.h"
 #include "BsScriptResourceManager.h"
-#include "BsScriptTexture2D.h"
 #include "BsMonoUtil.h"
+
+#include "BsScriptTexture.generated.h"
 
 namespace bs
 {
@@ -87,12 +88,10 @@ namespace bs
 		const Vector<HTexture>& texturePages = instance->mBitmap->texturePages;
 
 		UINT32 numPages = (UINT32)texturePages.size();
-		ScriptArray output = ScriptArray::create<ScriptTexture2D>(numPages);
+		ScriptArray output = ScriptArray::create<ScriptTexture>(numPages);
 		for (UINT32 i = 0; i < numPages; i++)
 		{
-			ScriptTexture2D* scriptTexture = nullptr;
-			ScriptResourceManager::instance().getScriptResource(texturePages[i], &scriptTexture, true);
-
+			ScriptResourceBase* scriptTexture = ScriptResourceManager::instance().getScriptResource(texturePages[i], true);
 			output.set(i, scriptTexture->getManagedInstance());
 		}
 
