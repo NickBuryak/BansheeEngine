@@ -38,11 +38,13 @@ namespace bs
 		String source = stream->getAsString();
 
 		SPtr<const ShaderImportOptions> io = std::static_pointer_cast<const ShaderImportOptions>(importOptions);
-		BSLFXCompileResult result = BSLFXCompiler::compile(source, io->getDefines());
+		WString shaderName = filePath.getWFilename(false);
+		BSLFXCompileResult result = BSLFXCompiler::compile(toString(shaderName), source, io->getDefines());
 
 		if (result.shader != nullptr)
-			result.shader->setName(filePath.getWFilename(false));
-		else
+			result.shader->setName(shaderName);
+		
+		if(!result.errorMessage.empty())
 		{
 			String file;
 			if (result.errorFile.empty())
@@ -50,7 +52,7 @@ namespace bs
 			else
 				file = result.errorFile;
 
-			LOGERR("Error while parsing shader FX code \"" + file + "\":\n" + result.errorMessage + ". Location: " +
+			LOGERR("Compilation error when importing shader \"" + file + "\":\n" + result.errorMessage + ". Location: " +
 				toString(result.errorLine) + " (" + toString(result.errorColumn) + ")");
 		}
 

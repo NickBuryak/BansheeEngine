@@ -193,6 +193,10 @@ If the library structure still isn't clear, download one of the pre-compiled dep
     - OSDependent.lib (Compile using "release" configuration)
     - OSDependentd.lib (Compile using "debug" configuration)
    
+**XShaderCompiler**
+- Distributed with Banshee source in Source/External/XShaderCompiler
+- Required by BansheeSL
+   
 **bison**
 - Bison 2.7
 - http://sourceforge.net/projects/winflexbison/files/
@@ -214,5 +218,5 @@ If the library structure still isn't clear, download one of the pre-compiled dep
  - https://github.com/BearishSun/BansheeSBGen
  - Required for generation of C# script binding files. Not required if not using the scripting sub-system.
  - Outputs:
-  - Windows (tool):
-   - BansheeSBGen/BansheeSBGen_v1.0.0.exe
+   - Windows (tool):
+     - BansheeSBGen/BansheeSBGen_v1.0.0.exe
