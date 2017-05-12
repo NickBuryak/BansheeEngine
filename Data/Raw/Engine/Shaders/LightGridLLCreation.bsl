@@ -16,17 +16,19 @@ Technique
  : inherits("LightGridCommon")
  : inherits("ImageBasedLighting") =
 {
-	Language = "HLSL11";
-	
 	Pass =
 	{
 		Compute = 
 		{
+			[layout(r32ui)]
 			RWBuffer<uint> gLightsCounter;
+			[layout(r32ui)]
 			RWBuffer<uint> gLightsLLHeads;
 			RWBuffer<uint4> gLightsLL;
-				
+			
+			[layout(r32ui)]
 			RWBuffer<uint> gProbesCounter;
+			[layout(r32ui)]
 			RWBuffer<uint> gProbesLLHeads;
 			RWBuffer<uint2> gProbesLL;
 				

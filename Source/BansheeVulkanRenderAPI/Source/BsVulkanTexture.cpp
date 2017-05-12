@@ -380,6 +380,12 @@ namespace bs { namespace ct
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 			accessFlags = VK_ACCESS_SHADER_READ_BIT;
 			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+			accessFlags = VK_ACCESS_TRANSFER_READ_BIT;
+			break;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+			accessFlags = VK_ACCESS_TRANSFER_WRITE_BIT;
+			break;
 		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
 			accessFlags = VK_ACCESS_MEMORY_READ_BIT;
 			break;
@@ -474,7 +480,8 @@ namespace bs { namespace ct
 
 							for (UINT32 i = 0; i < barrier->subresourceRange.levelCount; i++)
 							{
-								UINT32 idx = i * range.layerCount + (face - range.baseArrayLayer);
+								UINT32 curMip = (barrier->subresourceRange.baseMipLevel + i) - range.baseMipLevel;
+								UINT32 idx = curMip * range.layerCount + (face - range.baseArrayLayer);
 								processed[idx] = true;
 							}
 						}
@@ -505,7 +512,8 @@ namespace bs { namespace ct
 
 							for (UINT32 i = 0; i < barrier->subresourceRange.layerCount; i++)
 							{
-								UINT32 idx = (mip - range.baseMipLevel) * range.layerCount + i;
+								UINT32 curFace = (barrier->subresourceRange.baseArrayLayer + i) - range.baseArrayLayer;
+								UINT32 idx = (mip - range.baseMipLevel) * range.layerCount + curFace;
 								processed[idx] = true;
 							}
 						}
@@ -531,6 +539,7 @@ namespace bs { namespace ct
 							face = range.baseArrayLayer + j;
 
 							found = true;
+							processed[idx] = true;
 							break;
 						}
 					}
@@ -608,7 +617,7 @@ namespace bs { namespace ct
 		// Note: I force rendertarget and depthstencil types to be readable in shader. Depending on performance impact
 		// it might be beneficial to allow the user to enable this explicitly only when needed.
 		
-		mImageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		mImageCI.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 		int usage = props.getUsage();
 		if ((usage & TU_RENDERTARGET) != 0)
@@ -621,8 +630,6 @@ namespace bs { namespace ct
 			mImageCI.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 			mSupportsGPUWrites = true;
 		}
-		else
-			mImageCI.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		
 		if ((usage & TU_LOADSTORE) != 0)
 		{
@@ -820,7 +827,7 @@ namespace bs { namespace ct
 	}
 
 	void VulkanTexture::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-									 const SPtr<Texture>& target, UINT32 queueIdx)
+									 const SPtr<Texture>& target, const SPtr<CommandBuffer>& commandBuffer)
 	{
 		VulkanTexture* other = static_cast<VulkanTexture*>(target.get());
 
@@ -847,21 +854,8 @@ namespace bs { namespace ct
 			}
 		}
 
-		VulkanCommandBufferManager& cbManager = gVulkanCBManager();
-		GpuQueueType queueType;
-		UINT32 localQueueIdx = CommandSyncMask::getQueueIdxAndType(queueIdx, queueType);
-
-		VkImageLayout transferSrcLayout, transferDstLayout;
-		if (mDirectlyMappable)
-		{
-			transferSrcLayout = VK_IMAGE_LAYOUT_GENERAL;
-			transferDstLayout = VK_IMAGE_LAYOUT_GENERAL;
-		}
-		else
-		{
-			transferSrcLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			transferDstLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		}
+		VkImageLayout transferSrcLayout = mDirectlyMappable ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		VkImageLayout transferDstLayout = other->mDirectlyMappable ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
 		UINT32 mipWidth, mipHeight, mipDepth;
 		PixelUtil::getSizeForMipLevel(srcProps.getWidth(), srcProps.getHeight(), srcProps.getDepth(), srcMipLevel,
@@ -908,94 +902,69 @@ namespace bs { namespace ct
 		dstRange.levelCount = 1;
 
 		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
-		for(UINT32 i = 0; i < BS_MAX_DEVICES; i++)
+
+		VulkanCmdBuffer* vkCB;
+		if (commandBuffer != nullptr)
+			vkCB = static_cast<VulkanCommandBuffer*>(commandBuffer.get())->getInternal();
+		else
+			vkCB = rapi._getMainCommandBuffer()->getInternal();
+
+		UINT32 deviceIdx = vkCB->getDeviceIdx();
+
+		VulkanImage* srcImage = mImages[deviceIdx];
+		VulkanImage* dstImage = other->getResource(deviceIdx);
+
+		if (srcImage == nullptr || dstImage == nullptr)
+			return;
+
+		VulkanImageSubresource* srcSubresource = srcImage->getSubresource(srcFace, srcMipLevel);
+		VulkanImageSubresource* dstSubresource = dstImage->getSubresource(destFace, destMipLevel);
+
+		VkImageLayout srcLayout = srcSubresource->getLayout();
+		VkImageLayout dstLayout = dstSubresource->getLayout();
+
+		VkCommandBuffer vkCmdBuf = vkCB->getHandle();
+
+		VkAccessFlags srcAccessMask = srcImage->getAccessFlags(srcLayout);
+		VkAccessFlags dstAccessMask = dstImage->getAccessFlags(dstLayout);
+
+		if (vkCB->isInRenderPass())
+			vkCB->endRenderPass();
+
+		// Transfer textures to a valid layout
+		vkCB->setLayout(srcImage->getHandle(), srcAccessMask, VK_ACCESS_TRANSFER_READ_BIT, srcLayout,
+								transferSrcLayout, srcRange);
+
+		vkCB->setLayout(dstImage->getHandle(), dstAccessMask, VK_ACCESS_TRANSFER_WRITE_BIT,
+								dstLayout, transferDstLayout, dstRange);
+
+		if (srcHasMultisample && !destHasMultisample) // Resolving from MS to non-MS texture
 		{
-			VulkanDevice& device = *rapi._getDevice(i);
-
-			VulkanImage* srcImage = mImages[i];
-			VulkanImage* dstImage = other->getResource(i);
-
-			if (srcImage == nullptr || dstImage == nullptr)
-				continue;
-
-			VulkanImageSubresource* srcSubresource = srcImage->getSubresource(srcFace, srcMipLevel);
-			VulkanImageSubresource* dstSubresource = dstImage->getSubresource(destFace, destMipLevel);
-
-			VkImageLayout srcLayout = srcSubresource->getLayout();
-			VkImageLayout dstLayout = dstSubresource->getLayout();
-
-			VulkanTransferBuffer* transferCB = cbManager.getTransferBuffer(i, queueType, localQueueIdx);
-			VkCommandBuffer vkCmdBuf = transferCB->getCB()->getHandle();
-
-			// If destination subresource is queued for some operation on a CB (ignoring the ones we're waiting for), then 
-			// we need to make a copy of the image to avoid modifying its use in the previous operation
-			UINT32 useCount = dstImage->getUseCount();
-			UINT32 boundCount = dstImage->getBoundCount();
-
-			bool isBoundWithoutUse = boundCount > useCount;
-			if (isBoundWithoutUse)
-			{
-				VulkanImage* newImage = createImage(device, mInternalFormats[i]);
-
-				// Avoid copying original contents if the image only has one sub-resource, which we'll overwrite anyway
-				if (dstProps.getNumMipmaps() > 0 || dstProps.getNumFaces() > 1)
-				{
-					VkImageLayout oldDstLayout = dstImage->getOptimalLayout();
-
-					dstLayout = newImage->getOptimalLayout();
-					copyImage(transferCB, dstImage, newImage, oldDstLayout, dstLayout);
-				}
-
-				dstImage->destroy();
-				dstImage = newImage;
-				mImages[i] = dstImage;
-			}
-
-			VkAccessFlags srcAccessMask = srcImage->getAccessFlags(srcLayout);
-			VkAccessFlags dstAccessMask = dstImage->getAccessFlags(dstLayout);
-
-			// Transfer textures to a valid layout
-			transferCB->setLayout(srcImage->getHandle(), srcAccessMask, VK_ACCESS_TRANSFER_READ_BIT, srcLayout,
-									transferSrcLayout, srcRange);
-
-			transferCB->setLayout(dstImage->getHandle(), dstAccessMask, VK_ACCESS_TRANSFER_WRITE_BIT,
-									dstLayout, transferDstLayout, dstRange);
-
-			if (srcHasMultisample && !destHasMultisample) // Resolving from MS to non-MS texture
-			{
-				vkCmdResolveImage(vkCmdBuf, srcImage->getHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-								  dstImage->getHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &resolveRegion);
-			}
-			else // Just a normal copy
-			{
-				vkCmdCopyImage(vkCmdBuf, srcImage->getHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-							   dstImage->getHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageRegion);
-			}
-
-			// Transfer back to optimal layouts
-			srcLayout = srcImage->getOptimalLayout();
-
-			srcAccessMask = srcImage->getAccessFlags(srcLayout);
-			transferCB->setLayout(srcImage->getHandle(), VK_ACCESS_TRANSFER_READ_BIT, srcAccessMask,
-									transferSrcLayout, srcLayout, srcRange);
-
-			dstLayout = dstImage->getOptimalLayout();
-
-			dstAccessMask = dstImage->getAccessFlags(dstLayout);
-			transferCB->setLayout(dstImage->getHandle(), VK_ACCESS_TRANSFER_WRITE_BIT, dstAccessMask,
-									transferDstLayout, dstLayout, dstRange);
-
-			// Notify the command buffer that these resources are being used on it
-			transferCB->getCB()->registerResource(srcImage, srcRange, VulkanUseFlag::Read);
-			transferCB->getCB()->registerResource(dstImage, dstRange, VulkanUseFlag::Write);
-
-			// Need to wait if subresource we're reading from is being written, or if the subresource we're writing to is
-			// being accessed in any way
-			UINT32 srcUseFlags = srcSubresource->getUseInfo(VulkanUseFlag::Write);
-			UINT32 dstUseFlags = dstSubresource->getUseInfo(VulkanUseFlag::Read | VulkanUseFlag::Write);
-
-			transferCB->appendMask(srcUseFlags | dstUseFlags);
+			vkCmdResolveImage(vkCmdBuf, srcImage->getHandle(), transferSrcLayout, dstImage->getHandle(), transferDstLayout, 
+				1, &resolveRegion);
 		}
+		else // Just a normal copy
+		{
+			vkCmdCopyImage(vkCmdBuf, srcImage->getHandle(), transferSrcLayout, dstImage->getHandle(), transferDstLayout, 
+				1, &imageRegion);
+		}
+
+		// Transfer back to optimal layouts
+		srcLayout = srcImage->getOptimalLayout();
+
+		srcAccessMask = srcImage->getAccessFlags(srcLayout);
+		vkCB->setLayout(srcImage->getHandle(), VK_ACCESS_TRANSFER_READ_BIT, srcAccessMask, transferSrcLayout, 
+			srcLayout, srcRange);
+
+		dstLayout = dstImage->getOptimalLayout();
+
+		dstAccessMask = dstImage->getAccessFlags(dstLayout);
+		vkCB->setLayout(dstImage->getHandle(), VK_ACCESS_TRANSFER_WRITE_BIT, dstAccessMask, transferDstLayout, 
+			dstLayout, dstRange);
+
+		// Notify the command buffer that these resources are being used on it
+		vkCB->registerResource(srcImage, srcRange, VulkanUseFlag::Read);
+		vkCB->registerResource(dstImage, dstRange, VulkanUseFlag::Write);
 	}
 
 	PixelData VulkanTexture::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,
@@ -1378,7 +1347,7 @@ namespace bs { namespace ct
 									  curLayout, transferLayout, range);
 
 				// Queue copy command
-				mStagingBuffer->copy(transferCB, image, extent, rangeLayers, transferLayout);
+				mStagingBuffer->copy(transferCB->getCB(), image, extent, rangeLayers, transferLayout);
 
 				// Transfer back to original  (or optimal if initial layout was undefined/preinitialized)
 				VkImageLayout dstLayout = image->getOptimalLayout();

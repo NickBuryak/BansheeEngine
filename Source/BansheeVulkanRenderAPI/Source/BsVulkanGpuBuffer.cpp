@@ -31,12 +31,12 @@ namespace bs { namespace ct
 		const GpuBufferProperties& props = getProperties();
 
 		VulkanHardwareBuffer::BufferType bufferType;
-		if (props.getRandomGpuWrite())
-			bufferType = VulkanHardwareBuffer::BT_STORAGE;
+		if (props.getType() == GBT_STRUCTURED)
+			bufferType = VulkanHardwareBuffer::BT_STRUCTURED;
 		else
 		{
-			if(props.getType() == GBT_STRUCTURED)
-				bufferType = VulkanHardwareBuffer::BT_STRUCTURED;
+			if (props.getRandomGpuWrite())
+				bufferType = VulkanHardwareBuffer::BT_STORAGE;
 			else
 				bufferType = VulkanHardwareBuffer::BT_GENERIC;
 		}
@@ -84,10 +84,10 @@ namespace bs { namespace ct
 		BS_INC_RENDER_STAT_CAT(ResWrite, RenderStatObject_GpuBuffer);
 	}
 
-	void VulkanGpuBuffer::copyData(HardwareBuffer& srcBuffer, UINT32 srcOffset,
-		UINT32 dstOffset, UINT32 length, bool discardWholeBuffer, UINT32 queueIdx)
+	void VulkanGpuBuffer::copyData(HardwareBuffer& srcBuffer, UINT32 srcOffset, UINT32 dstOffset, UINT32 length, 
+		bool discardWholeBuffer, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		mBuffer->copyData(srcBuffer, srcOffset, dstOffset, length, discardWholeBuffer, queueIdx);
+		mBuffer->copyData(srcBuffer, srcOffset, dstOffset, length, discardWholeBuffer, commandBuffer);
 	}
 
 	VulkanBuffer* VulkanGpuBuffer::getResource(UINT32 deviceIdx) const

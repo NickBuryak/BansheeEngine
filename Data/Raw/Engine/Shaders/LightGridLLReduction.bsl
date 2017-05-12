@@ -5,8 +5,6 @@ Technique
  : inherits("PerCameraData")
  : inherits("LightGridCommon") = 
 {
-	Language = "HLSL11";
-	
 	Pass =
 	{
 		Compute = 
@@ -17,6 +15,7 @@ Technique
 			Buffer<uint> gProbesLLHeads;
 			Buffer<uint2> gProbesLL;
 			
+			[layout(r32ui)]
 			RWBuffer<uint> gGridDataCounter;
 			
 			RWBuffer<uint4> gGridLightOffsetAndSize;

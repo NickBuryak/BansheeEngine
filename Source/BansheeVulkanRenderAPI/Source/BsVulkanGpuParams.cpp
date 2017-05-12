@@ -136,6 +136,7 @@ namespace bs { namespace ct
 				perSetData.sets.push_back(perSetData.latestSet);
 
 				VkDescriptorSetLayoutBinding* perSetBindings = vkParamInfo.getBindings(j);
+				GpuParamObjectType* types = vkParamInfo.getLayoutTypes(j);
 				for (UINT32 k = 0; k < numBindingsPerSet; k++)
 				{
 					// Note: Instead of using one structure per binding, it's possible to update multiple at once
@@ -162,12 +163,12 @@ namespace bs { namespace ct
 						
 						if(isLoadStore)
 						{
-							imageInfo.imageView = vkTexManager.getDummyStorageImageView(i);
+							imageInfo.imageView = vkTexManager.getDummyImageView(types[k], i);
 							imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 						}
 						else
 						{
-							imageInfo.imageView = vkTexManager.getDummyReadImageView(i);
+							imageInfo.imageView = vkTexManager.getDummyImageView(types[k], i);
 							imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 						}
 
@@ -302,7 +303,16 @@ namespace bs { namespace ct
 			PerSetData& perSetData = mPerDeviceData[i].perSetData[set];
 			if (imageRes != nullptr)
 			{
-				perSetData.writeInfos[bindingIdx].image.imageView = imageRes->getView(surface, false);
+				auto& texProps = texture->getProperties();
+
+				TextureSurface actualSurface = surface;
+				if (surface.numMipLevels == 0)
+					actualSurface.numMipLevels = texProps.getNumMipmaps() + 1;
+				
+				if(surface.numArraySlices == 0)
+					actualSurface.numArraySlices = texProps.getNumFaces();
+
+				perSetData.writeInfos[bindingIdx].image.imageView = imageRes->getView(actualSurface, false);
 				mPerDeviceData[i].sampledImages[sequentialIdx] = imageRes->getHandle();
 			}
 			else
@@ -310,7 +320,10 @@ namespace bs { namespace ct
 				VulkanTextureManager& vkTexManager = static_cast<VulkanTextureManager&>(
 					TextureManager::instance());
 
-				perSetData.writeInfos[bindingIdx].image.imageView = vkTexManager.getDummyReadImageView(i);
+				GpuParamObjectType* types = vkParamInfo.getLayoutTypes(set);
+				GpuParamObjectType type = types[bindingIdx];
+
+				perSetData.writeInfos[bindingIdx].image.imageView = vkTexManager.getDummyImageView(type, i);
 				mPerDeviceData[i].sampledImages[sequentialIdx] = VK_NULL_HANDLE;
 			}
 		}
@@ -359,7 +372,10 @@ namespace bs { namespace ct
 				VulkanTextureManager& vkTexManager = static_cast<VulkanTextureManager&>(
 					TextureManager::instance());
 
-				perSetData.writeInfos[bindingIdx].image.imageView = vkTexManager.getDummyStorageImageView(i);
+				GpuParamObjectType* types = vkParamInfo.getLayoutTypes(set);
+				GpuParamObjectType type = types[bindingIdx];
+
+				perSetData.writeInfos[bindingIdx].image.imageView = vkTexManager.getDummyImageView(type, i);
 				mPerDeviceData[i].storageImages[sequentialIdx] = VK_NULL_HANDLE;
 			}
 		}

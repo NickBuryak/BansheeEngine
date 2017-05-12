@@ -301,7 +301,15 @@ namespace bs { namespace ct
 			GLSLAttribute("bs_texcoord", VES_TEXCOORD),
 			GLSLAttribute("bs_color", VES_COLOR),
 			GLSLAttribute("bs_blendweights", VES_BLEND_WEIGHTS),
-			GLSLAttribute("bs_blendindices", VES_BLEND_INDICES)
+			GLSLAttribute("bs_blendindices", VES_BLEND_INDICES),
+			GLSLAttribute("POSITION", VES_POSITION),
+			GLSLAttribute("NORMAL", VES_NORMAL),
+			GLSLAttribute("TANGENT", VES_TANGENT),
+			GLSLAttribute("BITANGENT", VES_BITANGENT),
+			GLSLAttribute("TEXCOORD", VES_TEXCOORD),
+			GLSLAttribute("COLOR", VES_COLOR),
+			GLSLAttribute("BLENDWEIGHT", VES_BLEND_WEIGHTS),
+			GLSLAttribute("BLENDINDICES", VES_BLEND_INDICES)
 		};
 
 		static const UINT32 numAttribs = sizeof(attributes) / sizeof(attributes[0]);
@@ -445,8 +453,13 @@ namespace bs { namespace ct
 				{
 					switch (sampler.dim)
 					{
-					case glslang::Esd1D:		param.type = GPOT_RWTEXTURE1D; break;
-					case glslang::Esd2D:		param.type = sampler.isMultiSample() ? GPOT_RWTEXTURE2DMS : GPOT_RWTEXTURE2D; break;
+					case glslang::Esd1D:		param.type = sampler.isArrayed() ? GPOT_RWTEXTURE1DARRAY : GPOT_RWTEXTURE1D; break;
+					case glslang::Esd2D:
+						if(sampler.isArrayed())
+							param.type = sampler.isMultiSample() ? GPOT_RWTEXTURE2DMSARRAY : GPOT_RWTEXTURE2DARRAY; 
+						else
+							param.type = sampler.isMultiSample() ? GPOT_RWTEXTURE2DMS : GPOT_RWTEXTURE2D;
+						break;
 					case glslang::Esd3D:		param.type = GPOT_RWTEXTURE3D; break;
 					case glslang::EsdBuffer:	param.type = GPOT_RWBYTE_BUFFER; break;
 					}
@@ -472,10 +485,15 @@ namespace bs { namespace ct
 					{
 						switch (sampler.dim)
 						{
-						case glslang::Esd1D:		param.type = GPOT_TEXTURE1D; break;
-						case glslang::Esd2D:		param.type = sampler.isMultiSample() ? GPOT_TEXTURE2DMS : GPOT_TEXTURE2D; break;
+						case glslang::Esd1D:		param.type = sampler.isArrayed() ? GPOT_TEXTURE1DARRAY : GPOT_TEXTURE1D; break;
+						case glslang::Esd2D:
+							if(sampler.isArrayed())
+								param.type = sampler.isMultiSample() ? GPOT_TEXTURE2DMSARRAY : GPOT_TEXTURE2DARRAY; 
+							else
+								param.type = sampler.isMultiSample() ? GPOT_TEXTURE2DMS : GPOT_TEXTURE2D;
+							break;
 						case glslang::Esd3D:		param.type = GPOT_TEXTURE3D; break;
-						case glslang::EsdCube:		param.type = GPOT_TEXTURECUBE; break;
+						case glslang::EsdCube:		param.type = sampler.isArrayed() ? GPOT_TEXTURECUBEARRAY : GPOT_TEXTURECUBE; break;
 						case glslang::EsdBuffer:	param.type = GPOT_BYTE_BUFFER; break;
 						}
 
@@ -492,7 +510,7 @@ namespace bs { namespace ct
 			else
 			{
 				// We don't parse individual members of shared storage buffers
-				if (qualifier.storage == glslang::EvqBuffer)
+				if (qualifier.storage != glslang::EvqUniform)
 					continue;
 
 				if(ttype->getBasicType() == glslang::EbtStruct)
