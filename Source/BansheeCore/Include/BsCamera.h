@@ -29,13 +29,6 @@ namespace bs
 		PostProcess = 1<<2
 	};
 
-	/**	Projection type to use by the camera. */
-    enum ProjectionType
-    {
-		PT_ORTHOGRAPHIC, /**< Projection type where object size remains constant and parallel lines remain parallel. */
-		PT_PERSPECTIVE /**< Projection type that emulates human vision. Objects farther away appear smaller. */
-    };
-
 	/**	Flags that describe a camera. */
 	enum class CameraFlag
 	{
@@ -590,6 +583,12 @@ namespace bs
 		/**	Returns the viewport used by the camera. */	
 		SPtr<Viewport> getViewport() const { return mViewport; }
 
+		/**	Sets an ID that can be used for uniquely identifying this object by the renderer. */
+		void setRendererId(UINT32 id) { mRendererId = id; }
+
+		/**	Retrieves an ID that can be used for uniquely identifying this object by the renderer. */
+		UINT32 getRendererId() const { return mRendererId; }
+
 	protected:
 		friend class bs::Camera;
 
@@ -607,6 +606,7 @@ namespace bs
 		/** @copydoc CoreObject::syncToCore */
 		void syncToCore(const CoreSyncData& data) override;
 
+		UINT32 mRendererId;
 		SPtr<Viewport> mViewport;
 	};
 	}

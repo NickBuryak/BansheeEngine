@@ -331,8 +331,8 @@ namespace bs
 	}
 
 	Matrix4 Matrix4::projectionPerspective(const Degree& horzFOV, float aspect, float near, float far)
-    {
-	    // Note: Duplicate code in Camera, bring it all here eventually
+	{
+		// Note: Duplicate code in Camera, bring it all here eventually
 		static constexpr float INFINITE_FAR_PLANE_ADJUST = 0.00001f;
 
 		Radian thetaX(horzFOV * 0.5f);
@@ -376,15 +376,23 @@ namespace bs
 		mat[3][0] = 0.0f;	mat[3][1] = 0.0f;	mat[3][2] = -1;	mat[3][3] = 0.0f;
 
 		return mat;
-    }
+	}
+
+	Matrix4 Matrix4::projectionOrthographic(float left, float right, float top, float bottom, float near, float far)
+	{
+		Matrix4 output;
+		output.makeProjectionOrtho(left, right, top, bottom, near, far);
+
+		return output;
+	}
 
 	Matrix4 Matrix4::view(const Vector3& position, const Quaternion& orientation)
-    {
+	{
 		Matrix4 mat;
 		mat.makeView(position, orientation);
 
 		return mat;
-    }
+	}
 
 	Matrix4 Matrix4::TRS(const Vector3& translation, const Quaternion& rotation, const Vector3& scale)
 	{

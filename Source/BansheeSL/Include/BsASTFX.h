@@ -9,37 +9,36 @@
 enum tagNodeType
 {
 	NT_Shader,
+	NT_Options,
 	NT_Technique,
-	NT_Parameters,
-	NT_Blocks,
+	NT_Mixin,
 	NT_Pass,
-	NT_StencilOp,
+	NT_Blend,
+	NT_Raster,
+	NT_Depth,
+	NT_Stencil,
 	NT_Target,
+	NT_StencilOp,
 	NT_BlendDef,
-	NT_SamplerState,
-	NT_AddrMode,
-	NT_Parameter,
-	NT_Block,
 	NT_Tags,
-	NT_CodeVertex,
-	NT_CodeFragment,
-	NT_CodeGeometry,
-	NT_CodeHull,
-	NT_CodeDomain,
-	NT_CodeCompute,
-	NT_CodeCommon,
+	NT_Code
 };
 
 enum tagOptionType
 {
 	OT_None = 0,
+	OT_Options,
 	OT_Separable,
 	OT_Priority,
 	OT_Sort,
 	OT_Transparent,
 	OT_Technique,
+	OT_Mixin,
+	OT_Raster,
+	OT_Depth,
+	OT_Stencil,
+	OT_Blend,
 	OT_Renderer,
-	OT_Language,
 	OT_Pass,
 	OT_FillMode,
 	OT_CullMode,
@@ -52,7 +51,6 @@ enum tagOptionType
 	OT_DepthRead,
 	OT_DepthWrite,
 	OT_CompareFunc,
-	OT_Stencil,
 	OT_StencilReadMask,
 	OT_StencilWriteMask,
 	OT_StencilOpFront,
@@ -64,44 +62,18 @@ enum tagOptionType
 	OT_IndependantBlend,
 	OT_Target,
 	OT_Index,
-	OT_Blend,
+	OT_Enabled,
 	OT_Color,
 	OT_Alpha,
 	OT_WriteMask,
 	OT_Source,
 	OT_Dest,
 	OT_Op,
-	OT_AddrMode,
-	OT_MinFilter,
-	OT_MagFilter,
-	OT_MipFilter,
-	OT_MaxAniso,
-	OT_MipBias,
-	OT_MipMin,
-	OT_MipMax,
-	OT_BorderColor,
-	OT_U,
-	OT_V,
-	OT_W,
-	OT_Alias,
-	OT_Auto,
-	OT_Shared,
-	OT_Usage,
-	OT_ParamType,
 	OT_Identifier,
-	OT_ParamValue,
-	OT_ParamStrValue,
-	OT_Parameters,
-	OT_Blocks,
-	OT_Parameter,
-	OT_Block,
-	OT_SamplerState,
 	OT_Code,
 	OT_StencilRef,
 	OT_Tags,
 	OT_TagValue,
-	OT_Base,
-	OT_Inherits,
 	OT_Count
 };
 
@@ -115,29 +87,14 @@ enum tagOptionDataType
 	ODT_Matrix
 };
 
-enum tagParamType
-{
-	PT_Float, PT_Float2, PT_Float3, PT_Float4, 
-	PT_Int, PT_Int2, PT_Int3, PT_Int4, PT_Color,
-	PT_Mat2x2, PT_Mat2x3, PT_Mat2x4,
-	PT_Mat3x2, PT_Mat3x3, PT_Mat3x4,
-	PT_Mat4x2, PT_Mat4x3, PT_Mat4x4,
-	PT_Sampler1D, PT_Sampler2D, PT_Sampler3D, PT_SamplerCUBE, PT_Sampler2DMS,
-	PT_Texture1D, PT_Texture2D, PT_Texture3D, PT_TextureCUBE, PT_Texture2DMS,
-	PT_RWTexture1D, PT_RWTexture2D, PT_RWTexture3D, PT_RWTexture2DMS,
-	PT_ByteBuffer, PT_StructBuffer, PT_ByteBufferRW, PT_StructBufferRW,
-	PT_TypedBufferRW, PT_AppendBuffer, PT_ConsumeBuffer,
-	PT_Count // Keep at end
-};
-
 enum tagFillModeValue 
 { 
 	FMV_Wire, FMV_Solid 
 };
 
-enum tagCullModeValue 
+enum tagCullAndSortModeValue 
 { 
-	CMV_None, CMV_CW, CMV_CCW 
+	CASV_None, CASV_CW, CASV_CCW, CASV_FrontToBack, CASV_BackToFront
 };
 
 enum tagCompFuncValue
@@ -160,31 +117,9 @@ enum tagBlendOpValue
 	BOV_Min, BOV_Max 
 };
 
-enum tagAddrModeValue
-{
-	AMV_Wrap, AMV_Mirror, AMV_Clamp, AMV_Border
-};
-
-enum tagFilterValue 
-{ 
-	FV_None, FV_Point, FV_Linear, FV_Anisotropic, 
-	FV_PointCmp, FV_LinearCmp, FV_AnisotropicCmp 
-};
-
-enum tagBufferUsageValue 
-{ 
-	BUV_Static, BUV_Dynamic 
-};
-
-enum tagQueueSortTypeValue
-{
-	QST_FrontToBack, QST_BackToFront, QST_None
-};
-
 typedef enum tagNodeType NodeType;
 typedef enum tagOptionType OptionType;
 typedef enum tagOptionDataType OptionDataType;
-typedef enum tagParamType ParamType;
 typedef struct tagParseState ParseState;
 typedef struct tagOptionInfo OptionInfo;
 typedef union tagOptionData OptionData;
@@ -198,14 +133,10 @@ typedef struct tagConditionalData ConditionalData;
 typedef struct tagCodeString CodeString;
 typedef struct tagDefineEntry DefineEntry;
 typedef enum tagFillModeValue FillModeValue;
-typedef enum tagCullModeValue CullModeValue;
+typedef enum tagCullAndSortModeValue CullAndSortModeValue;
 typedef enum tagCompFuncValue CompFuncValue;
 typedef enum tagOpValue OpValue;
 typedef enum tagBlendOpValue BlendOpValue;
-typedef enum tagAddrModeValue AddrModeValue;
-typedef enum tagFilterValue FilterValue;
-typedef enum tagBufferUsageValue BufferUsageValue;
-typedef enum tagQueueSortTypeValue QueueSortTypeValue;
 
 struct tagNodeLink
 {

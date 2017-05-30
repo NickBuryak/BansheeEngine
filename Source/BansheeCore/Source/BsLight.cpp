@@ -12,7 +12,7 @@ namespace bs
 	LightBase::LightBase()
 		: mPosition(BsZero), mRotation(BsIdentity), mType(LightType::Radial), mCastsShadows(false), mColor(Color::White)
 		, mAttRadius(10.0f), mSourceRadius(0.0f), mIntensity(5.0f), mSpotAngle(45), mSpotFalloffAngle(35.0f)
-		, mIsActive(true), mAutoAttenuation(true)
+		, mIsActive(true), mAutoAttenuation(true), mMobility(ObjectMobility::Movable), mShadowBias(0.5f)
 	{
 		updateAttenuationRange();
 	}
@@ -21,7 +21,8 @@ namespace bs
 		Degree spotAngle, Degree spotFalloffAngle)
 		: mPosition(BsZero), mRotation(BsIdentity), mType(type), mCastsShadows(castsShadows), mColor(color)
 		, mAttRadius(attRadius), mSourceRadius(srcRadius), mIntensity(intensity), mSpotAngle(spotAngle)
-		, mSpotFalloffAngle(spotFalloffAngle), mIsActive(true), mAutoAttenuation(true)
+		, mSpotFalloffAngle(spotFalloffAngle), mIsActive(true), mAutoAttenuation(true), mMobility(ObjectMobility::Movable)
+		, mShadowBias(0.5f)
 	{
 		updateAttenuationRange();
 	}
@@ -165,6 +166,13 @@ namespace bs
 		}
 	}
 
+	void LightBase::setMobility(ObjectMobility mobility)
+	{
+		mMobility = mobility;
+
+		_markCoreDirty(LightDirtyFlag::Mobility);
+	}
+
 	Light::Light()
 		:mLastUpdateHash(0)
 	{
@@ -233,6 +241,8 @@ namespace bs
 		size += rttiGetElemSize(mIsActive);
 		size += rttiGetElemSize(getCoreDirtyFlags());
 		size += rttiGetElemSize(mBounds);
+		size += rttiGetElemSize(mMobility);
+		size += rttiGetElemSize(mShadowBias);
 
 		UINT8* buffer = allocator->alloc(size);
 
@@ -251,6 +261,8 @@ namespace bs
 		dataPtr = rttiWriteElem(mIsActive, dataPtr);
 		dataPtr = rttiWriteElem(getCoreDirtyFlags(), dataPtr);
 		dataPtr = rttiWriteElem(mBounds, dataPtr);
+		dataPtr = rttiWriteElem(mMobility, dataPtr);
+		dataPtr = rttiWriteElem(mShadowBias, dataPtr);
 
 		return CoreSyncData(buffer, size);
 	}
@@ -328,15 +340,12 @@ namespace bs
 		dataPtr = rttiReadElem(mIsActive, dataPtr);
 		dataPtr = rttiReadElem(dirtyFlags, dataPtr);
 		dataPtr = rttiReadElem(mBounds, dataPtr);
+		dataPtr = rttiReadElem(mMobility, dataPtr);
+		dataPtr = rttiReadElem(mShadowBias, dataPtr);
 
 		updateBounds();
 
-		if (dirtyFlags == (UINT32)LightDirtyFlag::Transform)
-		{
-			if (mIsActive)
-				gRenderer()->notifyLightUpdated(this);
-		}
-		else
+		if((dirtyFlags & (UINT32)LightDirtyFlag::Everything) != 0)
 		{
 			if (oldIsActive != mIsActive)
 			{
@@ -360,6 +369,15 @@ namespace bs
 				gRenderer()->notifyLightAdded(this);
 			}
 		}
+		else if((dirtyFlags & (UINT32)LightDirtyFlag::Mobility) != 0)
+		{
+			gRenderer()->notifyLightRemoved(this);
+			gRenderer()->notifyLightAdded(this);
+		}
+		else if ((dirtyFlags & (UINT32)LightDirtyFlag::Transform) != 0)
+		{
+			if (mIsActive)
+				gRenderer()->notifyLightUpdated(this);
+		}
 	}
-
 }}

@@ -4,15 +4,14 @@
 
 #include "BsRenderBeastPrerequisites.h"
 #include "BsRenderer.h"
-#include "BsBounds.h"
-#include "BsSamplerOverrides.h"
 #include "BsRendererMaterial.h"
 #include "BsLightRendering.h"
 #include "BsImageBasedLighting.h"
 #include "BsObjectRendering.h"
 #include "BsPostProcessing.h"
-#include "BsRendererCamera.h"
+#include "BsRendererView.h"
 #include "BsRendererObject.h"
+#include "BsRendererScene.h"
 
 namespace bs 
 { 
@@ -26,44 +25,28 @@ namespace bs
 	 *  @{
 	 */
 
-	/** Semantics that may be used for signaling the renderer for what is a certain shader parameter used for. */
-	static StringID RPS_GBufferA = "GBufferA";
-	static StringID RPS_GBufferB = "GBufferB";
-	static StringID RPS_GBufferC = "GBufferC";
-	static StringID RPS_GBufferDepth = "GBufferDepth";
-	static StringID RPS_BoneMatrices = "BoneMatrices";
+	/** Contains information global to an entire frame. */
+	struct FrameInfo
+	{
+		FrameInfo(float timeDelta, const RendererAnimationData& animData)
+			:timeDelta(timeDelta), animData(animData)
+		{ }
+
+		float timeDelta;
+		const RendererAnimationData& animData;
+	};
 
 	/**
 	 * Default renderer for Banshee. Performs frustum culling, sorting and renders all scene objects while applying
 	 * lighting, shadowing, special effects and post-processing.
-	 *
-	 * @note	Sim thread unless otherwise noted.
 	 */
 	class RenderBeast : public Renderer
 	{
-		/**	Renderer information specific to a single render target. */
-		struct RendererRenderTarget
-		{
-			SPtr<RenderTarget> target;
-			Vector<const Camera*> cameras;
-		};
-
 		/** Renderer information for a single material. */
 		struct RendererMaterial
 		{
 			Vector<SPtr<GpuParamsSet>> params;
 			UINT32 matVersion;
-		};
-
-		/** Contains information global to an entire frame. */
-		struct FrameInfo
-		{
-			FrameInfo(float timeDelta, const RendererAnimationData& animData)
-				:timeDelta(timeDelta), animData(animData)
-			{ }
-
-			float timeDelta;
-			const RendererAnimationData& animData;
 		};
 
 	public:
@@ -93,13 +76,13 @@ namespace bs
 
 	private:
 		/** @copydoc Renderer::notifyCameraAdded */
-		void notifyCameraAdded(const Camera* camera) override;
+		void notifyCameraAdded(Camera* camera) override;
 
 		/** @copydoc Renderer::notifyCameraUpdated */
-		void notifyCameraUpdated(const Camera* camera, UINT32 updateFlag) override;
+		void notifyCameraUpdated(Camera* camera, UINT32 updateFlag) override;
 
 		/** @copydocRenderer::notifyCameraRemoved */
-		void notifyCameraRemoved(const Camera* camera) override;
+		void notifyCameraRemoved(Camera* camera) override;
 
 		/** @copydoc Renderer::notifyLightAdded */
 		void notifyLightAdded(Light* light) override;
@@ -137,16 +120,6 @@ namespace bs
 		/** @copydoc Renderer::notifySkyboxRemoved */
 		void notifySkyboxRemoved(Skybox* skybox) override;
 
-		/** 
-		 * Updates (or adds) renderer specific data for the specified camera. Should be called whenever camera properties
-		 * change. 
-		 *
-		 * @param[in]	camera		Camera whose data to update.
-		 * @param[in]	forceRemove	If true, the camera data will be removed instead of updated.
-		 * @return					Renderer camera object that represents the camera. Null if camera was removed.
-		 */
-		RendererCamera* updateCameraData(const Camera* camera, bool forceRemove = false);
-
 		/**
 		 * Updates the render options on the core thread.
 		 *
@@ -169,21 +142,21 @@ namespace bs
 		 * 
 		 * @note	Core thread only. 
 		 */
-		void renderViews(RendererCamera** views, UINT32 numViews, const FrameInfo& frameInfo);
+		void renderViews(RendererView** views, UINT32 numViews, const FrameInfo& frameInfo);
 
 		/**
 		 * Renders all objects visible by the provided view.
 		 *			
 		 * @note	Core thread only.
 		 */
-		void renderView(RendererCamera* viewInfo, float frameDelta);
+		void renderView(RendererView* viewInfo, float frameDelta);
 
 		/**
 		 * Renders all overlay callbacks of the provided view.
 		 * 					
 		 * @note	Core thread only.
 		 */
-		void renderOverlay(RendererCamera* viewInfo);
+		void renderOverlay(RendererView* viewInfo);
 
 		/** 
 		 * Renders a single element of a renderable object. 
@@ -215,36 +188,12 @@ namespace bs
 		/** Updates light probes, rendering & filtering ones that are dirty and updating the global probe cubemap array. */
 		void updateLightProbes(const FrameInfo& frameInfo);
 
-		/**
-		 * Checks all sampler overrides in case material sampler states changed, and updates them.
-		 *
-		 * @param[in]	force	If true, all sampler overrides will be updated, regardless of a change in the material
-		 *						was detected or not.
-		 */
-		void refreshSamplerOverrides(bool force = false);
-
 		// Core thread only fields
 
 		// Scene data
-		//// Cameras and render targets
-		Vector<RendererRenderTarget> mRenderTargets;
-		UnorderedMap<const Camera*, RendererCamera*> mCameras;
-		
-		//// Renderables
-		Vector<RendererObject*> mRenderables;
-		Vector<CullInfo> mRenderableCullInfos;
-		Vector<bool> mRenderableVisibility; // Transient
-
-		//// Lights
-		Vector<RendererLight> mDirectionalLights;
-		Vector<RendererLight> mRadialLights;
-		Vector<RendererLight> mSpotLights;
-		Vector<Sphere> mPointLightWorldBounds;
-		Vector<Sphere> mSpotLightWorldBounds;
+		SPtr<RendererScene> mScene;
 
 		//// Reflection probes
-		Vector<RendererReflectionProbe> mReflProbes;
-		Vector<Sphere> mReflProbeWorldBounds;
 		Vector<bool> mCubemapArrayUsedSlots;
 		SPtr<Texture> mReflCubemapArrayTex;
 
@@ -256,7 +205,6 @@ namespace bs
 
 		// Materials & GPU data
 		//// Base pass
-		DefaultMaterial* mDefaultMaterial = nullptr;
 		ObjectRenderer* mObjectRenderer = nullptr;
 
 		//// Lighting
@@ -277,11 +225,9 @@ namespace bs
 		FlatFramebufferToTextureMat* mFlatFramebufferToTextureMat = nullptr;
 
 		SPtr<RenderBeastOptions> mCoreOptions;
-		UnorderedMap<SamplerOverrideKey, MaterialSamplerOverrides*> mSamplerOverrides;
 
 		// Helpers to avoid memory allocations
 		Vector<LightData> mLightDataTemp;
-		Vector<bool> mLightVisibilityTemp;
 
 		Vector<ReflProbeData> mReflProbeDataTemp;
 		Vector<bool> mReflProbeVisibilityTemp;

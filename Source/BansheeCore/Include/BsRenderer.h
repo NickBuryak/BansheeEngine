@@ -17,31 +17,6 @@ namespace bs
 	 *  @{
 	 */
 
-	/**
-	 * Available parameter block semantics that allow the renderer to identify the use of a GPU program parameter block 
-	 * specified in a shader.
-	 */
-	static StringID RBS_Static = "Static";
-	static StringID RBS_PerCamera = "PerCamera";
-	static StringID RBS_PerFrame = "PerFrame";
-	static StringID RBS_PerObject = "PerObject";
-	static StringID RBS_PerCall = "PerCall";
-
-	/**
-	 * Available parameter semantics that allow the renderer to identify the use of a GPU parameter specified in a shader.
-	 */
-	static StringID RPS_WorldViewProjTfrm = "WVP";
-	static StringID RPS_ViewProjTfrm = "VP";
-	static StringID RPS_ProjTfrm = "P";
-	static StringID RPS_ViewTfrm = "V";
-	static StringID RPS_WorldTfrm = "W";
-	static StringID RPS_InvWorldTfrm = "IW";
-	static StringID RPS_WorldNoScaleTfrm = "WNoScale";
-	static StringID RPS_InvWorldNoScaleTfrm = "IWNoScale";
-	static StringID RPS_WorldDeterminantSign = "WorldDeterminantSign";
-	static StringID RPS_Diffuse = "Diffuse";
-	static StringID RPS_ViewDir = "ViewDir";
-
 	/** Technique tags. */
 	static StringID RTag_Skinned = "Skinned";
 	static StringID RTag_Morph = "Morph";
@@ -84,7 +59,7 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraAdded(const Camera* camera) { }
+		virtual void notifyCameraAdded(Camera* camera) { }
 
 		/**
 		 * Called whenever a camera's position or rotation is updated.
@@ -94,14 +69,14 @@ namespace bs
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraUpdated(const Camera* camera, UINT32 updateFlag) { }
+		virtual void notifyCameraUpdated(Camera* camera, UINT32 updateFlag) { }
 
 		/**
 		 * Called whenever a camera is destroyed.
 		 *
 		 * @note	Core thread.
 		 */
-		virtual void notifyCameraRemoved(const Camera* camera) { }
+		virtual void notifyCameraRemoved(Camera* camera) { }
 
 		/**
 		 * Called whenever a new renderable is created.

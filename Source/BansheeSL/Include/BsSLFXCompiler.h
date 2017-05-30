@@ -51,7 +51,8 @@ namespace bs
 			bool rasterizerIsDefault = true;
 			bool depthStencilIsDefault = true;
 
-			String commonCode;
+			String code; // Parsed code block
+
 			String vertexCode;
 			String fragmentCode;
 			String geometryCode;
@@ -63,12 +64,14 @@ namespace bs
 		/** Information describing a technique, without the actual contents. */
 		struct TechniqueMetaData
 		{
-			StringID renderer = RendererAny;
-			Vector<StringID> tags;
-			String language;
+			String name;
+			Vector<String> includes;
+			bool isMixin;
 
-			String baseName;
-			Vector<String> inherits;
+			String language;
+			StringID renderer = RendererAny;
+
+			Vector<StringID> tags;
 		};
 
 		/** Temporary data for describing a technique during parsing. */
@@ -93,23 +96,11 @@ namespace bs
 		/**	Converts FX renderer name into an in-engine renderer identifier. */
 		static StringID parseRenderer(const String& name);
 
-		/** Converts FX language string into an in-engine shader language string (for example hlsl, glsl). */
-		static void parseLanguage(const String& name, String& language);
-
-		/**	Maps FX buffer usage enum into in-engine param block usage. */
-		static GpuParamBlockUsage parseBlockUsage(BufferUsageValue usage);
-
-		/**	Maps FX filter mode enum into in-engine filter mode. */
-		static UINT32 parseFilterMode(FilterValue filter);
-
 		/**	Maps FX queue sort type enum into in-engine queue sort type mode. */
-		static QueueSortType parseSortType(QueueSortTypeValue sortType);
+		static QueueSortType parseSortType(CullAndSortModeValue sortType);
 
 		/**	Maps FX comparison function enum into in-engine compare function. */
 		static CompareFunction parseCompFunc(CompFuncValue compFunc);
-
-		/**	Maps FX addressing mode enum into in-engine addressing mode. */
-		static TextureAddressingMode parseAddrMode(AddrModeValue addrMode);
 
 		/**	Maps FX operation to in-engine blend factor. */
 		static BlendFactor parseBlendFactor(OpValue factor);
@@ -117,21 +108,11 @@ namespace bs
 		/**	Maps FX blend operation to in-engine blend operation. */
 		static BlendOperation parseBlendOp(BlendOpValue op);
 
-		/**
-		 * Maps FX parameter type to in-engine shader parameter.
-		 *
-		 * @param[in]	type		Input FX parameter type.
-		 * @param[in]	isObjType	Output parameter signaling whether the in-engine parameter is a data or an object type.
-		 * @param[in]	typeId		Type ID corresponding to a value of in-game GpuParamDataType or GpuParamObjectType
-		 *							enum (depending on isObjType()).
-		 */
-		static void parseParamType(ParamType type, bool& isObjType, UINT32& typeId);
-
 		/**	Maps FX operation to in-engine stencil operation. */
 		static StencilOperation parseStencilOp(OpValue op);
 		
 		/**	Maps FX cull mode enum to in-engine cull mode. */
-		static CullingMode parseCullMode(CullModeValue cm);
+		static CullingMode parseCullMode(CullAndSortModeValue cm);
 
 		/**	Maps FX fill mode enum to in-engine fill mode. */
 		static PolygonMode parseFillMode(FillModeValue fm);
@@ -148,12 +129,6 @@ namespace bs
 		 */
 		static void parseStencilBack(DEPTH_STENCIL_STATE_DESC& desc, ASTFXNode* stencilOpNode);
 
-		/**
-		 * Populates the addressing mode portion of the sampler state descriptor for U/V/W axes from the provided addressing
-		 * mode AST node.
-		 */
-		static void parseAddrMode(SAMPLER_STATE_DESC& desc, ASTFXNode* addrModeNode);
-
 		/** Populates the color (RGB) portion of the blend state descriptor from the provided blend definition AST node. */
 		static void parseColorBlendDef(RENDER_TARGET_BLEND_STATE_DESC& desc, ASTFXNode* blendDefNode);
 
@@ -167,25 +142,28 @@ namespace bs
 		static void parseRenderTargetBlendState(BLEND_STATE_DESC& desc, ASTFXNode* targetNode);
 
 		/**
-		 * Parses the blend state AST node and outputs a blend state descriptor. Returns false if the descriptor wasn't 
-		 * modified.
-		 */
-		static bool parseBlendState(BLEND_STATE_DESC& desc, ASTFXNode* passNode);
-
-		/**
-		 * Parses the rasterizer state AST node and outputs a rasterizer state descriptor. Returns false if the descriptor
+		 * Parses the blend state AST node and populates the pass' blend state descriptor. Returns false if the descriptor
 		 * wasn't modified.
 		 */
-		static bool parseRasterizerState(RASTERIZER_STATE_DESC& desc, ASTFXNode* passNode);
+		static bool parseBlendState(PassData& passData, ASTFXNode* blendNode);
 
 		/**
-		 * Parses the depth-stencil state AST node and outputs a depth-stencil state descriptor. Returns false if the 
+		 * Parses the rasterizer state AST node and populates the pass' rasterizer state descriptor. Returns false if the
 		 * descriptor wasn't modified.
 		 */
-		static bool parseDepthStencilState(DEPTH_STENCIL_STATE_DESC& desc, ASTFXNode* passNode);
+		static bool parseRasterizerState(PassData& passData, ASTFXNode* rasterNode);
 
-		/** Parses the sampler state AST node and outputs a sampler state object, or a nullptr in case AST node is empty. */
-		static SPtr<SamplerState> parseSamplerState(ASTFXNode* samplerStateNode);
+		/**
+		 * Parses the depth state AST node and populates the pass' depth-stencil state descriptor. Returns false if the 
+		 * descriptor wasn't modified.
+		 */
+		static bool parseDepthState(PassData& passData, ASTFXNode* depthNode);
+
+		/**
+		* Parses the stencil state AST node and populates the pass' depth-stencil state descriptor. Returns false if the
+		* descriptor wasn't modified.
+		*/
+		static bool parseStencilState(PassData& passData, ASTFXNode* stencilNode);
 
 		/**
 		 * Parses a code AST node and outputs the result in one of the streams within the provided pass data.
@@ -207,8 +185,7 @@ namespace bs
 		static void parsePass(ASTFXNode* passNode, const Vector<String>& codeBlocks, PassData& passData);
 
 		/**
-		 * Parses the technique AST node and generates a single technique object. Returns null if no technique can be 
-		 * parsed.
+		 * Parses the technique AST node and generates a single technique object.
 		 *
 		 * @param[in]	techniqueNode	Node to parse.
 		 * @param[in]	codeBlocks		GPU program source code.
@@ -217,16 +194,12 @@ namespace bs
 		static void parseTechnique(ASTFXNode* techniqueNode, const Vector<String>& codeBlocks, TechniqueData& techniqueData);
 
 		/**
-		 * Parses the parameters AST node and populates the shader descriptor with information about GPU program parameters
-		 * and their default values.
+		 * Parser the options AST node that contains global shader options.
+		 * 
+		 * @param[in]	optionsNode			Node to parse.
+		 * @param[in]	shaderDesc			Descriptor to apply the found options to.
 		 */
-		static void parseParameters(SHADER_DESC& desc, ASTFXNode* parametersNode);
-
-		/**
-		 * Parses the blocks AST node and populates the shader descriptor with information about GPU program parameter 
-		 * blocks.
-		 */
-		static void parseBlocks(SHADER_DESC& desc, ASTFXNode* blocksNode);
+		static void parseOptions(ASTFXNode* optionsNode, SHADER_DESC& shaderDesc);
 
 		/**
 		 * Parses the AST node hierarchy and generates a shader object.
@@ -244,9 +217,6 @@ namespace bs
 		 * first and last index.
 		 */
 		static String removeQuotes(const char* input);
-
-		/** Returns one of the builtin textures based on their name. */
-		static HTexture getBuiltinTexture(const String& name);
 	};
 
 	/** @} */

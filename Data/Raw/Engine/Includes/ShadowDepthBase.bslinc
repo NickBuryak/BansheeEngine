@@ -1,0 +1,104 @@
+#include "$ENGINE$\PerObjectData.bslinc"
+
+#include "$ENGINE$\SkinnedVertexInput.bslinc"
+#include "$ENGINE$\NormalVertexInput.bslinc"
+#define USE_BLEND_SHAPES
+#include "$ENGINE$\SkinnedVertexInput.bslinc"
+#include "$ENGINE$\NormalVertexInput.bslinc"
+#undef USE_BLEND_SHAPES
+
+mixin ShadowDepthBase
+{
+	code
+	{
+		struct ShadowVStoFS
+		{
+			float4 position : SV_Position;
+			
+			#ifdef USES_GS
+			float4 worldPos : TEXCOORD0;
+			#endif
+		};
+		
+		cbuffer ShadowParams
+		{
+			float4x4 gMatViewProj;
+			float gDepthBias;
+			float gDepthRange;
+		};
+
+		void linearizeDepth(inout float4 clipPos)
+		{
+			// Clamp to near plane if behind it
+			if (clipPos.z < 0)
+			{
+				clipPos.z = 0.000001f;
+				clipPos.w = 1.0f;
+			}
+
+			// Output linear depth in range [0, 1]
+			// TODO - Handle case for backends using [-1, 1] depth range
+			#if LINEAR_DEPTH_RANGE
+				float linearDepth = clipPos.z * gDepthRange + gDepthBias;
+				clipPos.z = linearDepth * clipPos.w;
+			#endif
+		}		
+	
+		ShadowVStoFS vsmain(VertexInput_PO input)
+		{
+			ShadowVStoFS output;
+		
+			float4 worldPosition = getVertexWorldPosition(input);
+			
+			#ifdef USES_GS
+			output.worldPos = worldPosition;
+			output.position = worldPosition;
+			#else
+			float4 clipPos = mul(gMatViewProj, worldPosition);
+			linearizeDepth(clipPos);
+			
+			output.position = clipPos;
+			#endif
+			
+			return output;
+		}
+	};
+};
+
+technique ShadowDepth
+{
+	mixin PerObjectData;
+	mixin NormalVertexInput;
+	mixin ShadowDepthBase;
+	mixin ShadowDepth;
+};
+
+technique ShadowDepthSkinned
+{
+	mixin PerObjectData;
+	mixin SkinnedVertexInput;
+	mixin ShadowDepthBase;
+	mixin ShadowDepth;
+
+	tags = { "Skinned" };
+};
+
+technique ShadowDepthMorph
+{
+	mixin PerObjectData;
+	mixin MorphVertexInput;
+	mixin ShadowDepthBase;
+	mixin ShadowDepth;
+
+	tags = { "Morph" };
+};
+
+technique ShadowDepthSkinnedMorph
+{
+	mixin PerObjectData;
+	mixin SkinnedMorphVertexInput;
+	mixin ShadowDepthBase;
+	mixin ShadowDepth;
+
+	tags = { "SkinnedMorph" };
+};
