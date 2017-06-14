@@ -35,6 +35,7 @@
 #include "BsLightGrid.h"
 #include "BsSkybox.h"
 #include "BsShadowRendering.h"
+#include "BsStandardDeferredLighting.h"
 
 using namespace std::placeholders;
 
@@ -85,13 +86,14 @@ namespace bs { namespace ct
 		mTileDeferredImageBasedLightingMats = bs_new<TiledDeferredImageBasedLightingMaterials>();
 
 		mPreintegratedEnvBRDF = TiledDeferredImageBasedLighting::generatePreintegratedEnvBRDF();
-		mGPULightData = bs_new<GPULightData>();
-		mGPUReflProbeData = bs_new<GPUReflProbeData>();
+		mVisibleLightInfo = bs_new<VisibleLightData>();
+		mVisibleReflProbeInfo = bs_new<VisibleReflProbeData>();
 		mLightGrid = bs_new<LightGrid>();
 
 		GpuResourcePool::startUp();
 		PostProcessing::startUp();
 		ShadowRendering::startUp(mCoreOptions->shadowMapSize);
+		StandardDeferred::startUp();
 	}
 
 	void RenderBeast::destroyCore()
@@ -106,14 +108,15 @@ namespace bs { namespace ct
 		mSkyboxFilteredReflections = nullptr;
 		mSkyboxIrradiance = nullptr;
 
+		StandardDeferred::shutDown();
 		ShadowRendering::shutDown();
 		PostProcessing::shutDown();
 		GpuResourcePool::shutDown();
 
 		bs_delete(mSkyboxMat);
 		bs_delete(mSkyboxSolidColorMat);
-		bs_delete(mGPULightData);
-		bs_delete(mGPUReflProbeData);
+		bs_delete(mVisibleLightInfo);
+		bs_delete(mVisibleReflProbeInfo);
 		bs_delete(mLightGrid);
 		bs_delete(mFlatFramebufferToTextureMat);
 		bs_delete(mTiledDeferredLightingMats);
@@ -331,12 +334,6 @@ namespace bs { namespace ct
 		
 		FrameInfo frameInfo(delta, animData);
 
-		// Render shadow maps
-		//ShadowRendering::instance().renderShadowMaps(*mScene, frameInfo);
-
-		// Update reflection probes
-		updateLightProbes(frameInfo);
-
 		// Gather all views
 		Vector<RendererView*> views;
 		for (auto& rtInfo : sceneInfo.renderTargets)
@@ -353,8 +350,17 @@ namespace bs { namespace ct
 			}
 		}
 
+		mMainViewGroup.setViews(views.data(), (UINT32)views.size());
+		mMainViewGroup.determineVisibility(sceneInfo);
+
+		// Render shadow maps
+		ShadowRendering::instance().renderShadowMaps(*mScene, mMainViewGroup, frameInfo);
+
+		// Update reflection probes
+		updateLightProbes(frameInfo);
+
 		// Render everything
-		renderViews(views.data(), (UINT32)views.size(), frameInfo);
+		renderViews(mMainViewGroup, frameInfo);
 
 		gProfilerGPU().endFrame();
 
@@ -368,108 +374,36 @@ namespace bs { namespace ct
 		gProfilerCPU().endSample("renderAllCore");
 	}
 
-	void RenderBeast::renderViews(RendererView** views, UINT32 numViews, const FrameInfo& frameInfo)
+	void RenderBeast::renderViews(const RendererViewGroup& viewGroup, const FrameInfo& frameInfo)
 	{
 		const SceneInfo& sceneInfo = mScene->getSceneInfo();
+		const VisibilityInfo& visibility = viewGroup.getVisibilityInfo();
 
-		// Generate render queues per camera
-		sceneInfo.renderableVisibility.resize(sceneInfo.renderables.size(), false);
-		sceneInfo.renderableVisibility.assign(sceneInfo.renderableVisibility.size(), false);
+		// Update GPU light data
+		mVisibleLightInfo->update(sceneInfo, viewGroup);
 
-		for(UINT32 i = 0; i < numViews; i++)
-			views[i]->determineVisible(sceneInfo.renderables, sceneInfo.renderableCullInfos, &sceneInfo.renderableVisibility);
-
-		// Generate a list of lights and their GPU buffers
-		UINT32 numDirLights = (UINT32)sceneInfo.directionalLights.size();
-		for (UINT32 i = 0; i < numDirLights; i++)
-		{
-			mLightDataTemp.push_back(LightData());
-			sceneInfo.directionalLights[i].getParameters(mLightDataTemp.back());
-		}
-
-		UINT32 numRadialLights = (UINT32)sceneInfo.radialLights.size();
-		UINT32 numVisibleRadialLights = 0;
-		sceneInfo.radialLightVisibility.resize(numRadialLights, false);
-		sceneInfo.radialLightVisibility.assign(numRadialLights, false);
-		for (UINT32 i = 0; i < numViews; i++)
-			views[i]->calculateVisibility(sceneInfo.radialLightWorldBounds, sceneInfo.radialLightVisibility);
-
-		for(UINT32 i = 0; i < numRadialLights; i++)
-		{
-			if (!sceneInfo.radialLightVisibility[i])
-				continue;
-
-			mLightDataTemp.push_back(LightData());
-			sceneInfo.radialLights[i].getParameters(mLightDataTemp.back());
-			numVisibleRadialLights++;
-		}
-
-		UINT32 numSpotLights = (UINT32)sceneInfo.spotLights.size();
-		UINT32 numVisibleSpotLights = 0;
-		sceneInfo.spotLightVisibility.resize(numSpotLights, false);
-		sceneInfo.spotLightVisibility.assign(numSpotLights, false);
-		for (UINT32 i = 0; i < numViews; i++)
-			views[i]->calculateVisibility(sceneInfo.spotLightWorldBounds, sceneInfo.spotLightVisibility);
-
-		for (UINT32 i = 0; i < numSpotLights; i++)
-		{
-			if (!sceneInfo.spotLightVisibility[i])
-				continue;
-
-			mLightDataTemp.push_back(LightData());
-			sceneInfo.spotLights[i].getParameters(mLightDataTemp.back());
-			numVisibleSpotLights++;
-		}
-
-		mGPULightData->setLights(mLightDataTemp, numDirLights, numVisibleRadialLights, numVisibleSpotLights);
-		mLightDataTemp.clear();
-
-		// Gemerate reflection probes and their GPU buffers
-		UINT32 numProbes = (UINT32)sceneInfo.reflProbes.size();
-
-		mReflProbeVisibilityTemp.resize(numProbes, false);
-		for (UINT32 i = 0; i < numViews; i++)
-			views[i]->calculateVisibility(sceneInfo.reflProbeWorldBounds, mReflProbeVisibilityTemp);
-
-		for(UINT32 i = 0; i < numProbes; i++)
-		{
-			if (!mReflProbeVisibilityTemp[i])
-				continue;
-
-			mReflProbeDataTemp.push_back(ReflProbeData());
-			sceneInfo.reflProbes[i].getParameters(mReflProbeDataTemp.back());
-		}
-
-		// Sort probes so bigger ones get accessed first, this way we overlay smaller ones on top of biggers ones when
-		// rendering
-		auto sorter = [](const ReflProbeData& lhs, const ReflProbeData& rhs)
-		{
-			return rhs.radius < lhs.radius;
-		};
-
-		std::sort(mReflProbeDataTemp.begin(), mReflProbeDataTemp.end(), sorter);
-
-		mGPUReflProbeData->setProbes(mReflProbeDataTemp, numProbes);
-
-		mReflProbeDataTemp.clear();
-		mReflProbeVisibilityTemp.clear();
+		// Update reflection probe data
+		mVisibleReflProbeInfo->update(sceneInfo, viewGroup);
 
 		// Update various buffers required by each renderable
 		UINT32 numRenderables = (UINT32)sceneInfo.renderables.size();
 		for (UINT32 i = 0; i < numRenderables; i++)
 		{
-			if (!sceneInfo.renderableVisibility[i])
+			if (!visibility.renderables[i])
 				continue;
 
 			mScene->prepareRenderable(i, frameInfo);
 		}
 
+		UINT32 numViews = viewGroup.getNumViews();
 		for (UINT32 i = 0; i < numViews; i++)
 		{
-			if (views[i]->getProperties().isOverlay)
-				renderOverlay(views[i]);
+			RendererView* view = viewGroup.getView(i);
+
+			if (view->getProperties().isOverlay)
+				renderOverlay(view);
 			else
-				renderView(views[i], frameInfo.timeDelta);
+				renderView(view, frameInfo.timeDelta);
 		}
 	}
 
@@ -487,10 +421,22 @@ namespace bs { namespace ct
 		Matrix4 viewProj = viewProps.viewProjTransform;
 		UINT32 numSamples = viewProps.numSamples;
 
+		bool allowShadows = !viewProps.noShadows;
+		if(allowShadows)
+		{
+			if(sceneCamera == nullptr)
+			{
+				// Note: In order to support shadows on non-scene views I'd need to be aware of what those views are before
+				// rendering, in order to properly generate shadow maps. 
+				LOGWRN("Shadows are currently not supported on non-scene views. Disabling shadow rendering.");
+				allowShadows = false;
+			}
+		}
+
 		viewInfo->beginRendering(true);
 
 		// Prepare light grid required for transparent object rendering
-		mLightGrid->updateGrid(*viewInfo, *mGPULightData, *mGPUReflProbeData, viewProps.noLighting);
+		mLightGrid->updateGrid(*viewInfo, *mVisibleLightInfo, *mVisibleReflProbeInfo, viewProps.noLighting);
 
 		SPtr<GpuParamBlockBuffer> gridParams;
 		SPtr<GpuBuffer> gridLightOffsetsAndSize, gridLightIndices;
@@ -502,7 +448,7 @@ namespace bs { namespace ct
 		ITiledDeferredImageBasedLightingMat* imageBasedLightingMat =
 			mTileDeferredImageBasedLightingMats->get(numSamples);
 
-		imageBasedLightingMat->setReflectionProbes(*mGPUReflProbeData, mReflCubemapArrayTex, viewProps.renderingReflections);
+		imageBasedLightingMat->setReflectionProbes(*mVisibleReflProbeInfo, mReflCubemapArrayTex, viewProps.renderingReflections);
 
 		float skyBrightness = 1.0f;
 		if (mSkybox != nullptr)
@@ -537,7 +483,7 @@ namespace bs { namespace ct
 
 				element.gridLightOffsetsAndSizeParam.set(gridLightOffsetsAndSize);
 				element.gridLightIndicesParam.set(gridLightIndices);
-				element.lightsBufferParam.set(mGPULightData->getLightBuffer());
+				element.lightsBufferParam.set(mVisibleLightInfo->getLightBuffer());
 
 				// Image based lighting params
 				ImageBasedLightingParams& iblParams = element.imageBasedParams;
@@ -547,7 +493,7 @@ namespace bs { namespace ct
 				element.gridProbeOffsetsAndSizeParam.set(gridProbeOffsetsAndSize);
 
 				iblParams.reflectionProbeIndicesParam.set(gridProbeIndices);
-				iblParams.reflectionProbesParam.set(mGPUReflProbeData->getProbeBuffer());
+				iblParams.reflectionProbesParam.set(mVisibleReflProbeInfo->getProbeBuffer());
 
 				iblParams.skyReflectionsTexParam.set(mSkyboxFilteredReflections);
 				iblParams.skyIrradianceTexParam.set(mSkyboxIrradiance);
@@ -609,32 +555,71 @@ namespace bs { namespace ct
 		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(nullptr);
 
-		// Render light pass into light accumulation buffer
-		ITiledDeferredLightingMat* lightingMat = mTiledDeferredLightingMats->get(numSamples);
-
+		// Accumulate all direct lighting into the light accumulation texture
 		renderTargets->allocate(RTT_LightAccumulation);
 
-		lightingMat->setLights(*mGPULightData);
-		lightingMat->execute(renderTargets, perCameraBuffer, viewProps.noLighting);
+		// Render non-shadowed lights into light accumulation texture (or buffer if MSAA)
+		ITiledDeferredLightingMat* lightingMat = mTiledDeferredLightingMats->get(numSamples);
+		lightingMat->setLights(*mVisibleLightInfo);
+		lightingMat->execute(renderTargets, perCameraBuffer, viewProps.noLighting, !allowShadows);
 
+		// If we're using flattened accumulation buffer for MSAA we need to copy its contents to the MSAA texture before
+		// continuing
+		bool isMSAA = numSamples > 1;
+		if(isMSAA)
+		{
+			renderTargets->bindLightAccumulation();
+			mFlatFramebufferToTextureMat->execute(renderTargets->getLightAccumulationBuffer(), 
+				renderTargets->getLightAccumulation());
+		}
+
+		// Render shadowed lights into light accumulation texture, using standard deferred
+		if (allowShadows)
+		{
+			renderTargets->allocate(RTT_LightOcclusion);
+
+			UINT32 viewIdx = sceneCamera->getRendererId();
+
+			for(UINT32 i = 0; i < (UINT32)LightType::Count; i++)
+			{
+				LightType lightType = (LightType)i;
+
+				auto& lights = mVisibleLightInfo->getLights(lightType);
+				UINT32 count = mVisibleLightInfo->getNumShadowedLights(lightType);
+				UINT32 offset = mVisibleLightInfo->getNumUnshadowedLights(lightType);
+
+				for (UINT32 j = 0; j < count; j++)
+				{
+					renderTargets->bindLightOcclusion();
+
+					UINT32 lightIdx = offset + j;
+					const RendererLight& light = *lights[lightIdx];
+					ShadowRendering::instance().renderShadowOcclusion(*mScene, mCoreOptions->shadowFilteringQuality,
+						light, viewIdx);
+
+					renderTargets->bindLightAccumulation();
+					StandardDeferred::instance().renderLight(lightType, light, *viewInfo, *renderTargets);
+				}
+			}
+
+			renderTargets->release(RTT_LightOcclusion);
+		}
+
+		// Make sure light accumulation buffer isn't bound and can be read from
+		rapi.setRenderTarget(nullptr);
+
+		// Render image based lighting, add it to light accumulation and output scene color
 		renderTargets->allocate(RTT_SceneColor);
-
-		// Render image based lighting and add it with light accumulation, output to scene color
-		// Note: Image based lighting is split from direct lighting in order to reduce load on GPU shared memory. The
-		// image based shader ends up re-doing a lot of calculations and it could be beneficial to profile and see if
-		// both methods can be squeezed into the same shader.
 		imageBasedLightingMat->execute(renderTargets, perCameraBuffer, mPreintegratedEnvBRDF);
 
 		renderTargets->release(RTT_LightAccumulation);
 		renderTargets->release(RTT_GBuffer);
 
-		bool usingFlattenedFB = numSamples > 1;
-
 		renderTargets->bindSceneColor(true);
 
 		// If we're using flattened framebuffer for MSAA we need to copy its contents to the MSAA scene texture before
 		// continuing
-		if(usingFlattenedFB)
+		if(isMSAA)
 		{
 			mFlatFramebufferToTextureMat->execute(renderTargets->getSceneColorBuffer(), 
 												  renderTargets->getSceneColor());
@@ -660,6 +645,9 @@ namespace bs { namespace ct
 		renderTargets->bindSceneColor(false);
 
 		// Render transparent objects
+		// TODO: Transparent objects cannot receive shadows. In order to support this I'd have to render the light occlusion
+		// for all lights affecting this object into a single (or a few) textures. I can likely use texture arrays for this,
+		// or to avoid sampling many textures, perhaps just jam it all in one or few texture channels. 
 		const Vector<RenderQueueElement>& transparentElements = viewInfo->getTransparentQueue()->getSortedElements();
 		for (auto iter = transparentElements.begin(); iter != transparentElements.end(); ++iter)
 		{
@@ -765,7 +753,7 @@ namespace bs { namespace ct
 				viewport->getClearDepthValue(), viewport->getClearStencilValue());
 		}
 		else
-			RenderAPI::instance().setRenderTarget(target, false, RT_COLOR0);
+			RenderAPI::instance().setRenderTarget(target, 0, RT_COLOR0);
 
 		RenderAPI::instance().setViewport(viewport->getNormArea());
 
@@ -964,6 +952,7 @@ namespace bs { namespace ct
 
 	void RenderBeast::captureSceneCubeMap(const SPtr<Texture>& cubemap, const Vector3& position, bool hdr, const FrameInfo& frameInfo)
 	{
+		const SceneInfo& sceneInfo = mScene->getSceneInfo();
 		auto& texProps = cubemap->getProperties();
 
 		Matrix4 projTransform = Matrix4::projectionPerspective(Degree(90.0f), 1.0f, 0.05f, 1000.0f);
@@ -985,6 +974,7 @@ namespace bs { namespace ct
 		viewDesc.isOverlay = false;
 		viewDesc.isHDR = hdr;
 		viewDesc.noLighting = false;
+		viewDesc.noShadows = true; // Note: If I ever change this I need to make sure that shadow map rendering is aware of this view (currently it is only aware of main camera views)
 		viewDesc.triggerCallbacks = false;
 		viewDesc.runPostProcessing = false;
 		viewDesc.renderingReflections = true;
@@ -1025,7 +1015,7 @@ namespace bs { namespace ct
 				up = -Vector3::UNIT_Z;
 				break;
 			case CF_NegativeY:
-				forward = Vector3::UNIT_X;
+				forward = Vector3::UNIT_X; // TODO: Why X here?
 				up = Vector3::UNIT_Z;
 				break;
 			case CF_PositiveZ:
@@ -1037,7 +1027,7 @@ namespace bs { namespace ct
 			}
 
 			Vector3 right = Vector3::cross(up, forward);
-			viewRotationMat = Matrix3(right, up, forward);
+			viewRotationMat = Matrix3(right, up, forward); // TODO - Use -forward here? (Works for shadows)
 
 			viewDesc.viewDirection = forward;
 			viewDesc.viewTransform = Matrix4(viewRotationMat) * viewOffsetMat;
@@ -1067,12 +1057,15 @@ namespace bs { namespace ct
 			views[i].setView(viewDesc);
 			views[i].updatePerViewBuffer();
 
-			const SceneInfo& sceneInfo = mScene->getSceneInfo();
 			views[i].determineVisible(sceneInfo.renderables, sceneInfo.renderableCullInfos);
 		}
 
 		RendererView* viewPtrs[] = { &views[0], &views[1], &views[2], &views[3], &views[4], &views[5] };
-		renderViews(viewPtrs, 6, frameInfo);
+
+		RendererViewGroup viewGroup(viewPtrs, 6);
+		viewGroup.determineVisibility(sceneInfo);
+
+		renderViews(viewGroup, frameInfo);
 	}
 
 }}

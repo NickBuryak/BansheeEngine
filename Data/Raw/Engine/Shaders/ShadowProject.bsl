@@ -6,11 +6,50 @@ technique ShadowProject
 	mixin GBufferInput;
 	mixin ShadowProjectionCommon;
 
+	depth
+	{
+		read = false;
+		write = false;
+	};
+	
+	stencil
+	{
+		enabled = true;
+		
+		// This clears the stencil at the same time as performing the test
+		// Note: Need to test performance clearing the stencil this way vs. clearing it separately,
+		//   as this disables HiStencil optimization.
+		front = { zero, zero, zero, neq };
+	};
+	
+	#ifdef FADE_PLANE
+	blend
+	{
+		target
+		{
+			enabled = true;
+			writemask = R;
+			color = { srcA, srcIA, add };
+		};
+	};
+	#else
+	blend
+	{
+		target
+		{
+			enabled = true;
+			writemask = R;
+			color = { one, one, max };
+		};
+	};	
+	#endif
+	
 	code
 	{
 		Texture2D gShadowTex;
 		SamplerState gShadowSampler;
 	
+		[internal]
 		cbuffer Params
 		{
 			// Transform a point in mixed space (xy - clip space, z - view space) to a point
@@ -176,17 +215,18 @@ technique ShadowProject
 
 		float4 fsmain(VStoFS input, uint sampleIdx : SV_SampleIndex) : SV_Target0
 		{
+			float2 ndcPos = input.clipSpacePos.xy / input.clipSpacePos.w;
+			uint2 pixelPos = NDCToScreen(ndcPos);
+		
 			// Get depth & calculate world position
 			#if MSAA_COUNT > 1
-			uint2 screenPos = NDCToScreen(input.position.xy);
-			float deviceZ = gDepthBufferTex.Load(screenPos, sampleIdx).r;
-			#else
-			float2 screenUV = NDCToUV(input.position.xy);				
-			float deviceZ = gDepthBufferTex.Sample(gDepthBufferSamp, screenUV).r;
+			float deviceZ = gDepthBufferTex.Load(pixelPos, sampleIdx).r;
+			#else			
+			float deviceZ = gDepthBufferTex.Load(int3(pixelPos, 0)).r;
 			#endif
 			
 			float depth = convertFromDeviceZ(deviceZ);
-			float4 mixedSpacePos = float4(input.position.xy * -depth, depth, 1);
+			float4 mixedSpacePos = float4(ndcPos * -depth, depth, 1);
 			
 			float4 shadowPosition = mul(gMixedToShadowSpace, mixedSpacePos); 
 			shadowPosition.xy /= shadowPosition.w;
@@ -207,7 +247,7 @@ technique ShadowProject
 			#endif
 			
 			float alpha = 1.0f;
-			#if FADE_PLANE
+			#ifdef FADE_PLANE
 				alpha = 1.0f - saturate((depth - gFadePlaneDepth) * gInvFadePlaneRange);
 			#endif
 

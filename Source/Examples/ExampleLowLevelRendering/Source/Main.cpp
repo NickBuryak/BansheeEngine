@@ -319,7 +319,7 @@ namespace bs { namespace ct
 		RenderAPI& rapi = RenderAPI::instance();
 
 		// Bind render surface & clear it
-		rapi.setRenderTarget(gRenderTarget, false, RT_NONE, cmds);
+		rapi.setRenderTarget(gRenderTarget, 0, RT_NONE, cmds);
 		rapi.clearRenderTarget(FBT_COLOR | FBT_DEPTH, Color::Blue, 1, 0, 0xFF, cmds);
 
 		// Bind the pipeline state
@@ -373,7 +373,7 @@ namespace bs { namespace ct
 	/////////////////////////////////////////////////////////////////////////////////////
 	void writeBoxVertices(const AABox& box, UINT8* positions, UINT8* uvs, UINT32 stride)
 	{
-		AABox::CornerEnum vertOrder[] =
+		AABox::Corner vertOrder[] =
 		{
 			AABox::NEAR_LEFT_BOTTOM,	AABox::NEAR_RIGHT_BOTTOM,	AABox::NEAR_RIGHT_TOP,		AABox::NEAR_LEFT_TOP,
 			AABox::FAR_RIGHT_BOTTOM,	AABox::FAR_LEFT_BOTTOM,		AABox::FAR_LEFT_TOP,		AABox::FAR_RIGHT_TOP,

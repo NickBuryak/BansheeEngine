@@ -19,15 +19,38 @@ namespace bs { namespace ct
 	ReflProbeParamsParamDef gReflProbeParamsParamDef;
 	TiledImageBasedLightingParamDef gTiledImageBasedLightingParamDef;
 
-	GPUReflProbeData::GPUReflProbeData()
+	VisibleReflProbeData::VisibleReflProbeData()
 		:mNumProbes(0)
 	{ }
 
-	void GPUReflProbeData::setProbes(const Vector<ReflProbeData>& probeData, UINT32 numProbes)
+	void VisibleReflProbeData::update(const SceneInfo& sceneInfo, const RendererViewGroup& viewGroup)
 	{
-		mNumProbes = numProbes;
+		const VisibilityInfo& visibility = viewGroup.getVisibilityInfo();
 
-		UINT32 size = numProbes * sizeof(ReflProbeData);
+		// Generate refl. probe data for the visible ones
+		UINT32 numProbes = (UINT32)sceneInfo.reflProbes.size();
+		for(UINT32 i = 0; i < numProbes; i++)
+		{
+			if (!visibility.reflProbes[i])
+				continue;
+
+			mReflProbeDataTemp.push_back(ReflProbeData());
+			sceneInfo.reflProbes[i].getParameters(mReflProbeDataTemp.back());
+		}
+
+		// Sort probes so bigger ones get accessed first, this way we overlay smaller ones on top of biggers ones when
+		// rendering
+		auto sorter = [](const ReflProbeData& lhs, const ReflProbeData& rhs)
+		{
+			return rhs.radius < lhs.radius;
+		};
+
+		std::sort(mReflProbeDataTemp.begin(), mReflProbeDataTemp.end(), sorter);
+
+		mNumProbes = (UINT32)mReflProbeDataTemp.size();
+
+		// Move refl. probe data into a GPU buffer
+		UINT32 size = mNumProbes * sizeof(ReflProbeData);
 		UINT32 curBufferSize;
 
 		if (mProbeBuffer != nullptr)
@@ -50,7 +73,9 @@ namespace bs { namespace ct
 		}
 
 		if (size > 0)
-			mProbeBuffer->writeData(0, size, probeData.data(), BWT_DISCARD);
+			mProbeBuffer->writeData(0, size, mReflProbeDataTemp.data(), BWT_DISCARD);
+
+		mReflProbeDataTemp.clear();
 	}
 
 	RendererReflectionProbe::RendererReflectionProbe(ReflectionProbe* probe)
@@ -132,16 +157,11 @@ namespace bs { namespace ct
 		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferCTex", mGBufferC);
 		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gDepthBufferTex", mGBufferDepth);
 
+		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gInColor", mInColorTextureParam);
 		if (mSampleCount > 1)
-		{
-			params->getBufferParam(GPT_COMPUTE_PROGRAM, "gInColor", mInColorBufferParam);
 			params->getBufferParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputBufferParam);
-		}
 		else
-		{
-			params->getTextureParam(GPT_COMPUTE_PROGRAM, "gInColor", mInColorTextureParam);
 			params->getLoadStoreTextureParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputTextureParam);
-		}
 
 		mParamBuffer = gTiledImageBasedLightingParamDef.createBuffer();
 		mParamsSet->setParamBlockBuffer("Params", mParamBuffer, true);
@@ -182,16 +202,11 @@ namespace bs { namespace ct
 
 		mParamsSet->setParamBlockBuffer("PerCamera", perCamera, true);
 
+		mInColorTextureParam.set(renderTargets->getLightAccumulation());
 		if (mSampleCount > 1)
-		{
-			mInColorBufferParam.set(renderTargets->getLightAccumulationBuffer());
 			mOutputBufferParam.set(renderTargets->getSceneColorBuffer());
-		}
 		else
-		{
-			mInColorTextureParam.set(renderTargets->getLightAccumulation());
 			mOutputTextureParam.set(renderTargets->getSceneColor());
-		}
 
 		UINT32 width = renderTargets->getWidth();
 		UINT32 height = renderTargets->getHeight();
@@ -205,7 +220,7 @@ namespace bs { namespace ct
 		RenderAPI::instance().dispatchCompute(numTilesX, numTilesY);
 	}
 
-	void TiledDeferredImageBasedLighting::setReflectionProbes(const GPUReflProbeData& probeData,
+	void TiledDeferredImageBasedLighting::setReflectionProbes(const VisibleReflProbeData& probeData,
 		const SPtr<Texture>& reflectionCubemaps, bool capturingReflections)
 	{
 		mImageBasedParams.reflectionProbesParam.set(probeData.getProbeBuffer());
@@ -398,7 +413,7 @@ namespace bs { namespace ct
 	}
 
 	template<int MSAA_COUNT>
-	void TTiledDeferredImageBasedLightingMat<MSAA_COUNT>::setReflectionProbes(const GPUReflProbeData& probeData, 
+	void TTiledDeferredImageBasedLightingMat<MSAA_COUNT>::setReflectionProbes(const VisibleReflProbeData& probeData, 
 		const SPtr<Texture>& reflectionCubemaps, bool capturingReflections)
 	{
 		mInternal.setReflectionProbes(probeData, reflectionCubemaps, capturingReflections);

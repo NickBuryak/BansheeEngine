@@ -70,6 +70,14 @@ namespace bs { namespace ct
 		mActiveD3DDriver = mDriverList->item(0); // TODO: Always get first driver, for now
 		mVideoModeInfo = mActiveD3DDriver->getVideoModeInfo();
 
+		GPUInfo gpuInfo;
+		gpuInfo.numGPUs = std::min(5U, mDriverList->count());
+
+		for(UINT32 i = 0; i < gpuInfo.numGPUs; i++)
+			gpuInfo.names[i] = mDriverList->item(i)->getDriverName();
+
+		PlatformUtility::_setGPUInfo(gpuInfo);
+
 		IDXGIAdapter* selectedAdapter = mActiveD3DDriver->getDeviceAdapter();
 
 		D3D_FEATURE_LEVEL requestedLevels[] = {
@@ -1032,10 +1040,10 @@ namespace bs { namespace ct
 		BS_INC_RENDER_STAT(NumClears);
 	}
 
-	void D3D11RenderAPI::setRenderTarget(const SPtr<RenderTarget>& target, bool readOnlyDepthStencil, 
+	void D3D11RenderAPI::setRenderTarget(const SPtr<RenderTarget>& target, UINT32 readOnlyFlags, 
 		RenderSurfaceMask loadMask, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<RenderTarget>& target, bool readOnlyDepthStencil)
+		auto executeRef = [&](const SPtr<RenderTarget>& target, UINT32 readOnlyFlags)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
@@ -1051,10 +1059,20 @@ namespace bs { namespace ct
 			{
 				target->getCustomAttribute("RTV", views);
 
-				if (readOnlyDepthStencil)
-					target->getCustomAttribute("RODSV", &depthStencilView);
+				if((readOnlyFlags & FBT_DEPTH) == 0)
+				{
+					if((readOnlyFlags & FBT_STENCIL) == 0)
+						target->getCustomAttribute("DSV", &depthStencilView);
+					else
+						target->getCustomAttribute("WDROSV", &depthStencilView);
+				}
 				else
-					target->getCustomAttribute("DSV", &depthStencilView);
+				{
+					if((readOnlyFlags & FBT_STENCIL) == 0)
+						target->getCustomAttribute("RODWSV", &depthStencilView);
+					else
+						target->getCustomAttribute("RODSV", &depthStencilView);
+				}
 			}
 
 			// Bind render targets
@@ -1067,10 +1085,10 @@ namespace bs { namespace ct
 		};
 
 		if (commandBuffer == nullptr)
-			executeRef(target, readOnlyDepthStencil);
+			executeRef(target, readOnlyFlags);
 		else
 		{
-			auto execute = [=]() { executeRef(target, readOnlyDepthStencil); };
+			auto execute = [=]() { executeRef(target, readOnlyFlags); };
 
 			SPtr<D3D11CommandBuffer> cb = std::static_pointer_cast<D3D11CommandBuffer>(commandBuffer);
 			cb->queueCommand(execute);

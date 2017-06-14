@@ -7,7 +7,9 @@
 #include "BsShader.h"
 #include "BsRenderTargets.h"
 #include "BsRendererUtility.h"
+#include "BsLightRendering.h"
 #include "BsGpuParamsSet.h"
+#include "BsRendererScene.h"
 
 namespace bs { namespace ct
 {
@@ -209,6 +211,50 @@ namespace bs { namespace ct
 		mTransparentQueue->sort();
 	}
 
+	void RendererView::determineVisible(const Vector<RendererLight>& lights, const Vector<Sphere>& bounds, 
+		LightType lightType, Vector<bool>* visibility)
+	{
+		// Special case for directional lights, they're always visible
+		if(lightType == LightType::Directional)
+		{
+			if (visibility)
+				visibility->assign(lights.size(), true);
+
+			return;
+		}
+
+		Vector<bool>* perViewVisibility;
+		if(lightType == LightType::Radial)
+		{
+			mVisibility.radialLights.clear();
+			mVisibility.radialLights.resize(lights.size(), false);
+
+			perViewVisibility = &mVisibility.radialLights;
+		}
+		else // Spot
+		{
+			mVisibility.spotLights.clear();
+			mVisibility.spotLights.resize(lights.size(), false);
+
+			perViewVisibility = &mVisibility.spotLights;
+		}
+
+		if (mProperties.isOverlay)
+			return;
+
+		calculateVisibility(bounds, *perViewVisibility);
+
+		if(visibility != nullptr)
+		{
+			for (UINT32 i = 0; i < (UINT32)lights.size(); i++)
+			{
+				bool visible = (*visibility)[i];
+
+				(*visibility)[i] = visible || (*perViewVisibility)[i];
+			}
+		}
+	}
+
 	void RendererView::calculateVisibility(const Vector<CullInfo>& cullInfos, Vector<bool>& visibility) const
 	{
 		UINT64 cameraLayers = mProperties.visibleLayers;
@@ -245,7 +291,7 @@ namespace bs { namespace ct
 		}
 	}
 
-	Vector2 RendererView::getDeviceZTransform(const Matrix4& projMatrix) const
+	Vector2 RendererView::getDeviceZToViewZ(const Matrix4& projMatrix)
 	{
 		// Returns a set of values that will transform depth buffer values (in range [0, 1]) to a distance
 		// in view space. This involes applying the inverse projection transform to the depth value. When you multiply
@@ -292,7 +338,7 @@ namespace bs { namespace ct
 		return output;
 	}
 
-	Vector2 RendererView::getNDCZTransform(const Matrix4& projMatrix) const
+	Vector2 RendererView::getNDCZToViewZ(const Matrix4& projMatrix)
 	{
 		// Returns a set of values that will transform depth buffer values (e.g. [0, 1] in DX, [-1, 1] in GL) to a distance
 		// in view space. This involes applying the inverse projection transform to the depth value. When you multiply
@@ -331,8 +377,23 @@ namespace bs { namespace ct
 		return output;
 	}
 
+	Vector2 RendererView::getNDCZToDeviceZ()
+	{
+		RenderAPI& rapi = RenderAPI::instance();
+		const RenderAPIInfo& rapiInfo = rapi.getAPIInfo();
+
+		Vector2 ndcZToDeviceZ;
+		ndcZToDeviceZ.x = 1.0f / (rapiInfo.getMaximumDepthInputValue() - rapiInfo.getMinimumDepthInputValue());
+		ndcZToDeviceZ.y = -rapiInfo.getMinimumDepthInputValue();
+
+		return ndcZToDeviceZ;
+	}
+
 	void RendererView::updatePerViewBuffer()
 	{
+		RenderAPI& rapi = RenderAPI::instance();
+		const RenderAPIInfo& rapiInfo = rapi.getAPIInfo();
+
 		Matrix4 viewProj = mProperties.projTransform * mProperties.viewTransform;
 		Matrix4 invViewProj = viewProj.inverse();
 
@@ -342,11 +403,11 @@ namespace bs { namespace ct
 		gPerCameraParamDef.gMatInvViewProj.set(mParamBuffer, invViewProj); // Note: Calculate inverses separately (better precision possibly)
 		gPerCameraParamDef.gMatInvProj.set(mParamBuffer, mProperties.projTransform.inverse());
 
-		// Construct a special inverse view-projection matrix that had projection entries that affect z and w eliminated.
+		// Construct a special inverse view-projection matrix that had projection entries that effect z and w eliminated.
 		// Used to transform a vector(clip_x, clip_y, view_z, view_w), where clip_x/clip_y are in clip space, and 
 		// view_z/view_w in view space, into world space.
 
-		// Only projects z/w coordinates
+		// Only projects z/w coordinates (cancels out with the inverse matrix below)
 		Matrix4 projZ = Matrix4::IDENTITY;
 		projZ[2][2] = mProperties.projTransform[2][2];
 		projZ[2][3] = mProperties.projTransform[2][3];
@@ -356,8 +417,9 @@ namespace bs { namespace ct
 		gPerCameraParamDef.gMatScreenToWorld.set(mParamBuffer, invViewProj * projZ);
 		gPerCameraParamDef.gViewDir.set(mParamBuffer, mProperties.viewDirection);
 		gPerCameraParamDef.gViewOrigin.set(mParamBuffer, mProperties.viewOrigin);
-		gPerCameraParamDef.gDeviceZToWorldZ.set(mParamBuffer, getDeviceZTransform(mProperties.projTransform));
-		gPerCameraParamDef.gNDCZToWorldZ.set(mParamBuffer, getNDCZTransform(mProperties.projTransform));
+		gPerCameraParamDef.gDeviceZToWorldZ.set(mParamBuffer, getDeviceZToViewZ(mProperties.projTransform));
+		gPerCameraParamDef.gNDCZToWorldZ.set(mParamBuffer, getNDCZToViewZ(mProperties.projTransform));
+		gPerCameraParamDef.gNDCZToDeviceZ.set(mParamBuffer, getNDCZToDeviceZ());
 
 		Vector2 nearFar(mProperties.nearPlane, mProperties.farPlane);
 		gPerCameraParamDef.gNearFar.set(mParamBuffer, nearFar);
@@ -377,9 +439,6 @@ namespace bs { namespace ct
 
 		float rtWidth = mTargetDesc.targetWidth != 0 ? (float)mTargetDesc.targetWidth : 20.0f;
 		float rtHeight = mTargetDesc.targetHeight != 0 ? (float)mTargetDesc.targetHeight : 20.0f;
-
-		RenderAPI& rapi = RenderAPI::instance();
-		const RenderAPIInfo& rapiInfo = rapi.getAPIInfo();
 
 		Vector4 clipToUVScaleOffset;
 		clipToUVScaleOffset.x = halfWidth / rtWidth;
@@ -401,4 +460,64 @@ namespace bs { namespace ct
 
 	template class SkyboxMat<true>;
 	template class SkyboxMat<false>;
+
+	RendererViewGroup::RendererViewGroup(RendererView** views, UINT32 numViews)
+	{
+		setViews(views, numViews);
+	}
+
+	void RendererViewGroup::setViews(RendererView** views, UINT32 numViews)
+	{
+		mViews.clear();
+
+		for (UINT32 i = 0; i < numViews; i++)
+			mViews.push_back(views[i]);
+	}
+
+	void RendererViewGroup::determineVisibility(const SceneInfo& sceneInfo)
+	{
+		UINT32 numViews = (UINT32)mViews.size();
+
+		// Generate render queues per camera
+		mVisibility.renderables.resize(sceneInfo.renderables.size(), false);
+		mVisibility.renderables.assign(sceneInfo.renderables.size(), false);
+
+		for(UINT32 i = 0; i < numViews; i++)
+			mViews[i]->determineVisible(sceneInfo.renderables, sceneInfo.renderableCullInfos, &mVisibility.renderables);
+
+		// Calculate light visibility for all views
+		UINT32 numRadialLights = (UINT32)sceneInfo.radialLights.size();
+		mVisibility.radialLights.resize(numRadialLights, false);
+		mVisibility.radialLights.assign(numRadialLights, false);
+
+		UINT32 numSpotLights = (UINT32)sceneInfo.spotLights.size();
+		mVisibility.spotLights.resize(numSpotLights, false);
+		mVisibility.spotLights.assign(numSpotLights, false);
+
+		for (UINT32 i = 0; i < numViews; i++)
+		{
+			mViews[i]->determineVisible(sceneInfo.radialLights, sceneInfo.radialLightWorldBounds, LightType::Radial,
+				&mVisibility.radialLights);
+
+			mViews[i]->determineVisible(sceneInfo.spotLights, sceneInfo.spotLightWorldBounds, LightType::Spot,
+				&mVisibility.spotLights);
+		}
+
+		// Calculate refl. probe visibility for all views
+		UINT32 numProbes = (UINT32)sceneInfo.reflProbes.size();
+		mVisibility.reflProbes.resize(numProbes, false);
+		mVisibility.reflProbes.assign(numProbes, false);
+
+		// Note: Per-view visibility for refl. probes currently isn't calculated
+		for (UINT32 i = 0; i < numViews; i++)
+		{
+			const auto& viewProps = mViews[i]->getProperties();
+
+			// Don't recursively render reflection probes when generating reflection probe maps
+			if (viewProps.renderingReflections)
+				continue;
+
+			mViews[i]->calculateVisibility(sceneInfo.reflProbeWorldBounds, mVisibility.reflProbes);
+		}
+	}
 }}

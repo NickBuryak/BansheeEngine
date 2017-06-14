@@ -6,6 +6,39 @@ technique ShadowProjectOmni
 	mixin GBufferInput;
 	mixin ShadowProjectionCommon;
 
+	blend
+	{
+		target
+		{
+			enabled = true;
+			writemask = R;
+			color = { one, one, max };
+		};
+	};
+	
+	#ifdef VIEWER_INSIDE_VOLUME
+	depth
+	{
+		read = false;
+		write = false;
+	};
+	
+	raster
+	{
+		cull = cw;
+	};
+	#else
+	depth
+	{
+		write = false;
+	};
+	
+	raster
+	{
+		cull = ccw;
+	};
+	#endif
+	
 	code
 	{
 		// Random samples on a disc of radius 2.5. Random values generated using low discrepancy
@@ -85,14 +118,14 @@ technique ShadowProjectOmni
 		// Returns occlusion where 1 = fully shadowed, 0 = not shadowed
 		float cubemapPCF(float3 worldPos, float3 lightPos, float lightRadius)
 		{
-			float3 toLight = lightPos - worldPos;
-			float distToLight = length(toLight);
+			float3 fromLight = worldPos - lightPos;
+			float distToLight = length(fromLight);
 			
 			// No occlusion if outside radius
 			if(distToLight > lightRadius)
 				return 0.0f;
 				
-			float3 lightDir = toLight / distToLight;
+			float3 lightDir = fromLight / distToLight;
 			
 			float3 up = abs(lightDir.z) < 0.999f ? float3(0, 0, 1) : float3(1, 0, 0);
 			float3 side = normalize(cross(up, lightDir));
@@ -102,32 +135,32 @@ technique ShadowProjectOmni
 			side *= gInvResolution;
 			
 			// Determine cube face to sample from
-			float3 absToLight = abs(toLight);
-			float maxComponent = max(absToLight.x, max(absToLight.y, absToLight.z));
+			float3 absFromLight = abs(fromLight);
+			float maxComponent = max(absFromLight.x, max(absFromLight.y, absFromLight.z));
 			
 			int faceIdx = 0;
-			if(maxComponent == absToLight.x)
-				faceIdx = toLight.x > 0.0f ? 0 : 1;
-			else if(maxComponent == absToLight.z)
-				faceIdx = toLight.z > 0.0f ? 4 : 5;
+			if(maxComponent == absFromLight.x)
+				faceIdx = fromLight.x > 0.0f ? 0 : 1;
+			else if(maxComponent == absFromLight.z)
+				faceIdx = fromLight.z > 0.0f ? 4 : 5;
 			else
-				faceIdx = toLight.y > 0.0f ? 2 : 3;
+				faceIdx = fromLight.y > 0.0f ? 2 : 3;
 			
 			// Get position of the receiver in shadow space
-			float4 shadowPos = mul(gFaceVPMatrices[faceIdx], worldPos);
+			float4 shadowPos = mul(gFaceVPMatrices[faceIdx], float4(worldPos, 1));
 			
-			float receiverDepth = shadowPos.z / shadowPos.w;
+			float receiverDepth = NDCZToDeviceZ(shadowPos.z / shadowPos.w);
 			float shadowBias = gDepthBias / shadowPos.w;
 			
 			float occlusion = 0.0f;
 			#if SHADOW_QUALITY <= 1
-				//occlusion = gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, lightDir, receiverDepth - shadowBias);
+				occlusion = gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, lightDir, receiverDepth - shadowBias);
 			#elif SHADOW_QUALITY == 2
 				[unroll]
 				for(int i = 0; i < 4; ++i)
 				{
-					float sampleDir = lightDir + side * discSamples4[i].x + up * discSamples4[i].y;
-					//occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
+					float3 sampleDir = lightDir + side * discSamples4[i].x + up * discSamples4[i].y;
+					occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
 				}
 				
 				occlusion /= 4;
@@ -135,8 +168,8 @@ technique ShadowProjectOmni
 				[unroll]
 				for(int i = 0; i < 12; ++i)
 				{
-					float sampleDir = lightDir + side * discSamples12[i].x + up * discSamples12[i].y;
-					//occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
+					float3 sampleDir = lightDir + side * discSamples12[i].x + up * discSamples12[i].y;
+					occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
 				}
 				
 				occlusion /= 12;
@@ -144,8 +177,8 @@ technique ShadowProjectOmni
 				[unroll]
 				for(int i = 0; i < 32; ++i)
 				{
-					float sampleDir = lightDir + side * discSamples32[i].x + up * discSamples32[i].y;
-					//occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
+					float3 sampleDir = lightDir + side * discSamples32[i].x + up * discSamples32[i].y;
+					occlusion += gShadowCubeTex.SampleCmpLevelZero(gShadowCubeSampler, sampleDir, receiverDepth - shadowBias);
 				}
 				
 				occlusion /= 32;
@@ -156,17 +189,18 @@ technique ShadowProjectOmni
 		
 		float4 fsmain(VStoFS input, uint sampleIdx : SV_SampleIndex) : SV_Target0
 		{
+			float2 ndcPos = input.clipSpacePos.xy / input.clipSpacePos.w;
+			uint2 pixelPos = NDCToScreen(ndcPos);
+		
 			// Get depth & calculate world position
 			#if MSAA_COUNT > 1
-			uint2 screenPos = NDCToScreen(input.position.xy);
-			float deviceZ = gDepthBufferTex.Load(screenPos, sampleIdx).r;
-			#else
-			float2 screenUV = NDCToUV(input.position.xy);				
-			float deviceZ = gDepthBufferTex.Sample(gDepthBufferSamp, screenUV).r;
+			float deviceZ = gDepthBufferTex.Load(pixelPos, sampleIdx).r;
+			#else		
+			float deviceZ = gDepthBufferTex.Load(int3(pixelPos, 0)).r;
 			#endif
 			
 			float depth = convertFromDeviceZ(deviceZ);
-			float3 worldPos = NDCToWorld(input.position.xy, depth);
+			float3 worldPos = NDCToWorld(ndcPos, depth);
 		
 			float occlusion = cubemapPCF(worldPos, gLightPosAndRadius.xyz, gLightPosAndRadius.w);
 			occlusion *= gFadePercent;

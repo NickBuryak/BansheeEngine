@@ -17,10 +17,6 @@
 #define XSC_ENABLE_LANGUAGE_EXT 1
 #include "Xsc/Xsc.h"
 
-//DEBUG ONLY
-#include "BsFileSystem.h"
-#include "BsDataStream.h"
-
 extern "C" {
 #include "BsMMAlloc.h"
 #include "BsParserFX.h"
@@ -78,7 +74,7 @@ namespace bs
 	class XscLog : public Xsc::Log
 	{
 	public:
-		void SumitReport(const Xsc::Report& report) override
+		void SubmitReport(const Xsc::Report& report) override
 		{
 			switch (report.Type())
 			{
@@ -346,94 +342,58 @@ namespace bs
 		switch (sampState.filter)
 		{
 		case Xsc::Reflection::Filter::MinMagMipPoint: 
+		case Xsc::Reflection::Filter::ComparisonMinMagMipPoint: 
 			desc.minFilter = FO_POINT;
 			desc.magFilter = FO_POINT;
 			desc.mipFilter = FO_POINT;
 			break;
 		case Xsc::Reflection::Filter::MinMagPointMipLinear: 
+		case Xsc::Reflection::Filter::ComparisonMinMagPointMipLinear: 
 			desc.minFilter = FO_POINT;
 			desc.magFilter = FO_POINT;
 			desc.mipFilter = FO_LINEAR;
 			break;
 		case Xsc::Reflection::Filter::MinPointMagLinearMipPoint: 
+		case Xsc::Reflection::Filter::ComparisonMinPointMagLinearMipPoint: 
 			desc.minFilter = FO_POINT;
 			desc.magFilter = FO_LINEAR;
 			desc.mipFilter = FO_POINT;
 			break;
 		case Xsc::Reflection::Filter::MinPointMagMipLinear: 
+		case Xsc::Reflection::Filter::ComparisonMinPointMagMipLinear: 
 			desc.minFilter = FO_POINT;
 			desc.magFilter = FO_LINEAR;
 			desc.mipFilter = FO_LINEAR;
 			break;
 		case Xsc::Reflection::Filter::MinLinearMagMipPoint: 
+		case Xsc::Reflection::Filter::ComparisonMinLinearMagMipPoint: 
 			desc.minFilter = FO_LINEAR;
 			desc.magFilter = FO_POINT;
 			desc.mipFilter = FO_POINT;
 			break;
 		case Xsc::Reflection::Filter::MinLinearMagPointMipLinear: 
+		case Xsc::Reflection::Filter::ComparisonMinLinearMagPointMipLinear: 
 			desc.minFilter = FO_LINEAR;
 			desc.magFilter = FO_POINT;
 			desc.mipFilter = FO_LINEAR;
 			break;
 		case Xsc::Reflection::Filter::MinMagLinearMipPoint: 
+		case Xsc::Reflection::Filter::ComparisonMinMagLinearMipPoint: 
 			desc.minFilter = FO_LINEAR;
 			desc.magFilter = FO_LINEAR;
 			desc.mipFilter = FO_POINT;
 			break;
 		case Xsc::Reflection::Filter::MinMagMipLinear: 
+		case Xsc::Reflection::Filter::ComparisonMinMagMipLinear: 
 			desc.minFilter = FO_LINEAR;
 			desc.magFilter = FO_LINEAR;
 			desc.mipFilter = FO_LINEAR;
 			break;
 		case Xsc::Reflection::Filter::Anisotropic: 
+		case Xsc::Reflection::Filter::ComparisonAnisotropic: 
 			desc.minFilter = FO_ANISOTROPIC;
 			desc.magFilter = FO_ANISOTROPIC;
 			desc.minFilter = FO_ANISOTROPIC;
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinMagMipPoint: 
-			desc.minFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinMagPointMipLinear: 
-			desc.minFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinPointMagLinearMipPoint: 
-			desc.minFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinPointMagMipLinear: 
-			desc.minFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinLinearMagMipPoint: 
-			desc.minFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinLinearMagPointMipLinear: 
-			desc.minFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinMagLinearMipPoint: 
-			desc.minFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_POINT | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonMinMagMipLinear: 
-			desc.minFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			desc.mipFilter = (FilterOptions)(FO_LINEAR | FO_USE_COMPARISON);
-			break;
-		case Xsc::Reflection::Filter::ComparisonAnisotropic: 
-			desc.minFilter = (FilterOptions)(FO_ANISOTROPIC | FO_USE_COMPARISON);
-			desc.magFilter = (FilterOptions)(FO_ANISOTROPIC | FO_USE_COMPARISON);
-			desc.minFilter = (FilterOptions)(FO_ANISOTROPIC | FO_USE_COMPARISON);
 			break;
 		default: 
 			break;
@@ -475,7 +435,7 @@ namespace bs
 			case Xsc::Reflection::UniformType::Sampler: 
 			{
 				auto findIter = reflData.samplerStates.find(entry.ident);
-				if (findIter == reflData.samplerStates.end())
+				if (findIter == reflData.samplerStates.end() || !findIter->second.isNonDefault)
 					desc.addParameter(ident, ident, GPOT_SAMPLER2D);
 				else
 				{
@@ -504,7 +464,7 @@ namespace bs
 				{
 					GpuParamDataType type = ReflTypeToDataType((Xsc::Reflection::DataType)entry.baseType);
 					if ((entry.flags & Xsc::Reflection::Uniform::Flags::Color) != 0 &&
-						(entry.baseType == GPDT_FLOAT3 || entry.baseType == GPDT_FLOAT4))
+						(type == GPDT_FLOAT3 || type == GPDT_FLOAT4))
 					{
 						type = GPDT_COLOR;
 					}
@@ -526,7 +486,7 @@ namespace bs
 		}
 	}
 
-	String CrossCompile(const String& hlsl, GpuProgramType type, bool vulkan, bool optionalEntry, UINT32& startBindingSlot,
+	String crossCompile(const String& hlsl, GpuProgramType type, bool vulkan, bool optionalEntry, UINT32& startBindingSlot,
 		SHADER_DESC* shaderDesc = nullptr, Vector<GpuProgramType>* detectedTypes = nullptr)
 	{
 		SPtr<StringStream> input = bs_shared_ptr_new<StringStream>();
@@ -590,7 +550,8 @@ namespace bs
 
 		XscLog log;
 		Xsc::Reflection::ReflectionData reflectionData;
-		if (!Xsc::CompileShader(inputDesc, outputDesc, &log, &reflectionData))
+		bool compileSuccess = Xsc::CompileShader(inputDesc, outputDesc, &log, &reflectionData);
+		if (!compileSuccess)
 		{
 			// If enabled, don't fail if entry point isn't found
 			bool done = true;
@@ -646,6 +607,16 @@ namespace bs
 				else if (entry.ident == "csmain")
 					detectedTypes->push_back(GPT_COMPUTE_PROGRAM);
 			}
+
+			// If no entry points found, and error occurred, report error
+			if(!compileSuccess && detectedTypes->size() == 0)
+			{
+				StringStream logOutput;
+				log.getMessages(logOutput);
+
+				LOGERR("Shader cross compilation failed. Log: \n\n" + logOutput.str());
+				return "";
+			}
 		}
 
 		if (shaderDesc != nullptr)
@@ -657,13 +628,13 @@ namespace bs
 	// Convert HLSL code to GLSL
 	String HLSLtoGLSL(const String& hlsl, GpuProgramType type, bool vulkan, UINT32& startBindingSlot)
 	{
-		return CrossCompile(hlsl, type, vulkan, false, startBindingSlot);
+		return crossCompile(hlsl, type, vulkan, false, startBindingSlot);
 	}
 
-	void ReflectHLSL(const String& hlsl, SHADER_DESC& shaderDesc, Vector<GpuProgramType>& entryPoints)
+	void reflectHLSL(const String& hlsl, SHADER_DESC& shaderDesc, Vector<GpuProgramType>& entryPoints)
 	{
 		UINT32 dummy = 0;
-		CrossCompile(hlsl, GPT_VERTEX_PROGRAM, false, true, dummy, &shaderDesc, &entryPoints);
+		crossCompile(hlsl, GPT_VERTEX_PROGRAM, false, true, dummy, &shaderDesc, &entryPoints);
 	}
 
 	BSLFXCompileResult BSLFXCompiler::compile(const String& name, const String& source, 
@@ -1629,7 +1600,7 @@ namespace bs
 				// type. If performance is ever important here it could be good to update XShaderCompiler so it can
 				// somehow save the AST and then re-use it for multiple actions.
 				Vector<GpuProgramType> types;
-				ReflectHLSL(glslPassData.code, shaderDesc, types);
+				reflectHLSL(glslPassData.code, shaderDesc, types);
 
 				UINT32 glslBinding = 0;
 				UINT32 vkslBinding = 0;

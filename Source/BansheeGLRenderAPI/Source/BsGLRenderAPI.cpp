@@ -141,6 +141,15 @@ namespace bs { namespace ct
 		// Ensure cubemaps are filtered across seams
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
+		GPUInfo gpuInfo;
+		gpuInfo.numGPUs = 1;
+
+		const char* vendor = (const char*)glGetString(GL_VENDOR);
+		const char* renderer = (const char*)glGetString(GL_RENDERER);
+		gpuInfo.names[0] = String(vendor) + " " + String(renderer);
+
+		PlatformUtility::_setGPUInfo(gpuInfo);
+
 		mGLInitialised = true;
 
 		RenderAPI::initializeWithWindow(primaryWindow);
@@ -498,6 +507,7 @@ namespace bs { namespace ct
 							setTextureFiltering(unit, FT_MIP, stateProps.getTextureFiltering(FT_MIP));
 
 							setTextureAnisotropy(unit, stateProps.getTextureAnisotropy());
+							setTextureCompareMode(unit, stateProps.getComparisonFunction());
 							setTextureMipmapBias(unit, stateProps.getTextureMipmapBias());
 
 							const UVWAddressingMode& uvw = stateProps.getTextureAddressingMode();
@@ -788,10 +798,10 @@ namespace bs { namespace ct
 		}
 	}
 
-	void GLRenderAPI::setRenderTarget(const SPtr<RenderTarget>& target, bool readOnlyDepthStencil, 
+	void GLRenderAPI::setRenderTarget(const SPtr<RenderTarget>& target, UINT32 readOnlyFlags, 
 		RenderSurfaceMask loadMask, const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [&](const SPtr<RenderTarget>& target, bool readOnlyDepthStencil)
+		auto executeRef = [&](const SPtr<RenderTarget>& target, UINT32 readOnlyFlags)
 		{
 			THROW_IF_NOT_CORE_THREAD;
 
@@ -831,10 +841,10 @@ namespace bs { namespace ct
 		};
 
 		if (commandBuffer == nullptr)
-			executeRef(target, readOnlyDepthStencil);
+			executeRef(target, readOnlyFlags);
 		else
 		{
-			auto execute = [=]() { executeRef(target, readOnlyDepthStencil); };
+			auto execute = [=]() { executeRef(target, readOnlyFlags); };
 
 			SPtr<GLCommandBuffer> cb = std::static_pointer_cast<GLCommandBuffer>(commandBuffer);
 			cb->queueCommand(execute);
@@ -1746,6 +1756,17 @@ namespace bs { namespace ct
 
 		if (getCurrentAnisotropy(unit) != maxAnisotropy)
 			glTexParameterf(mTextureInfos[unit].type, GL_TEXTURE_MAX_ANISOTROPY_EXT, (float)maxAnisotropy);
+	}
+
+	void GLRenderAPI::setTextureCompareMode(UINT16 unit, CompareFunction compare)
+	{
+		if (compare == CMPF_ALWAYS_PASS)
+			glTexParameteri(mTextureInfos[unit].type, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+		else
+		{
+			glTexParameteri(mTextureInfos[unit].type, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			glTexParameteri(mTextureInfos[unit].type, GL_TEXTURE_COMPARE_FUNC, convertCompareFunction(compare));
+		}
 	}
 
 	bool GLRenderAPI::activateGLTextureUnit(UINT16 unit)

@@ -58,7 +58,19 @@ technique DeferredDirectionalLight
 				roughness2 *= roughness2;
 				
 				LightData lightData = getLightData();
-				return float4(getLuminanceDirectional(lightData, worldPosition, V, R, surfaceData), 1.0f);
+				
+				#if MSAA_COUNT > 1
+				float occlusion = gLightOcclusionTex.Load(pixelPos, sampleIdx).r;
+				#else
+				float occlusion = gLightOcclusionTex.Load(int3(pixelPos, 0)).r;
+				#endif
+				
+				// Reverse the sqrt we did when storing it
+				occlusion *= occlusion;
+				
+				occlusion = 1.0f - occlusion;
+				
+				return float4(getLuminanceDirectional(lightData, worldPosition, V, R, surfaceData) * occlusion, 1.0f);
 			}
 			else
 				return float4(0.0f, 0.0f, 0.0f, 0.0f);

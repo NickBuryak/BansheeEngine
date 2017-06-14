@@ -6,6 +6,7 @@
 #include "BsRenderAPI.h"
 #include "BsTextureManager.h"
 #include "BsRendererUtility.h"
+#include "BsGpuBuffer.h"
 
 namespace bs { namespace ct
 {
@@ -151,11 +152,67 @@ namespace bs { namespace ct
 				UINT32 bufferNumElements = width * height * mViewTarget.numSamples;
 				mFlattenedLightAccumulationBuffer =
 					texPool.get(POOLED_STORAGE_BUFFER_DESC::createStandard(BF_16X4F, bufferNumElements));
+
+				SPtr<GpuBuffer> buffer = mFlattenedLightAccumulationBuffer->buffer;
+
+				auto& bufferProps = buffer->getProperties();
+
+				UINT32 bufferSize = bufferProps.getElementSize() * bufferProps.getElementCount();
+				UINT16* data = (UINT16*)buffer->lock(0, bufferSize, GBL_WRITE_ONLY_DISCARD);
+				{
+					memset(data, 0, bufferSize);
+				}
+				buffer->unlock();
+			}
+
+			mLightAccumulationTex = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mSceneColorFormat, width,
+				height, TU_LOADSTORE | TU_RENDERTARGET, mViewTarget.numSamples, false));
+
+			bool rebuildRT;
+			if (mLightAccumulationRT != nullptr)
+				rebuildRT = mLightAccumulationRT->getColorTexture(0) != mLightAccumulationTex->texture;
+			else
+				rebuildRT = true;
+
+			if (rebuildRT)
+			{
+				RENDER_TEXTURE_DESC lightAccumulationRTDesc;
+				lightAccumulationRTDesc.colorSurfaces[0].texture = mLightAccumulationTex->texture;
+				lightAccumulationRTDesc.colorSurfaces[0].face = 0;
+				lightAccumulationRTDesc.colorSurfaces[0].numFaces = 1;
+				lightAccumulationRTDesc.colorSurfaces[0].mipLevel = 0;
+
+				mLightAccumulationRT = TextureManager::instance().createRenderTexture(lightAccumulationRTDesc);
+			}
+		}
+		else if(type == RTT_LightOcclusion)
+		{
+			mLightOcclusionTex = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(PF_R8, width,
+				height, TU_RENDERTARGET, mViewTarget.numSamples, false));
+
+			bool rebuildRT = false;
+			if (mLightOcclusionRT != nullptr)
+			{
+				rebuildRT |= mLightOcclusionRT->getColorTexture(0) != mLightOcclusionTex->texture;
+				rebuildRT |= mLightOcclusionRT->getDepthStencilTexture() != mDepthTex->texture;
 			}
 			else
+				rebuildRT = true;
+
+			if (rebuildRT)
 			{
-				mLightAccumulationTex = texPool.get(POOLED_RENDER_TEXTURE_DESC::create2D(mSceneColorFormat, width,
-					height, TU_LOADSTORE, mViewTarget.numSamples, false));
+				RENDER_TEXTURE_DESC lightOcclusionRTDesc;
+				lightOcclusionRTDesc.colorSurfaces[0].texture = mLightOcclusionTex->texture;
+				lightOcclusionRTDesc.colorSurfaces[0].face = 0;
+				lightOcclusionRTDesc.colorSurfaces[0].numFaces = 1;
+				lightOcclusionRTDesc.colorSurfaces[0].mipLevel = 0;
+
+				lightOcclusionRTDesc.depthStencilSurface.texture = mDepthTex->texture;
+				lightOcclusionRTDesc.depthStencilSurface.face = 0;
+				lightOcclusionRTDesc.depthStencilSurface.numFaces = 1;
+				lightOcclusionRTDesc.depthStencilSurface.mipLevel = 0;
+
+				mLightOcclusionRT = TextureManager::instance().createRenderTexture(lightOcclusionRTDesc);
 			}
 		}
 	}
@@ -188,6 +245,11 @@ namespace bs { namespace ct
 			if (mFlattenedLightAccumulationBuffer != nullptr)
 				texPool.release(mFlattenedLightAccumulationBuffer);
 		}
+		else if(type == RTT_LightOcclusion)
+		{
+			if (mLightOcclusionTex != nullptr)
+				texPool.release(mLightOcclusionTex);
+		}
 	}
 
 	void RenderTargets::bindGBuffer()
@@ -212,11 +274,32 @@ namespace bs { namespace ct
 
 	void RenderTargets::bindSceneColor(bool readOnlyDepthStencil)
 	{
+		int readOnlyFlags = 0;
+		if (readOnlyDepthStencil)
+			readOnlyFlags = FBT_DEPTH | FBT_STENCIL;
+
 		RenderAPI& rapi = RenderAPI::instance();
-		rapi.setRenderTarget(mSceneColorRT, readOnlyDepthStencil, RT_COLOR0 | RT_DEPTH);
+		rapi.setRenderTarget(mSceneColorRT, readOnlyFlags, RT_COLOR0 | RT_DEPTH);
 
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
 		rapi.setViewport(area);
+	}
+
+	void RenderTargets::bindLightAccumulation()
+	{
+		RenderAPI& rapi = RenderAPI::instance();
+		rapi.setRenderTarget(mLightAccumulationRT, FBT_DEPTH | FBT_STENCIL, RT_COLOR0 | RT_DEPTH);
+	}
+
+	void RenderTargets::bindLightOcclusion()
+	{
+		RenderAPI& rapi = RenderAPI::instance();
+		rapi.setRenderTarget(mLightOcclusionRT, FBT_DEPTH, RT_DEPTH);
+
+		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
+		rapi.setViewport(area);
+
+		RenderAPI::instance().clearViewport(FBT_COLOR, Color::ZERO);
 	}
 
 	SPtr<Texture> RenderTargets::getSceneColor() const
@@ -268,6 +351,11 @@ namespace bs { namespace ct
 	SPtr<Texture> RenderTargets::getLightAccumulation() const
 	{
 		return mLightAccumulationTex->texture;
+	}
+
+	SPtr<Texture> RenderTargets::getLightOcclusion() const
+	{
+		return mLightOcclusionTex->texture;
 	}
 
 	SPtr<GpuBuffer> RenderTargets::getLightAccumulationBuffer() const

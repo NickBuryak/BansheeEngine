@@ -62,6 +62,10 @@ A complete set of manuals covering all major functionality provided by Banshee, 
  - [Bones](@ref bones)
  - [Advanced animation](@ref advancedAnimation)
 - **Advanced**
+ - **Shaders**
+  - [BSL syntax](@ref bsl)
+  - [Importing shaders](@ref importingShaders)
+  - [Surface & lighting shaders](@ref surfaceShaders)
  - [Manipulating textures](@ref advancedTextures)
  - [Offscreen rendering](@ref offscreenRendering)
  - [Creating meshes](@ref creatingMeshes)
@@ -114,8 +118,3 @@ A set of manuals covering advanced functionality intented for those wanting to e
 - [Porting to other platforms](@ref porting)
 - [Code style](@ref codeStyle)
 - [Quick reference](@ref quickref)
- 
-## Old guides (need updating)
-Name                                      | Description
-------------------------------------------|-------------
-[BSLFX](@ref bsl)    	  		  		  | Provides a reference for the Banshee Shading Language syntax.

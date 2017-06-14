@@ -69,9 +69,6 @@ stencil			{ return TOKEN_STENCIL; }
 	/* Rasterizer state keywords */
 fill			{ return TOKEN_FILLMODE; }
 cull			{ return TOKEN_CULLMODE; }
-bias			{ return TOKEN_DEPTHBIAS; }
-scaledbias		{ return TOKEN_SDEPTHBIAS; }
-clip			{ return TOKEN_DEPTHCLIP; }
 scissor			{ return TOKEN_SCISSOR; }
 multisample		{ return TOKEN_MULTISAMPLE; }
 lineaa			{ return TOKEN_AALINE; }
@@ -80,6 +77,9 @@ lineaa			{ return TOKEN_AALINE; }
 read			{ return TOKEN_DEPTHREAD; }
 write			{ return TOKEN_DEPTHWRITE; }
 compare			{ return TOKEN_COMPAREFUNC; }
+bias			{ return TOKEN_DEPTHBIAS; }
+scaledbias		{ return TOKEN_SDEPTHBIAS; }
+clip			{ return TOKEN_DEPTHCLIP; }
 
 	/* Stencil state keywords */
 reference			{ return TOKEN_STENCILREF; }
@@ -132,8 +132,8 @@ inverse			{ yylval->intValue = OV_Invert; return TOKEN_OPVALUE; }
 one				{ yylval->intValue = OV_One; return TOKEN_OPVALUE; }
 dstRGB			{ yylval->intValue = OV_DestColor; return TOKEN_OPVALUE; }
 srcRGB			{ yylval->intValue = OV_SrcColor; return TOKEN_OPVALUE; }
-dstiRGB			{ yylval->intValue = OV_InvDestColor; return TOKEN_OPVALUE; }
-srciRGB			{ yylval->intValue = OV_InvSrcColor; return TOKEN_OPVALUE; }
+dstIRGB			{ yylval->intValue = OV_InvDestColor; return TOKEN_OPVALUE; }
+srcIRGB			{ yylval->intValue = OV_InvSrcColor; return TOKEN_OPVALUE; }
 dstA			{ yylval->intValue = OV_DestAlpha; return TOKEN_OPVALUE; }
 srcA			{ yylval->intValue = OV_SrcAlpha; return TOKEN_OPVALUE; }
 dstIA			{ yylval->intValue = OV_InvDestAlpha; return TOKEN_OPVALUE; }
@@ -145,6 +145,7 @@ rsub			{ yylval->intValue = BOV_RevSubtract; return TOKEN_BLENDOPVALUE; }
 min				{ yylval->intValue = BOV_Min; return TOKEN_BLENDOPVALUE; }
 max				{ yylval->intValue = BOV_Max; return TOKEN_BLENDOPVALUE; }
 
+empty			{ yylval->intValue = 0x0; return TOKEN_COLORMASK; }
 R				{ yylval->intValue = 0x1; return TOKEN_COLORMASK; }
 G				{ yylval->intValue = 0x2; return TOKEN_COLORMASK; }
 B				{ yylval->intValue = 0x4; return TOKEN_COLORMASK; }

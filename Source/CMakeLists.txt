@@ -6,7 +6,7 @@ set (BS_VERSION_MAJOR 0)
 set (BS_VERSION_MINOR 4)
 
 set (BS_PREBUILT_DEPENDENCIES_VERSION 2)
-set (BS_SRC_DEPENDENCIES_VERSION 9)
+set (BS_SRC_DEPENDENCIES_VERSION 12)
 
 # Configuration types
 if(CMAKE_CONFIGURATION_TYPES) # Multiconfig generator?
@@ -289,6 +289,7 @@ endif()
 
 ## Local experimental projects (not part of main repository)
 add_subdirectory_optional(Experimental/PBS)
+add_subdirectory_optional(Experimental/Shadows)
 
 ## Managed projects
 if(MSVC)

@@ -9,9 +9,13 @@
 #include "BsRendererObject.h"
 #include "BsBounds.h"
 #include "BsConvexVolume.h"
+#include "BsLight.h"
 
 namespace bs { namespace ct
 {
+	struct SceneInfo;
+	class RendererLight;
+
 	/** @addtogroup RenderBeast
 	 *  @{
 	 */
@@ -27,6 +31,7 @@ namespace bs { namespace ct
 		BS_PARAM_BLOCK_ENTRY(Matrix4, gMatScreenToWorld)
 		BS_PARAM_BLOCK_ENTRY(Vector2, gDeviceZToWorldZ)
 		BS_PARAM_BLOCK_ENTRY(Vector2, gNDCZToWorldZ)
+		BS_PARAM_BLOCK_ENTRY(Vector2, gNDCZToDeviceZ)
 		BS_PARAM_BLOCK_ENTRY(Vector2, gNearFar)
 		BS_PARAM_BLOCK_ENTRY(Vector4I, gViewportRectangle)
 		BS_PARAM_BLOCK_ENTRY(Vector4, gClipToUVScaleOffset)
@@ -75,6 +80,7 @@ namespace bs { namespace ct
 		bool isOverlay : 1;
 		bool isHDR : 1;
 		bool noLighting : 1;
+		bool noShadows : 1;
 		bool triggerCallbacks : 1;
 		bool runPostProcessing : 1;
 		bool renderingReflections : 1;
@@ -136,6 +142,9 @@ namespace bs { namespace ct
 	struct VisibilityInfo
 	{
 		Vector<bool> renderables;
+		Vector<bool> radialLights;
+		Vector<bool> spotLights;
+		Vector<bool> reflProbes;
 	};
 
 	/** Information used for culling an object against a view. */
@@ -226,6 +235,24 @@ namespace bs { namespace ct
 			Vector<bool>* visibility = nullptr);
 
 		/**
+		 * Calculates the visibility masks for all the lights of the provided type.
+		 * 
+		 * @param[in]	lights				A set of lights to determine visibility for.
+		 * @param[in]	bounds				Bounding sphere for each provided light. Must be the same size as the @p lights
+		 *									array.
+		 * @param[in]	type				Type of all the lights in the @p lights array.
+		 * @param[out]	visibility			Output parameter that will have the true bit set for any visible light. If the
+		 *									bit for a light is already set to true, the method will never change it to false
+		 *									which allows the same bitfield to be provided to multiple renderer views. Must
+		 *									be the same size as the @p lights array.
+		 *									
+		 *									As a side-effect, per-view visibility data is also calculated and can be
+		 *									retrieved by calling getVisibilityMask().
+		 */
+		void determineVisible(const Vector<RendererLight>& lights, const Vector<Sphere>& bounds, LightType type, 
+			Vector<bool>* visibility = nullptr);
+
+		/**
 		 * Culls the provided set of bounds against the current frustum and outputs a set of visibility flags determining
 		 * which entry is or isn't visible by this view. Both inputs must be arrays of the same size.
 		 */
@@ -252,7 +279,6 @@ namespace bs { namespace ct
 		/** Returns a buffer that stores per-view parameters. */
 		SPtr<GpuParamBlockBuffer> getPerViewBuffer() const { return mParamBuffer; }
 
-	private:
 		/**
 		 * Extracts the necessary values from the projection matrix that allow you to transform device Z value (range [0, 1]
 		 * into view Z value.
@@ -261,7 +287,7 @@ namespace bs { namespace ct
 		 * @return					Returns two values that can be used to transform device z to view z using this formula:
 		 * 							z = (deviceZ + y) * x.
 		 */
-		Vector2 getDeviceZTransform(const Matrix4& projMatrix) const;
+		static Vector2 getDeviceZToViewZ(const Matrix4& projMatrix);
 
 		/**
 		 * Extracts the necessary values from the projection matrix that allow you to transform NDC Z value (range depending
@@ -271,8 +297,14 @@ namespace bs { namespace ct
 		 * @return					Returns two values that can be used to transform NDC z to view z using this formula:
 		 * 							z = (NDCZ + y) * x.
 		 */
-		Vector2 getNDCZTransform(const Matrix4& projMatrix) const;
+		static Vector2 getNDCZToViewZ(const Matrix4& projMatrix);
 
+		/** 
+		 * Returns a value that can be used for tranforming a depth value in NDC, to a depth value in device Z ([0, 1] 
+		 * range using this formula: (NDCZ + y) * x. 
+		 */
+		static Vector2 getNDCZToDeviceZ();
+	private:
 		RendererViewProperties mProperties;
 		RENDERER_VIEW_TARGET_DESC mTargetDesc;
 		Camera* mCamera;
@@ -285,6 +317,44 @@ namespace bs { namespace ct
 		bool mUsingGBuffer;
 
 		SPtr<GpuParamBlockBuffer> mParamBuffer;
+		VisibilityInfo mVisibility;
+	};
+
+	/** Contains one or multiple RendererView%s that are in some way related. */
+	class RendererViewGroup
+	{
+	public:
+		RendererViewGroup() {}
+		RendererViewGroup(RendererView** views, UINT32 numViews);
+
+		/** 
+		 * Updates the internal list of views. This is more efficient than always constructing a new instance of this class
+		 * when views change, as internal buffers don't need to be re-allocated.
+		 */
+		void setViews(RendererView** views, UINT32 numViews);
+
+		/** Returns a view at the specified index. Index must be less than the value returned by getNumViews(). */
+		RendererView* getView(UINT32 idx) const { return mViews[idx]; }
+
+		/** Returns the total number of views in the group. */
+		UINT32 getNumViews() const { return (UINT32)mViews.size(); }
+
+		/** 
+		 * Returns information about visibility of various scene objects, from the perspective of all the views in the 
+		 * group (visibility will be true if the object is visible from any of the views. determineVisibility() must be
+		 * called whenever the scene or view information changes (usually every frame). 
+		 */
+		const VisibilityInfo& getVisibilityInfo() const { return mVisibility; }
+
+		/** 
+		 * Updates visibility information for the provided scene objects, from the perspective of all views in this group,
+		 * and updates the render queues of each individual view. Use getVisibilityInfo() to retrieve the calculated
+		 * visibility information.
+		 */
+		void determineVisibility(const SceneInfo& sceneInfo);
+
+	private:
+		Vector<RendererView*> mViews;
 		VisibilityInfo mVisibility;
 	};
 
