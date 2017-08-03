@@ -29,7 +29,12 @@ namespace bs
 	/** Types of builtin shaders that are always available. */
 	enum class BuiltinShader
 	{
-		Custom, Standard, Transparent
+		Custom, 
+		/** Physically based shader used for opaque 3D geometry. */
+		Standard, 
+
+		/** Physically based shader used for transparent 3D geometry. */
+		Transparent
 	};
 
 	/**	Holds references to built-in resources used by the core engine. */
@@ -137,7 +142,7 @@ namespace bs
 		 * @note	
 		 * Normally you only want to use this during development phase and then ship with engine-ready format only.
 		 */
-		void preprocess(bool forceImport);
+		void preprocess(bool forceImport, time_t lastUpdateTime);
 
 		/**	Generates the default engine skin and all GUI element styles. */
 		SPtr<GUISkin> generateGUISkin();
