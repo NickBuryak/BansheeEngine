@@ -42,12 +42,14 @@ mixin PerCameraData
 		/** Converts Z value in range [0,1] into Z value in view space. */
 		float convertFromDeviceZ(float deviceZ)
 		{
-			return (1.0f / (deviceZ + gDeviceZToWorldZ.y)) * gDeviceZToWorldZ.x;
+			// Note: Convert to MAD form
+			return gDeviceZToWorldZ.x / (deviceZ + gDeviceZToWorldZ.y);
 		}
 		
 		/** Converts Z value in range [0,1] into Z value in view space. */
 		float4 convertFromDeviceZ(float4 deviceZ)
 		{
+			// Note: Convert to MAD form
 			return gDeviceZToWorldZ.x / (deviceZ + gDeviceZToWorldZ.y);
 		}		
 		
@@ -84,7 +86,7 @@ mixin PerCameraData
 		/** Converts position in UV coordinates mapped to the screen, to screen coordinates in pixels. */
 		uint2 UVToScreen(float2 uv)
 		{
-			return (uint2)(uv * (float2)gViewportRectangle.zw - ((float2)gViewportRectangle.xy + 0.5f));
+			return (uint2)(uv * (float2)gViewportRectangle.zw - ((float2)gViewportRectangle.xy));
 		}
 		
 		/** Converts position in NDC to screen coordinates in pixels. */

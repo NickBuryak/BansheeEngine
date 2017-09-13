@@ -5,9 +5,11 @@
 #define TEMPORAL_LOCAL_VELOCITY 0
 #define TEMPORAL_SEARCH_NEAREST 0
 #define TEMPORAL_BLEND_FACTOR 8
+#define TEMPORAL_SMOOTH_NEIGHBORHOOD 0
+#define MSAA_COLOR 0
 #include "$ENGINE$\TemporalResolve.bslinc"
 
-technique PPSSRStencil
+technique PPSSRResolve
 {
 	mixin PPBase;
 	mixin PerCameraData;
@@ -25,41 +27,39 @@ technique PPSSRStencil
 		}
 		
 		#if MSAA
-			Texture2DMS gSceneDepth;
-			Texture2DMS gSceneColor;
-			Texture2DMS gPrevColor;
+			Texture2DMS<float> gSceneDepth;
 		#else
 			Texture2D gSceneDepth;
-			Texture2D gSceneColor;
-			Texture2D gPrevColor;
+		#endif	
 
-			SamplerState gPointSampler;
-			SamplerState gLinearSampler;
-		#endif		
+		Texture2D gSceneColor;
+		Texture2D gPrevColor;
+
+		SamplerState gPointSampler;
+		SamplerState gLinearSampler;		
 		
-		#if EYE_ADAPTATION
-			Texture2D gEyeAdaptationTex;
-		#endif
-		
-		float3 fsmain(VStoFS input) : SV_Target0
+		float4 fsmain(VStoFS input) : SV_Target0
 		{
-			float exposureScale;
-			#if EYE_ADAPTATION
-				exposureScale = gEyeAdaptationTex.Load(int3(0, 0, 0)).r;
-			#else
-				exposureScale = gManualExposure;
-			#endif
-		
+			float4 col;
 			#if MSAA
-				return temporalResolve(gSceneDepth, gSceneColor, gPrevColor, 
-					exposureScale, input.uv0, input.screenPos, 0);
-			#else
-				return temporalResolve(
-					gSceneDepth, gPointSampler, gSceneDepthTexelSize,
-					gSceneColor, gPointSampler, gSceneColorTexelSize, 
+				col.rgb = temporalResolve(
+					gSceneDepth, 
+					gSceneColor, gLinearSampler, gSceneColorTexelSize, 
 					gPrevColor, gLinearSampler, gSceneColorTexelSize,
-					exposureScale, input.uv0, input.screenPos, 0);
+					gManualExposure, input.uv0, input.screenPos, 0);
+					
+				col.a = gSceneColor.Sample(gLinearSampler, input.uv0 * gSceneColorTexelSize).a;
+			#else
+				col.rgb = temporalResolve(
+					gSceneDepth, gPointSampler, gSceneDepthTexelSize,
+					gSceneColor, gLinearSampler, gSceneColorTexelSize, 
+					gPrevColor, gLinearSampler, gSceneColorTexelSize,
+					gManualExposure, input.uv0, input.screenPos, 0);
+					
+				col.a = gSceneColor.Sample(gLinearSampler, input.uv0).a;
 			#endif
+			
+			return col;
 		}	
 	};
 };

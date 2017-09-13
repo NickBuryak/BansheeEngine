@@ -82,12 +82,12 @@ mixin Surface
 			float3 specR = getSpecularDominantDir(N, R, surfaceData.roughness);
 			
 			float4 directLighting = getDirectLighting(input.worldPosition, V, specR, surfaceData, lightOffsets);
-			float3 indirectDiffuse = getSkyIndirectDiffuse(surfaceData.worldNormal) * surfaceData.albedo;
-			float3 imageBasedSpecular = getImageBasedSpecular(input.worldPosition, V, specR, surfaceData, 
+			float ao = gAmbientOcclusionTex.Sample(gAmbientOcclusionSamp, input.uv0);
+			float4 ssr = gSSRTex.Sample(gSSRSamp, input.uv0);
+			float3 imageBasedSpecular = getImageBasedSpecular(input.worldPosition, V, specR, surfaceData, ao, ssr,
 				reflProbeOffsetAndSize.x, reflProbeOffsetAndSize.y);
 
 			float3 totalLighting = directLighting.rgb;
-			totalLighting.rgb += indirectDiffuse;
 			totalLighting.rgb += imageBasedSpecular;
 
 			return float4(totalLighting, gOpacity);

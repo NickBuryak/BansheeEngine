@@ -2,16 +2,15 @@
 include(CMakeSources.cmake)
 
 # Packages
-find_package(Snappy REQUIRED)
+find_package(snappy REQUIRED)
 
 # Includes
 set(BansheeUtility_INC 
-	"Include" 
-	"Include/ThirdParty"
-	${Snappy_INCLUDE_DIRS})
+	"./" 
+	"ThirdParty")
 
 if(WIN32)
-	set(BansheeUtility_INC ${BansheeUtility_INC} "Include/Win32")
+	set(BansheeUtility_INC ${BansheeUtility_INC} "Win32")
 else()
 	# TODO_OTHER_PLATFORMS_GO_HERE
 endif()
@@ -21,7 +20,7 @@ include_directories(${BansheeUtility_INC})
 # Target
 add_library(BansheeUtility SHARED ${BS_BANSHEEUTILITY_SRC})
 
-add_executable(BansheeUtilityTest Source/BsUtilityTest.cpp)
+add_executable(BansheeUtilityTest BsUtilityTest.cpp)
 target_link_libraries(BansheeUtilityTest BansheeUtility)
 
 # Defines
@@ -29,7 +28,7 @@ target_compile_definitions(BansheeUtility PRIVATE -DBS_UTILITY_EXPORTS)
 
 # Libraries
 ## External lib: Snappy
-target_link_libraries(BansheeUtility ${Snappy_LIBRARIES})	
+target_link_libraries(BansheeUtility ${snappy_LIBRARIES})	
 
 ## OS libs
 if(WIN32)

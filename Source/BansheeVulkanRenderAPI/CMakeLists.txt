@@ -9,11 +9,10 @@ endif()
 
 # Includes
 set(BansheeVulkanRenderAPI_INC 
-	"Include" 
-	"../BansheeUtility/Include" 
-	"../BansheeCore/Include"
-	${Vulkan_INCLUDE_DIR}
-	${glslang_INCLUDE_DIR})
+	"./" 
+	"../BansheeUtility" 
+	"../BansheeCore"
+)
 
 if(WIN32)
 	set(BansheeVulkanRenderAPI_INC ${BansheeVulkanRenderAPI_INC} "Source/Win32")

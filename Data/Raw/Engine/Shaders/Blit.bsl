@@ -1,9 +1,14 @@
 technique Blit
 {
 	depth
-	{
+	{	
+		#ifndef DEPTH
 		read = false;
 		write = false;
+		#else
+		// Cannot use read = false because that disables gl_FragDepth writes on OpenGL
+		compare = always;		
+		#endif
 	};
 
 	code
@@ -39,7 +44,7 @@ technique Blit
 		#else // Assuming depth
 		Texture2DMS<float> gSource;
 		
-		float fsmain(VStoFS input) : SV_Target0
+		float fsmain(VStoFS input, out float depth : SV_Depth) : SV_Target0
 		#endif
 		{
 			int2 iUV = trunc(input.uv0);
@@ -59,7 +64,8 @@ technique Blit
 				for(int i = 1; i < MSAA_COUNT; i++)
 					minVal = min(minVal, gSource.Load(iUV, i));
 					
-				return minVal;
+				depth = minVal;
+				return 0.0f;
 			#endif
 		}
 		

@@ -24,6 +24,7 @@ technique TiledDeferredImageBasedLighting
 		#if MSAA_COUNT > 1
 		Texture2DMS<float4> gInColor;
 		RWBuffer<float4> gOutput;
+		Texture2D gMSAACoverage;
 		
 		uint getLinearAddress(uint2 coord, uint sampleIndex)
 		{
@@ -80,15 +81,20 @@ technique TiledDeferredImageBasedLighting
 			
 			GroupMemoryBarrierWithGroupSync();
 			
-			minTileZ = asfloat(sTileMinZ);
-			maxTileZ = asfloat(sTileMaxZ);
+			minTileZ = -asfloat(sTileMinZ);
+			maxTileZ = -asfloat(sTileMaxZ);
 		}
 		
 		void calcTileAABB(uint2 tileId, float viewZMin, float viewZMax, out float3 center, out float3 extent)
 		{
 			uint2 pixelPos = tileId * TILE_SIZE;
+			
+			// OpenGL uses lower left for window space origin
+			#ifdef OPENGL
+				pixelPos.y = gFramebufferSize.y - pixelPos.y;
+			#endif					
 		
-			// Convert threat XY coordinates to NDC coordinates
+			// Convert thread XY coordinates to NDC coordinates
 			float2 uvTopLeft = (pixelPos + 0.5f) / gFramebufferSize;
 			float2 uvBottomRight = (pixelPos + uint2(TILE_SIZE, TILE_SIZE) - 0.5f) / gFramebufferSize;
 		
@@ -104,29 +110,33 @@ technique TiledDeferredImageBasedLighting
 			ndcMin.y *= flipY;
 			ndcMax.y *= flipY;
 		
-			// Camera is looking along negative z, therefore min in view space is max in NDC
-			ndcMin.z = convertToNDCZ(viewZMax);
-			ndcMax.z = convertToNDCZ(viewZMin);
+			ndcMin.z = convertToNDCZ(viewZMin);
+			ndcMax.z = convertToNDCZ(viewZMax);
 		
-			float4 corner[5];
+			float4 corner[8];
 			// Far
 			corner[0] = mul(gMatInvProj, float4(ndcMin.x, ndcMin.y, ndcMax.z, 1.0f));
 			corner[1] = mul(gMatInvProj, float4(ndcMax.x, ndcMin.y, ndcMax.z, 1.0f));
 			corner[2] = mul(gMatInvProj, float4(ndcMax.x, ndcMax.y, ndcMax.z, 1.0f));
 			corner[3] = mul(gMatInvProj, float4(ndcMin.x, ndcMax.y, ndcMax.z, 1.0f));
 			
-			// Near (only one point, as the far away face is guaranteed to be larger in XY extents)
+			// Near
 			corner[4] = mul(gMatInvProj, float4(ndcMin.x, ndcMin.y, ndcMin.z, 1.0f));
+			corner[5] = mul(gMatInvProj, float4(ndcMax.x, ndcMin.y, ndcMin.z, 1.0f));
+			corner[6] = mul(gMatInvProj, float4(ndcMax.x, ndcMax.y, ndcMin.z, 1.0f));
+			corner[7] = mul(gMatInvProj, float4(ndcMin.x, ndcMax.y, ndcMin.z, 1.0f));
 		
 			[unroll]
-			for(uint i = 0; i < 5; ++i)
+			for(uint i = 0; i < 8; ++i)
 				corner[i].xy /= corner[i].w;
 		
-			float3 viewMin = float3(corner[0].xy, viewZMin);
-			float3 viewMax = float3(corner[0].xy, viewZMax);
+			// Flip min/max because min = closest to view plane and max = furthest from view plane
+			// but since Z is negative, closest is in fact the maximum and furtest is the minimum
+			float3 viewMin = float3(corner[0].xy, viewZMax);
+			float3 viewMax = float3(corner[0].xy, viewZMin);
 			
 			[unroll]
-			for(uint i = 1; i < 4; ++i)
+			for(uint i = 1; i < 8; ++i)
 			{
 				viewMin.xy = min(viewMin.xy, corner[i].xy);
 				viewMax.xy = max(viewMax.xy, corner[i].xy);
@@ -142,7 +152,7 @@ technique TiledDeferredImageBasedLighting
 			return dot(closestOnBox, closestOnBox) < sRadius * sRadius;
 		}
 		
-		float4 getLighting(uint2 pixelPos, uint sampleIdx, float2 clipSpacePos, SurfaceData surfaceData, uint probeOffset, uint numProbes)
+		float4 getLighting(uint2 pixelPos, float2 uv, uint sampleIdx, float2 clipSpacePos, SurfaceData surfaceData, uint probeOffset, uint numProbes)
 		{
 			// x, y are now in clip space, z, w are in view space
 			// We multiply them by a special inverse view-projection matrix, that had the projection entries that effect
@@ -164,11 +174,11 @@ technique TiledDeferredImageBasedLighting
 			existingColor = gInColor.Load(int3(pixelPos.xy, 0));
 			#endif				
 			
-			float3 indirectDiffuse = getSkyIndirectDiffuse(N) * surfaceData.albedo.rgb;
-			float3 imageBasedSpecular = getImageBasedSpecular(worldPosition, V, specR, surfaceData, probeOffset, numProbes);
+			float ao = gAmbientOcclusionTex.SampleLevel(gAmbientOcclusionSamp, uv, 0.0f).r;
+			float4 ssr = gSSRTex.SampleLevel(gSSRSamp, uv, 0.0f);
+			float3 imageBasedSpecular = getImageBasedSpecular(worldPosition, V, specR, surfaceData, ao, ssr, probeOffset, numProbes);
 
 			float4 totalLighting = existingColor;
-			totalLighting.rgb += indirectDiffuse;
 			totalLighting.rgb += imageBasedSpecular;
 			
 			return totalLighting;				
@@ -210,7 +220,7 @@ technique TiledDeferredImageBasedLighting
 			calcTileAABB(groupId.xy, minTileZ, maxTileZ, center, extent);
 							
 			// Find probes overlapping the tile
-			for (uint i = 0; i < gNumProbes && i < MAX_LIGHTS; i += TILE_SIZE)
+			for (uint i = threadIndex; i < gNumProbes && i < MAX_LIGHTS; i += TILE_SIZE)
 			{
 				float4 probePosition = mul(gMatView, float4(gReflectionProbes[i].position, 1.0f));
 				float probeRadius = gReflectionProbes[i].radius;
@@ -254,28 +264,33 @@ technique TiledDeferredImageBasedLighting
 			if (all(dispatchThreadId.xy < viewportMax))
 			{
 				#if MSAA_COUNT > 1
-				float4 lighting = getLighting(pixelPos, 0, clipSpacePos.xy, surfaceData[0], 0, gNumProbes);
+				float coverage = gMSAACoverage.Load(int3(pixelPos, 0)).r;
+				
+				float4 lighting = getLighting(pixelPos, screenUv, 0, clipSpacePos.xy, surfaceData[0], 0, sNumProbes);
 				writeBufferSample(pixelPos, 0, lighting);
 
-				bool doPerSampleShading = needsPerSampleShading(surfaceData);
+				bool doPerSampleShading = coverage > 0.5f;
 				if(doPerSampleShading)
 				{
 					[unroll]
 					for(uint i = 1; i < MSAA_COUNT; ++i)
 					{
-						lighting = getLighting(pixelPos, i, clipSpacePos.xy, surfaceData[i], 0, gNumProbes);
+						lighting = getLighting(pixelPos, screenUv, i, clipSpacePos.xy, surfaceData[i], 0, sNumProbes);
 						writeBufferSample(pixelPos, i, lighting);
 					}
 				}
 				else // Splat same information to all samples
 				{
+					// Note: The splatting step can be skipped if we account for coverage when resolving. However
+					// the coverage texture potentially becomes invalid after transparent geometry is renedered, 
+					// so we need to resolve all samples. Consider getting around this issue somehow.				
 					[unroll]
 					for(uint i = 1; i < MSAA_COUNT; ++i)
 						writeBufferSample(pixelPos, i, lighting);
 				}
 				
 				#else
-				float4 lighting = getLighting(pixelPos, 0, clipSpacePos.xy, surfaceData[0], 0, gNumProbes);
+				float4 lighting = getLighting(pixelPos, screenUv, 0, clipSpacePos.xy, surfaceData[0], 0, sNumProbes);
 				gOutput[pixelPos] = lighting;
 				#endif
 			}
