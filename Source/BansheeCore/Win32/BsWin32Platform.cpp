@@ -251,7 +251,7 @@ namespace bs
 		Sleep((DWORD)duration);
 	}
 
-	OSDropTarget& Platform::createDropTarget(const RenderWindow* window, int x, int y, unsigned int width, unsigned int height)
+	OSDropTarget& Platform::createDropTarget(const RenderWindow* window, INT32 x, INT32 y, UINT32 width, UINT32 height)
 	{
 		Win32DropTarget* win32DropTarget = nullptr;
 		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(window);
@@ -279,7 +279,7 @@ namespace bs
 
 	void Platform::destroyDropTarget(OSDropTarget& target)
 	{
-		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(target.getOwnerWindow());
+		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(target._getOwnerWindow());
 		if (iterFind == mData->mDropTargets.dropTargetsPerWindow.end())
 		{
 			LOGWRN("Attempting to destroy a drop target but cannot find its parent window.");
@@ -301,6 +301,71 @@ namespace bs
 		}
 		
 		BS_PVT_DELETE(OSDropTarget, &target);
+	}
+
+	void Platform::copyToClipboard(const WString& string)
+	{
+		HANDLE hData = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, (string.size() + 1) * sizeof(WString::value_type));
+		WString::value_type* buffer = (WString::value_type*)GlobalLock(hData);
+
+		string.copy(buffer, string.size());
+		buffer[string.size()] = '\0';
+
+		GlobalUnlock(hData);
+
+		if (OpenClipboard(NULL))
+		{
+			EmptyClipboard();
+			SetClipboardData(CF_UNICODETEXT, hData);
+			CloseClipboard();
+		}
+		else
+		{
+			GlobalFree(hData);
+		}
+	}
+
+	WString Platform::copyFromClipboard()
+	{
+		if (OpenClipboard(NULL))
+		{
+			HANDLE hData = GetClipboardData(CF_UNICODETEXT);
+
+			if (hData != NULL)
+			{
+				WString::value_type* buffer = (WString::value_type*)GlobalLock(hData);
+				WString string(buffer);
+				GlobalUnlock(hData);
+
+				CloseClipboard();
+				return string;
+			}
+			else
+			{
+				CloseClipboard();
+				return L"";
+			}
+		}
+
+		return L"";
+	}
+
+	WString Platform::keyCodeToUnicode(UINT32 keyCode)
+	{
+		static HKL keyboardLayout = GetKeyboardLayout(0);
+		static UINT8 keyboarState[256];
+
+		if (GetKeyboardState(keyboarState) == FALSE)
+			return 0;
+
+		UINT virtualKey = MapVirtualKeyExW(keyCode, 1, keyboardLayout);
+
+		wchar_t output[2];
+		int count = ToUnicodeEx(virtualKey, keyCode, keyboarState, output, 2, 0, keyboardLayout);
+		if (count > 0)
+			return WString(output, count);
+
+		return StringUtil::WBLANK;
 	}
 
 	void Platform::_messagePump()
@@ -500,7 +565,7 @@ namespace bs
 			if (newWindow != nullptr)
 			{
 				const RenderWindowProperties& props = newWindow->getProperties();
-				if (!props.isHidden())
+				if (!props.isHidden)
 					ShowWindow(hWnd, SW_SHOWNOACTIVATE);
 			}
 			else
@@ -517,14 +582,14 @@ namespace bs
 		{
 		case WM_SETFOCUS:
 			{
-				if (!win->getProperties().hasFocus())
+				if (!win->getProperties().hasFocus)
 					win->_windowFocusReceived();
 
 				return 0;
 			}
 		case WM_KILLFOCUS:
 			{
-				if (win->getProperties().hasFocus())
+				if (win->getProperties().hasFocus)
 					win->_windowFocusLost();
 
 				return 0;

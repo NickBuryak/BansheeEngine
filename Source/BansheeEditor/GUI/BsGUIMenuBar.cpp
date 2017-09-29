@@ -530,7 +530,7 @@ namespace bs
 
 	void GUIMenuBar::onMaximizeClicked()
 	{
-		if(mParentWindow->getProperties().isMaximized())
+		if(mParentWindow->getProperties().isMaximized)
 			mParentWindow->restore();
 		else
 			mParentWindow->maximize();
@@ -562,8 +562,5 @@ namespace bs
 		}
 
 		Platform::setCaptionNonClientAreas(*mParentWindow->getCore(), nonClientAreas);
-
-		Rect2I menuBarBounds = mMenuItemLayout->getBounds();
-		menuBarBounds.width = menuWidth;
 	}
 }

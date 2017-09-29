@@ -29,9 +29,9 @@ set(BS_BANSHEEUTILITY_SRC_WIN32
 )
 
 set(BS_BANSHEEUTILITY_SRC_UNIX
-	"Unix/BsUnixCrashHandler.cpp"
-	"Unix/BsUnixFileSystem.cpp"
-	"Unix/BsUnixPlatformUtility.cpp"
+	"Linux/BsUnixCrashHandler.cpp"
+	"Linux/BsUnixFileSystem.cpp"
+	"Linux/BsUnixPlatformUtility.cpp"
 )
 
 set(BS_BANSHEEUTILITY_INC_IMAGE
@@ -43,6 +43,7 @@ set(BS_BANSHEEUTILITY_INC_STRING
 	"String/BsString.h"
 	"String/BsStringFormat.h"
 	"String/BsStringID.h"
+	"String/BsUnicode.h"
 )
 
 set(BS_BANSHEEUTILITY_SRC_IMAGE
@@ -244,6 +245,7 @@ set(BS_BANSHEEUTILITY_INC_SERIALIZATION
 set(BS_BANSHEEUTILITY_SRC_STRING
 	"String/BsStringID.cpp"
 	"String/BsString.cpp"
+	"String/BsUnicode.cpp"
 )
 
 set(BS_BANSHEEUTILITY_INC_REFLECTION
@@ -326,6 +328,6 @@ set(BS_BANSHEEUTILITY_SRC
 if(WIN32)
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_WIN32})
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_INC_WIN32})
-else()
+elseif(LINUX)
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_UNIX})
 endif()

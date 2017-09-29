@@ -1,29 +1,29 @@
 //********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 #include "BsGLRenderAPI.h"
-#include "Renderapi/BsRenderAPI.h"
+#include "RenderAPI/BsRenderAPI.h"
 #include "BsGLTextureManager.h"
 #include "BsGLIndexBuffer.h"
 #include "BsGLUtil.h"
-#include "Glsl/BsGLSLGpuProgram.h"
+#include "GLSL/BsGLSLGpuProgram.h"
 #include "Error/BsException.h"
 #include "BsGLContext.h"
 #include "BsGLSupport.h"
-#include "Renderapi/BsBlendState.h"
-#include "Renderapi/BsRasterizerState.h"
-#include "Renderapi/BsDepthStencilState.h"
+#include "RenderAPI/BsBlendState.h"
+#include "RenderAPI/BsRasterizerState.h"
+#include "RenderAPI/BsDepthStencilState.h"
 #include "BsGLRenderTexture.h"
 #include "BsGLRenderWindowManager.h"
-#include "Glsl/BsGLSLProgramPipelineManager.h"
+#include "GLSL/BsGLSLProgramPipelineManager.h"
 #include "BsGLVertexArrayObjectManager.h"
 #include "Managers/BsRenderStateManager.h"
-#include "Renderapi/BsGpuParams.h"
+#include "RenderAPI/BsGpuParams.h"
 #include "BsGLGpuParamBlockBuffer.h"
-#include "Corethread/BsCoreThread.h"
+#include "CoreThread/BsCoreThread.h"
 #include "BsGLQueryManager.h"
 #include "Debug/BsDebug.h"
 #include "Profiling/BsRenderStats.h"
-#include "Renderapi/BsGpuParamDesc.h"
+#include "RenderAPI/BsGpuParamDesc.h"
 #include "BsGLGpuBuffer.h"
 #include "BsGLCommandBuffer.h"
 #include "BsGLCommandBufferManager.h"
@@ -33,7 +33,8 @@ namespace bs { namespace ct
 {
 	const char* MODULE_NAME = "BansheeGLRenderAPI.dll";
 
-	void __stdcall openGlErrorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, GLvoid *userParam);
+	void openGlErrorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar
+				*message, GLvoid *userParam);
 
 	/************************************************************************/
 	/* 								PUBLIC INTERFACE                   		*/
@@ -592,6 +593,8 @@ namespace bs { namespace ct
 									glBindBufferBase(GL_SHADER_STORAGE_BUFFER, unit, 0);
 							}
 							break;
+						default:
+							break;
 						}
 					}
 
@@ -829,7 +832,7 @@ namespace bs { namespace ct
 				fbo->bind();
 
 				// Enable / disable sRGB states
-				if (target->getProperties().isHwGammaEnabled())
+				if (target->getProperties().hwGamma)
 					glEnable(GL_FRAMEBUFFER_SRGB);
 				else
 					glDisable(GL_FRAMEBUFFER_SRGB);
@@ -1119,7 +1122,7 @@ namespace bs { namespace ct
 				return;
 
 			const RenderTargetProperties& rtProps = mActiveRenderTarget->getProperties();
-			Rect2I clearRect(0, 0, rtProps.getWidth(), rtProps.getHeight());
+			Rect2I clearRect(0, 0, rtProps.width, rtProps.height);
 
 			clearArea(buffers, color, depth, stencil, clearRect, targetMask);
 		};
@@ -1208,7 +1211,7 @@ namespace bs { namespace ct
 		const RenderTargetProperties& rtProps = mActiveRenderTarget->getProperties();
 
 		bool clearEntireTarget = clearRect.width == 0 || clearRect.height == 0;
-		clearEntireTarget |= (clearRect.x == 0 && clearRect.y == 0 && clearRect.width == rtProps.getWidth() && clearRect.height == rtProps.getHeight());
+		clearEntireTarget |= (clearRect.x == 0 && clearRect.y == 0 && clearRect.width == rtProps.width && clearRect.height == rtProps.height);
 
 		if (!clearEntireTarget)
 		{
@@ -1492,8 +1495,6 @@ namespace bs { namespace ct
 	{
 		if (mActiveRenderTarget == nullptr)
 			return;
-
-		const RenderTargetProperties& rtProps = mActiveRenderTarget->getProperties();
 
 		// Calculate the "lower-left" corner of the viewport
 		GLsizei x = 0, y = 0, w = 0, h = 0;
@@ -2271,10 +2272,10 @@ namespace bs { namespace ct
 		const RenderTargetProperties& rtProps = mActiveRenderTarget->getProperties();
 
 		// Calculate the "lower-left" corner of the viewport
-		mViewportLeft = (UINT32)(rtProps.getWidth() * mViewportNorm.x);
-		mViewportTop = (UINT32)(rtProps.getHeight() * mViewportNorm.y);
-		mViewportWidth = (UINT32)(rtProps.getWidth() * mViewportNorm.width);
-		mViewportHeight = (UINT32)(rtProps.getHeight() * mViewportNorm.height);
+		mViewportLeft = (UINT32)(rtProps.width * mViewportNorm.x);
+		mViewportTop = (UINT32)(rtProps.height * mViewportNorm.y);
+		mViewportWidth = (UINT32)(rtProps.width * mViewportNorm.width);
+		mViewportHeight = (UINT32)(rtProps.height * mViewportNorm.height);
 
 		glViewport(mViewportLeft, mViewportTop, mViewportWidth, mViewportHeight);
 
@@ -2373,7 +2374,8 @@ namespace bs { namespace ct
 		return block;
 	}
 
-	void __stdcall openGlErrorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, GLvoid *userParam)
+	void openGlErrorCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+		const GLchar *message, GLvoid *userParam)
 	{
 		if (type != GL_DEBUG_TYPE_PERFORMANCE && type != GL_DEBUG_TYPE_OTHER)
 		{

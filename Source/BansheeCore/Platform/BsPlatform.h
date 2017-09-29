@@ -86,6 +86,9 @@ namespace bs
 	class BS_CORE_EXPORT OSDropTarget
 	{
 	public:
+		OSDropTarget(const RenderWindow* ownerWindow, INT32 x, INT32 y, UINT32 width, UINT32 height);
+		~OSDropTarget();
+
 		/**
 		 * Triggered when a pointer is being dragged over the drop area. Provides window coordinates of the pointer position.
 		 */
@@ -130,15 +133,12 @@ namespace bs
 
 		/** Returns true if the drop target is active. */
 		bool _isActive() const { return mActive; }
+
+		/**	Returns a render window this drop target is attached to. */
+		const RenderWindow* _getOwnerWindow() const { return mOwnerWindow; }
 	private:
 		friend class Platform;
 
-		OSDropTarget(const RenderWindow* ownerWindow, INT32 x, INT32 y, UINT32 width, UINT32 height);
-		~OSDropTarget();
-
-		/**	Returns a render window this drop target is attached to. */
-		const RenderWindow* getOwnerWindow() const { return mOwnerWindow; }
-	private:
 		INT32 mX, mY;
 		UINT32 mWidth, mHeight;
 		bool mActive;
@@ -325,7 +325,7 @@ namespace bs
 		 * @return				OSDropTarget that you will use to receive all drop data. When no longer needed make sure 
 		 *						to destroy it with destroyDropTarget().
 		 */
-		static OSDropTarget& createDropTarget(const RenderWindow* window, int x, int y, unsigned int width, unsigned int height);
+		static OSDropTarget& createDropTarget(const RenderWindow* window, INT32 x, INT32 y, UINT32 width, UINT32 height);
 
 		/** Destroys a drop target previously created with createDropTarget. */
 		static void destroyDropTarget(OSDropTarget& target);
@@ -342,6 +342,33 @@ namespace bs
 		 */
 		static bool openBrowseDialog(FileDialogType type, const Path& defaultPath, const WString& filterList,
 			Vector<Path>& paths);
+
+		/**
+		 * Adds a string to the clipboard.
+		 *
+		 * @note	Thread safe.
+		 */
+		static void copyToClipboard(const WString& string);
+
+		/**
+		 * Reads a string from the clipboard and returns it. If there is no string in the clipboard it returns an empty
+		 * string.
+		 *
+		 * @note
+		 * Both wide and normal strings will be read, but normal strings will be converted to a wide string before returning.
+		 * @note
+		 * Thread safe.
+		 */
+		static WString copyFromClipboard();
+
+		/**
+		 * Converts a keyboard key-code to a Unicode character.
+		 *
+		 * @note
+		 * Normally this will output a single character, but it can happen it outputs multiple in case a accent/diacritic
+		 * character could not be combined with the virtual key into a single character.
+		 */
+		static WString keyCodeToUnicode(UINT32 keyCode);
 
 		/**
 		 * Message pump. Processes OS messages and returns when it's free.

@@ -15,36 +15,42 @@ namespace bs
 	/**
 	 * @copydoc	SliderJoint
 	 *
-	 * Wraps SliderJoint as a Component.
+	 * @note	Wraps SliderJoint as a Component.
 	 */
-    class BS_CORE_EXPORT CSliderJoint : public CJoint
-    {
-    public:
+	class BS_CORE_EXPORT BS_SCRIPT_EXPORT(m:Physics,n:SliderJoint) CSliderJoint : public CJoint
+	{
+	public:
 		CSliderJoint(const HSceneObject& parent);
 
 		/** @copydoc SliderJoint::getPosition */
-		inline float getPosition() const;
+		BS_SCRIPT_EXPORT(n:Position,pr:getter)
+		float getPosition() const;
 
 		/** @copydoc SliderJoint::getSpeed */
-		inline float getSpeed() const;
+		BS_SCRIPT_EXPORT(n:Speed,pr:getter)
+		float getSpeed() const;
 
 		/** @copydoc SliderJoint::getLimit */
-		inline LimitLinearRange getLimit() const;
+		BS_SCRIPT_EXPORT(n:Limit,pr:getter)
+		LimitLinearRange getLimit() const;
 
 		/** @copydoc SliderJoint::setLimit */
-		inline void setLimit(const LimitLinearRange& limit);
+		BS_SCRIPT_EXPORT(n:Limit,pr:setter)
+		void setLimit(const LimitLinearRange& limit);
 
 		/** @copydoc SliderJoint::setFlag */
-		inline void setFlag(SliderJoint::Flag flag, bool enabled);
+		BS_SCRIPT_EXPORT(n:SetFlag)
+		void setFlag(SliderJointFlag flag, bool enabled);
 
 		/** @copydoc SliderJoint::hasFlag */
-		inline bool hasFlag(SliderJoint::Flag flag) const;
+		BS_SCRIPT_EXPORT(n:HasFlag)
+		bool hasFlag(SliderJointFlag flag) const;
 
 		/** @name Internal
 		 *  @{
 		 */
 
-	    /**	Returns the slider joint that this component wraps. */
+		/**	Returns the slider joint that this component wraps. */
 		SliderJoint* _getInternal() const { return static_cast<SliderJoint*>(mInternal.get()); }
 
 		/** @} */
@@ -73,7 +79,7 @@ namespace bs
 
 	protected:
 		CSliderJoint(); // Serialization only
-     };
+	};
 
 	 /** @} */
 }

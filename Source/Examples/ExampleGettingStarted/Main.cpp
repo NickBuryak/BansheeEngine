@@ -1,7 +1,5 @@
 //********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-#include <windows.h>
-
 // Engine includes
 #include "BsApplication.h"
 #include "Resources/BsResources.h"
@@ -28,6 +26,10 @@
 #include "RenderAPI/BsRenderWindow.h"
 #include "Scene/BsSceneObject.h"
 #include "BsEngineConfig.h"
+
+#if BS_PLATFORM == BS_PLATFORM_WIN32
+#include <windows.h>
+#endif
 
 // Example includes
 #include "CameraFlyer.h"
@@ -71,12 +73,16 @@ namespace bs
 using namespace bs;
 
 /** Main entry point into the application. */
+#if BS_PLATFORM == BS_PLATFORM_WIN32
 int CALLBACK WinMain(
 	_In_  HINSTANCE hInstance,
 	_In_  HINSTANCE hPrevInstance,
 	_In_  LPSTR lpCmdLine,
 	_In_  int nCmdShow
 	)
+#else
+int main()
+#endif
 {
 	// Ensure all errors are reported properly
 	CrashHandler::startUp();
@@ -508,11 +514,11 @@ namespace bs
 
 		if (!fullscreen)
 		{
-			windowResWidth = rwProps.getWidth();
-			windowResHeight = rwProps.getHeight();
+			windowResWidth = rwProps.width;
+			windowResHeight = rwProps.height;
 		}
 
-		sceneCamera->setAspectRatio(rwProps.getWidth() / (float)rwProps.getHeight());
+		sceneCamera->setAspectRatio(rwProps.width / (float)rwProps.height);
 	}
 
 	/** Callback triggered when the user selects a new video mode from the GUI drop down element. */

@@ -22,4 +22,23 @@ namespace bs { namespace ct
 	/** @} */
 }}
 
+#elif BS_PLATFORM == BS_PLATFORM_LINUX
+
+#include "Linux/BsLinuxGLSupport.h"
+
+namespace bs { namespace ct
+	{
+		/** @addtogroup GL
+		 *  @{
+		 */
+
+		/**	Helper method that returns a platform specific GL support object. */
+		GLSupport* getGLSupport()
+		{
+			return bs_new<LinuxGLSupport>();
+		}
+
+		/** @} */
+	}}
+
 #endif

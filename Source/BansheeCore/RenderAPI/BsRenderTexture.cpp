@@ -12,7 +12,7 @@ namespace bs
 {
 	RenderTextureProperties::RenderTextureProperties(const RENDER_TEXTURE_DESC& desc, bool requiresFlipping)
 	{
-		UINT32 firstIdx = -1;
+		UINT32 firstIdx = (UINT32)-1;
 		bool requiresHwGamma = false;
 		for (UINT32 i = 0; i < BS_MAX_MULTIPLE_RENDER_TARGETS; i++)
 		{
@@ -21,13 +21,13 @@ namespace bs
 			if (!texture.isLoaded())
 				continue;
 
-			if (firstIdx == -1)
+			if (firstIdx == (UINT32)-1)
 				firstIdx = i;
 
 			requiresHwGamma |= texture->getProperties().isHardwareGammaEnabled();
 		}
 
-		if (firstIdx == -1)
+		if (firstIdx == (UINT32)-1)
 		{
 			HTexture texture = desc.depthStencilSurface.texture;
 			if (texture.isLoaded())
@@ -49,7 +49,7 @@ namespace bs
 
 	RenderTextureProperties::RenderTextureProperties(const ct::RENDER_TEXTURE_DESC& desc, bool requiresFlipping)
 	{
-		UINT32 firstIdx = -1;
+		UINT32 firstIdx = (UINT32)-1;
 		bool requiresHwGamma = false;
 		for (UINT32 i = 0; i < BS_MAX_MULTIPLE_RENDER_TARGETS; i++)
 		{
@@ -58,13 +58,13 @@ namespace bs
 			if (texture == nullptr)
 				continue;
 
-			if (firstIdx == -1)
+			if (firstIdx == (UINT32)-1)
 				firstIdx = i;
 
 			requiresHwGamma |= texture->getProperties().isHardwareGammaEnabled();
 		}
 
-		if(firstIdx == -1)
+		if(firstIdx == (UINT32)-1)
 		{
 			SPtr<ct::Texture> texture = desc.depthStencilSurface.texture;
 			if(texture != nullptr)
@@ -90,17 +90,15 @@ namespace bs
 		if (textureProps != nullptr)
 		{
 			PixelUtil::getSizeForMipLevel(textureProps->getWidth(), textureProps->getHeight(), textureProps->getDepth(), 
-										  mipLevel, mWidth, mHeight, mNumSlices);
+										  mipLevel, width, height, numSlices);
 
-			mNumSlices *= numSlices;
-			mColorDepth = bs::PixelUtil::getNumElemBits(textureProps->getFormat());
-			mMultisampleCount = textureProps->getNumSamples();
+			numSlices *= numSlices;
+			multisampleCount = textureProps->getNumSamples();
 		}
 
-		mActive = true;
-		mIsWindow = false;
-		mRequiresTextureFlipping = requiresFlipping;
-		mHwGamma = hwGamma;
+		isWindow = false;
+		requiresTextureFlipping = requiresFlipping;
+		this->hwGamma = hwGamma;
 	}
 
 	SPtr<RenderTexture> RenderTexture::create(const TEXTURE_DESC& desc, 
@@ -234,13 +232,13 @@ namespace bs
 
 	void RenderTexture::throwIfBuffersDontMatch() const
 	{
-		UINT32 firstSurfaceIdx = -1;
+		UINT32 firstSurfaceIdx = (UINT32)-1;
 		for (UINT32 i = 0; i < BS_MAX_MULTIPLE_RENDER_TARGETS; i++)
 		{
 			if (mColorSurfaces[i] == nullptr)
 				continue;
 
-			if (firstSurfaceIdx == -1)
+			if (firstSurfaceIdx == (UINT32)-1)
 			{
 				firstSurfaceIdx = i;
 				continue;
@@ -277,7 +275,7 @@ namespace bs
 			}
 		}
 
-		if (firstSurfaceIdx != -1)
+		if (firstSurfaceIdx != (UINT32)-1)
 		{
 			const TextureProperties& firstTexProps = mDesc.colorSurfaces[firstSurfaceIdx].texture->getProperties();
 			SPtr<TextureView> firstSurfaceView = mColorSurfaces[firstSurfaceIdx];

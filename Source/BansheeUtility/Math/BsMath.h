@@ -745,15 +745,15 @@ namespace bs
 			coefficients[3] = pointA;
 		}
 
-        static const float POS_INFINITY;
-        static const float NEG_INFINITY;
-        static const float PI;
-        static const float TWO_PI;
-        static const float HALF_PI;
-		static const float DEG2RAD;
-		static const float RAD2DEG;
+		static constexpr float POS_INFINITY = std::numeric_limits<float>::infinity();
+		static constexpr float NEG_INFINITY = -std::numeric_limits<float>::infinity();
+		static constexpr float PI = 3.14159265358979323846f;
+		static constexpr float TWO_PI = (float)(2.0f * PI);
+		static constexpr float HALF_PI = (float)(0.5f * PI);
+		static constexpr float DEG2RAD = PI / 180.0f;
+		static constexpr float RAD2DEG = 180.0f / PI;
 		static const float LOG2;
-    };
+	};
 
 	/** @} */
 }
