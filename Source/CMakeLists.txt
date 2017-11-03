@@ -5,9 +5,9 @@ project (Banshee)
 set (BS_VERSION_MAJOR 0)
 set (BS_VERSION_MINOR 4)
 
-set (BS_PREBUILT_DEPENDENCIES_VERSION 10)
+set (BS_PREBUILT_DEPENDENCIES_VERSION 14)
 set (BS_SRC_DEPENDENCIES_VERSION 15)
-set (BS_BUILTIN_ASSETS_VERSION 1)
+set (BS_BUILTIN_ASSETS_VERSION 3)
 
 # Configuration types
 if(CMAKE_CONFIGURATION_TYPES) # Multiconfig generator?
@@ -36,9 +36,6 @@ set_property(CACHE AUDIO_MODULE PROPERTY STRINGS OpenAudio FMOD)
 
 set(PHYSICS_MODULE "PhysX" CACHE STRING "Physics backend to use.")
 set_property(CACHE PHYSICS_MODULE PROPERTY STRINGS PhysX)
-
-set(INPUT_MODULE "OIS" CACHE STRING "Input backend to use.")
-set_property(CACHE INPUT_MODULE PROPERTY STRINGS OIS)
 
 if(WIN32)
 set(RENDER_API_MODULE "DirectX 11" CACHE STRING "Render API to use.")
@@ -70,20 +67,18 @@ include(CMake/Common.cmake)
 
 # Ensure dependencies are up to date
 ## Check prebuilt dependencies that are downloaded in a .zip
-if(WIN32)
-	set(BUILTIN_DEP_VERSION_FILE ${PROJECT_SOURCE_DIR}/../Dependencies/.version)
-	if(NOT EXISTS ${BUILTIN_DEP_VERSION_FILE})
-		message(STATUS "Binary dependencies are missing. Downloading package...")
-		update_binary_deps(${BS_PREBUILT_DEPENDENCIES_VERSION})	
-	else()
-		file (STRINGS ${BUILTIN_DEP_VERSION_FILE} CURRENT_BUILTIN_DEP_VERSION)
-		if(${BS_PREBUILT_DEPENDENCIES_VERSION} GREATER ${CURRENT_BUILTIN_DEP_VERSION})
-			message(STATUS "Your precomiled dependencies package is out of date. Downloading latest package...")
-			update_binary_deps(${BS_PREBUILT_DEPENDENCIES_VERSION})
-		endif()
+set(BUILTIN_DEP_VERSION_FILE ${PROJECT_SOURCE_DIR}/../Dependencies/.version)
+if(NOT EXISTS ${BUILTIN_DEP_VERSION_FILE})
+	message(STATUS "Binary dependencies are missing. Downloading package...")
+	update_binary_deps(${BS_PREBUILT_DEPENDENCIES_VERSION})
+else()
+	file (STRINGS ${BUILTIN_DEP_VERSION_FILE} CURRENT_BUILTIN_DEP_VERSION)
+	if(${BS_PREBUILT_DEPENDENCIES_VERSION} GREATER ${CURRENT_BUILTIN_DEP_VERSION})
+		message(STATUS "Your precomiled dependencies package is out of date. Downloading latest package...")
+		update_binary_deps(${BS_PREBUILT_DEPENDENCIES_VERSION})
 	endif()
 endif()
-	
+
 ## Check dependencies built from source
 if(WIN32)
 	set(SOURCE_DEP_BUILD_DIR ${PROJECT_SOURCE_DIR}/../Dependencies/Build)
@@ -149,10 +144,10 @@ if(MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS_RELEASE ${BS_LINKER_FLAGS_RELEASE})
 	
 	# Compiler
-	set(BS_COMPILER_FLAGS_COMMON "/GS- /W3 /GR- /WX- /nologo /bigobj /wd\"4577\" /wd\"4530\"")
+	set(BS_COMPILER_FLAGS_COMMON "/GS- /W3 /GR- /WX- /MP /nologo /bigobj /wd\"4577\" /wd\"4530\"")
 	set(CMAKE_CXX_FLAGS "/DWIN32 /D_WINDOWS")
 	
-	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} /Gm /Od /RTC1 /MDd")
+	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} /Od /RTC1 /MDd")
 	
 	if(BS_64BIT) # Debug edit and continue for 64-bit
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
@@ -170,26 +165,30 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	# Note: Optionally add -ffunction-sections, -fdata-sections, but with linker option --gc-sections
 	# TODO: Use link-time optimization -flto. Might require non-default linker.
 	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti -fno-ms-compatibility
-	-fms-extensions")
+	-fms-extensions -Wl,-rpath=$ORIGIN")
 	
-	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0")
+	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0 -DDEBUG")
 	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2")
 	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2")
 
 	set(CMAKE_SHARED_LINKER_FLAGS_RELEASE -s)
 	set(CMAKE_MODULE_LINKER_FLAGS_RELEASE -s)
-	set(CMAKE_EXE_LINKER_FLAGS_RELEASE -s)
+	set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-s -no-pie")
+	set(CMAKE_EXE_LINKER_FLAGS_OPTIMIZEDDEBUG "-s -no-pie")
+	set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-s -no-pie")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	# TODO: Use link-time optimization -flto. Might require non-default linker.
-	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti")
+	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti -Wl,-rpath=$ORIGIN")
 	
-	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0")
+	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0 -DDEBUG")
 	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2")
 	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2")
 
 	set(CMAKE_SHARED_LINKER_FLAGS_RELEASE -s)
 	set(CMAKE_MODULE_LINKER_FLAGS_RELEASE -s)
-	set(CMAKE_EXE_LINKER_FLAGS_RELEASE -s)
+	set(CMAKE_EXE_LINKER_FLAGS_DEBUG "-s -no-pie")
+	set(CMAKE_EXE_LINKER_FLAGS_OPTIMIZEDDEBUG "-s -no-pie")
+	set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-s -no-pie")
 else()
 # TODO_OTHER_COMPILERS_GO_HERE
 endif()
@@ -244,7 +243,6 @@ else() # Default to OpenAudio
 endif()
 
 set(RENDERER_MODULE_LIB RenderBeast)
-set(INPUT_MODULE_LIB BansheeOISInput)
 set(PHYSICS_MODULE_LIB BansheePhysX)
 
 if(BUILD_EDITOR)
@@ -295,7 +293,6 @@ else() # Otherwise include only chosen ones
 endif()
 
 add_subdirectory(RenderBeast)
-add_subdirectory(BansheeOISInput)
 add_subdirectory(BansheePhysX)
 add_subdirectory(BansheeFBXImporter)
 add_subdirectory(BansheeFontImporter)
@@ -325,10 +322,13 @@ add_subdirectory_optional(Experimental/PBS)
 add_subdirectory_optional(Experimental/Shadows)
 
 ## Managed projects
-if(MSVC)
-	if(BUILD_EDITOR)
-		include_external_msproject(MBansheeEngine ${PROJECT_SOURCE_DIR}/MBansheeEngine/MBansheeEngine.csproj)
-		include_external_msproject(MBansheeEditor ${PROJECT_SOURCE_DIR}/MBansheeEditor/MBansheeEditor.csproj)
+if(BUILD_EDITOR)
+	set(CS_ENGINE_PROJ ${PROJECT_SOURCE_DIR}/MBansheeEngine/MBansheeEngine.csproj)
+	set(CS_EDITOR_PROJ ${PROJECT_SOURCE_DIR}/MBansheeEditor/MBansheeEditor.csproj)
+
+	if(MSVC)
+		include_external_msproject(MBansheeEngine ${CS_ENGINE_PROJ})
+		include_external_msproject(MBansheeEditor ${CS_EDITOR_PROJ})
 		
 		set_target_properties(MBansheeEngine PROPERTIES
 		  MAP_IMPORTED_CONFIG_RELEASE OptimizedDebug
@@ -339,12 +339,25 @@ if(MSVC)
 		
 		set_property(TARGET MBansheeEngine PROPERTY FOLDER Script)
 		set_property(TARGET MBansheeEditor PROPERTY FOLDER Script)
-		
+
 		add_dependencies(BansheeEditorExec MBansheeEngine MBansheeEditor)
 		add_dependencies(Game MBansheeEngine)
-		
+
 		set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT BansheeEditorExec)
+	else()
+		find_package(mcs)
+
+		if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+			set(CS_PROJ_CONFIG Debug)
+		else()
+			set(CS_PROJ_CONFIG Release)
+		endif()
+
+		add_custom_target(BuildManaged
+				COMMAND xbuild /p:Configuration=${CS_PROJ_CONFIG} ${CS_EDITOR_PROJ}
+				COMMENT "Building managed assemblies")
+
+		add_dependencies(BansheeEditorExec BuildManaged)
+		add_dependencies(Game BuildManaged)
 	endif()
-else()
-# TODO - Use Mono compiler to build the managed code as a pre-build step
 endif()

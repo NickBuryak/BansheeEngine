@@ -46,14 +46,14 @@ namespace bs
 	const WString BuiltinResources::GUISkinFile = L"GUISkin";
 
 	const char* BuiltinResources::DataListFile = "DataList.json";
-	const char* BuiltinResources::CursorFolder = "Cursors\\";
-	const char* BuiltinResources::IconFolder = "Icons\\";
-	const char* BuiltinResources::ShaderFolder = "Shaders\\";
-	const char* BuiltinResources::SkinFolder = "Skin\\";
-	const char* BuiltinResources::ShaderIncludeFolder = "Includes\\";
-	const char* BuiltinResources::MeshFolder = "Meshes\\";
-	const char* BuiltinResources::TextureFolder = "Textures\\";
-	const char* BuiltinResources::SpriteSubFolder = "Sprites\\";
+	const char* BuiltinResources::CursorFolder = "Cursors/";
+	const char* BuiltinResources::IconFolder = "Icons/";
+	const char* BuiltinResources::ShaderFolder = "Shaders/";
+	const char* BuiltinResources::SkinFolder = "Skin/";
+	const char* BuiltinResources::ShaderIncludeFolder = "Includes/";
+	const char* BuiltinResources::MeshFolder = "Meshes/";
+	const char* BuiltinResources::TextureFolder = "Textures/";
+	const char* BuiltinResources::SpriteSubFolder = "Sprites/";
 
 	/************************************************************************/
 	/* 								GUI TEXTURES                      		*/
@@ -224,7 +224,7 @@ namespace bs
 	BuiltinResources::BuiltinResources()
 	{
 		// Set up paths
-		mBuiltinRawDataFolder = Paths::getRuntimeDataPath() + L"Raw\\Engine\\";
+		mBuiltinRawDataFolder = Paths::getRuntimeDataPath() + L"Raw/Engine/";
 
 		mBuiltinDataFolder = Paths::getEngineDataPath();
 		mEngineSkinSpritesFolder = mBuiltinDataFolder + SkinFolder + SpriteSubFolder;
@@ -501,7 +501,7 @@ namespace bs
 
 		// Import font
 		BuiltinResourcesHelper::importFont(mBuiltinRawDataFolder + DefaultFontFilename, DefaultFontFilename, 
-			mBuiltinDataFolder, { DefaultFontSize }, false, "c9f08cab-f9c9-47c4-96e0-1066a8d4455b", mResourceManifest);
+			mBuiltinDataFolder, { DefaultFontSize }, false, UUID("c9f08cab-f9c9-47c4-96e0-1066a8d4455b"), mResourceManifest);
 
 		// Import splash screen
 		{
@@ -525,7 +525,7 @@ namespace bs
 			SPtr<GUISkin> skin = generateGUISkin();
 			Path outputPath = mBuiltinDataFolder + (GUISkinFile + L".asset");
 
-			HResource skinResource = gResources()._createResourceHandle(skin, "c1bf9a9d-4355-4841-a538-25e67730ec4b");
+			HResource skinResource = gResources()._createResourceHandle(skin, UUID("c1bf9a9d-4355-4841-a538-25e67730ec4b"));
 
 			gResources().save(skinResource, outputPath, true);
 			mResourceManifest->registerResource(skinResource.getUUID(), outputPath);
@@ -1162,9 +1162,9 @@ namespace bs
 		// Save all textures
 		Path outputDir = mBuiltinDataFolder + TextureFolder;
 
-		auto saveTexture = [&](const Path& path, const SPtr<Texture>& texture, const String& UUID)
+		auto saveTexture = [&](const Path& path, const SPtr<Texture>& texture, const String& uuid)
 		{
-			HResource textureResource = gResources()._createResourceHandle(texture, UUID);
+			HResource textureResource = gResources()._createResourceHandle(texture, UUID(uuid));
 
 			gResources().save(textureResource, path, true);
 			mResourceManifest->registerResource(textureResource.getUUID(), path);
@@ -1236,9 +1236,9 @@ namespace bs
 		// Save all meshes
 		Path outputDir = mEngineMeshFolder;
 
-		auto saveMesh = [&](const Path& path, const SPtr<Mesh>& mesh, const String& UUID)
+		auto saveMesh = [&](const Path& path, const SPtr<Mesh>& mesh, const String& uuid)
 		{
-			HResource meshResource = gResources()._createResourceHandle(mesh, UUID);
+			HResource meshResource = gResources()._createResourceHandle(mesh, UUID(uuid));
 
 			gResources().save(meshResource, path, true);
 			mResourceManifest->registerResource(meshResource.getUUID(), path);

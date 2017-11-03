@@ -65,25 +65,34 @@ namespace bs
 		/** Returns the absolute path to the Mono /etc folder that is required for initializing Mono. */
 		Path getMonoEtcFolder() const;
 
-		/**	Returns the absolute path to the Mono compiler. */
+		/**	Returns the absolute path to the Mono compiler managed executable. */
 		Path getCompilerPath() const;
+
+		/** Returns the absolute path to the executable capable of executing managed assemblies. */
+		Path getMonoExecPath() const;
 
 		/**
 		 * Registers a new script type. This should be done before any assembly loading is done. Upon assembly load these
 		 * script types will be initialized with necessary information about their managed counterparts.
 		 */
-		static void registerScriptType(ScriptMeta* metaData);
+		static void registerScriptType(ScriptMeta* metaData, const ScriptMeta& localMetaData);
 
 		/** Triggered when the assembly domain and all relevant assemblies are about to be unloaded. */
 		Event<void()> onDomainUnload;
 	private:
+		struct ScriptMetaInfo
+		{
+			ScriptMeta* metaData;
+			ScriptMeta localMetaData;
+		};
+
 		/**	Initializes a previous loaded assembly. */
 		void initializeAssembly(MonoAssembly& assembly);
 
 		/**	Returns a list of all types that will be initializes with their assembly gets loaded. */
-		static UnorderedMap<String, Vector<ScriptMeta*>>& getScriptMetaData()
+		static UnorderedMap<String, Vector<ScriptMetaInfo>>& getScriptMetaData()
 		{
-			static UnorderedMap<String, Vector<ScriptMeta*>> mTypesToInitialize;
+			static UnorderedMap<String, Vector<ScriptMetaInfo>> mTypesToInitialize;
 			return mTypesToInitialize;
 		}
 

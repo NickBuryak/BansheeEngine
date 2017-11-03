@@ -18,10 +18,12 @@
 #include "Script/BsScriptManager.h"
 #include "GUI/BsGUIMenuBar.h"
 #include "BsPlayInEditorManager.h"
-#include "Wrappers/BsScriptRenderTarget.h"
+#include "Platform/BsPlatform.h"
 #include "BsScriptResourceManager.h"
 #include "FileSystem/BsFileSystem.h"
 #include "Wrappers/BsScriptPrefab.h"
+
+#include "BsScriptRenderTexture.generated.h"
 
 namespace bs
 {
@@ -46,6 +48,7 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_GetProjectName", (void*)&ScriptEditorApplication::internal_GetProjectName);
 		metaData.scriptClass->addInternalCall("Internal_GetProjectLoaded", (void*)&ScriptEditorApplication::internal_GetProjectLoaded);
 		metaData.scriptClass->addInternalCall("Internal_GetCompilerPath", (void*)&ScriptEditorApplication::internal_GetCompilerPath);
+		metaData.scriptClass->addInternalCall("Internal_GetMonoExecPath", (void*) &ScriptEditorApplication::internal_GetMonoExecPath);
 		metaData.scriptClass->addInternalCall("Internal_GetBuiltinReleaseAssemblyPath", (void*)&ScriptEditorApplication::internal_GetBuiltinReleaseAssemblyPath);
 		metaData.scriptClass->addInternalCall("Internal_GetBuiltinDebugAssemblyPath", (void*)&ScriptEditorApplication::internal_GetBuiltinDebugAssemblyPath);
 		metaData.scriptClass->addInternalCall("Internal_GetScriptAssemblyPath", (void*)&ScriptEditorApplication::internal_GetScriptAssemblyPath);
@@ -61,7 +64,7 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_UnloadProject", (void*)&ScriptEditorApplication::internal_UnloadProject);
 		metaData.scriptClass->addInternalCall("Internal_CreateProject", (void*)&ScriptEditorApplication::internal_CreateProject);
 		metaData.scriptClass->addInternalCall("Internal_ReloadAssemblies", (void*)&ScriptEditorApplication::internal_ReloadAssemblies);
-		metaData.scriptClass->addInternalCall("Internal_OpenExternally", (void*)&ScriptEditorApplication::internal_OpenExternally);
+		metaData.scriptClass->addInternalCall("Internal_OpenFolder", (void*) &ScriptEditorApplication::internal_OpenFolder);
 		metaData.scriptClass->addInternalCall("Internal_RunUnitTests", (void*)&ScriptEditorApplication::internal_RunUnitTests);
 		metaData.scriptClass->addInternalCall("Internal_Quit", (void*)&ScriptEditorApplication::internal_Quit);
 		metaData.scriptClass->addInternalCall("Internal_ToggleToolbarItem", (void*)&ScriptEditorApplication::internal_ToggleToolbarItem);
@@ -161,6 +164,13 @@ namespace bs
 		Path compilerPath = MonoManager::instance().getCompilerPath();
 
 		return MonoUtil::wstringToMono(compilerPath.toWString());
+	}
+
+	MonoString* ScriptEditorApplication::internal_GetMonoExecPath()
+	{
+		Path path = MonoManager::instance().getMonoExecPath();
+
+		return MonoUtil::wstringToMono(path.toWString());
 	}
 
 	MonoString* ScriptEditorApplication::internal_GetBuiltinReleaseAssemblyPath()
@@ -272,11 +282,11 @@ namespace bs
 		mRequestAssemblyReload = true;
 	}
 
-	void ScriptEditorApplication::internal_OpenExternally(MonoString* path)
+	void ScriptEditorApplication::internal_OpenFolder(MonoString* path)
 	{
 		Path nativePath = MonoUtil::monoToWString(path);
 
-		PlatformUtility::open(nativePath);
+		Platform::openFolder(nativePath);
 	}
 
 	void ScriptEditorApplication::internal_RunUnitTests()
@@ -341,7 +351,7 @@ namespace bs
 		if (renderTarget == nullptr)
 			SceneManager::instance().setMainRenderTarget(nullptr);
 		else
-			SceneManager::instance().setMainRenderTarget(renderTarget->getNativeValue());
+			SceneManager::instance().setMainRenderTarget(renderTarget->getInternal());
 	}
 
 	bool ScriptEditorApplication::internal_HasFocus()

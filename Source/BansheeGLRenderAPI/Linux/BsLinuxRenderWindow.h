@@ -101,6 +101,9 @@ namespace bs
 			/** @copydoc RenderWindow::resize */
 			void resize(UINT32 width, UINT32 height) override;
 
+			/** @copydoc RenderWindow::setVSync */
+			void setVSync(bool enabled, UINT32 interval = 1) override;
+
 			/**
 			 * Copies the contents of a frame buffer into the pre-allocated buffer.
 			 *
@@ -130,6 +133,9 @@ namespace bs
 		protected:
 			friend class LinuxGLSupport;
 
+			/** Changes the video mode to the specified RandR mode on the specified output device. */
+			void setVideoMode(INT32 screen, RROutput output, RRMode mode);
+
 			/** @copydoc CoreObject::initialize */
 			void initialize() override;
 
@@ -152,12 +158,6 @@ namespace bs
 			RenderWindowProperties mSyncedProperties;
 			bool mIsChild;
 			bool mShowOnSwap;
-
-			// Config before entering fullscreen
-			XRRScreenConfiguration* mOldScreenConfig;
-			SizeID mOldConfigSizeID;
-			short mOldConfigRate;
-			Rotation mOldConfigRotation;
 		};
 	}
 

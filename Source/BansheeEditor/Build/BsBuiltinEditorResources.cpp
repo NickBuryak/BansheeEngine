@@ -45,7 +45,7 @@ using json = nlohmann::json;
 
 namespace bs
 {
-	static const Path EDITOR_DATA_FOLDER = "Editor\\";
+	static const Path EDITOR_DATA_FOLDER = "Editor/";
 
 	const String BuiltinEditorResources::ObjectFieldStyleName = "GUIObjectField";
 	const String BuiltinEditorResources::ObjectFieldLabelStyleName = "EditorFieldLabel";
@@ -68,11 +68,11 @@ namespace bs
 	const WString BuiltinEditorResources::GUISkinFile = L"GUISkin";
 
 	const char* BuiltinEditorResources::DataListFile = "DataList.json";
-	const char* BuiltinEditorResources::ShaderFolder = "Shaders\\";
-	const char* BuiltinEditorResources::SkinFolder = "Skin\\";
-	const char* BuiltinEditorResources::IconFolder = "Icons\\";
-	const char* BuiltinEditorResources::ShaderIncludeFolder = "Includes\\";
-	const char* BuiltinEditorResources::SpriteSubFolder = "Sprites\\";
+	const char* BuiltinEditorResources::ShaderFolder = "Shaders/";
+	const char* BuiltinEditorResources::SkinFolder = "Skin/";
+	const char* BuiltinEditorResources::IconFolder = "Icons/";
+	const char* BuiltinEditorResources::ShaderIncludeFolder = "Includes/";
+	const char* BuiltinEditorResources::SpriteSubFolder = "Sprites/";
 
 	const WString BuiltinEditorResources::FolderIconTex = L"FolderIcon.psd";
 	const WString BuiltinEditorResources::MeshIconTex = L"MeshIcon.psd";
@@ -309,7 +309,7 @@ namespace bs
 	BuiltinEditorResources::BuiltinEditorResources()
 	{
 		// Set up paths
-		BuiltinRawDataFolder = Paths::getRuntimeDataPath() + L"Raw\\Editor\\";
+		BuiltinRawDataFolder = Paths::getRuntimeDataPath() + L"Raw/Editor/";
 		EditorRawSkinFolder = BuiltinRawDataFolder + SkinFolder;
 		EditorRawIconsFolder = BuiltinRawDataFolder + IconFolder;
 		EditorRawShaderFolder = BuiltinRawDataFolder + ShaderFolder;
@@ -512,17 +512,17 @@ namespace bs
 
 		// Import fonts
 		BuiltinResourcesHelper::importFont(BuiltinRawDataFolder + DefaultFontFilename, DefaultFontFilename, 
-			BuiltinDataFolder, { DefaultFontSize }, true, "6ce69053-00d7-4c60-a229-249b8d8fd60e", mResourceManifest);
+			BuiltinDataFolder, { DefaultFontSize }, true, UUID("6ce69053-00d7-4c60-a229-249b8d8fd60e"), mResourceManifest);
 
 		BuiltinResourcesHelper::importFont(BuiltinRawDataFolder + DefaultFontFilename, DefaultAAFontFilename, 
-			BuiltinDataFolder, { TitleFontSize }, true, "10999b74-d976-4116-9f72-21e489a7a8e4", mResourceManifest);
+			BuiltinDataFolder, { TitleFontSize }, true, UUID("10999b74-d976-4116-9f72-21e489a7a8e4"), mResourceManifest);
 
 		// Generate & save GUI skin
 		{
 			SPtr<GUISkin> skin = generateGUISkin();
 			Path outputPath = BuiltinDataFolder + (GUISkinFile + L".asset");
 
-			HResource skinResource = gResources()._createResourceHandle(skin, "ec0ea68d-efa5-4a3b-a6fc-b15aaec9689f");
+			HResource skinResource = gResources()._createResourceHandle(skin, UUID("ec0ea68d-efa5-4a3b-a6fc-b15aaec9689f"));
 
 			gResources().save(skinResource, outputPath, true);
 			mResourceManifest->registerResource(skinResource.getUUID(), outputPath);

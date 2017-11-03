@@ -13,7 +13,7 @@ function(add_engine_dependencies target_name)
 		add_dependencies(${target_name} BansheeOpenAudio)
 	endif()
 	
-	add_dependencies(${target_name} BansheeMono BansheeSL BansheeOISInput BansheePhysX RenderBeast SBansheeEngine)
+	add_dependencies(${target_name} BansheeMono BansheeSL BansheePhysX RenderBeast SBansheeEngine)
 endfunction()
 
 function(add_subdirectory_optional subdir_name)
@@ -61,7 +61,7 @@ MACRO(gen_default_lib_search_dirs LIB_NAME)
 ENDMACRO()
 
 MACRO(add_imported_library LIB_NAME RELEASE_NAME DEBUG_NAME IS_SHARED)
-	if(IS_SHARED)
+	if(${IS_SHARED} AND NOT WIN32)
 		add_library(${LIB_NAME} SHARED IMPORTED)
 	else()
 		add_library(${LIB_NAME} STATIC IMPORTED)
@@ -91,10 +91,10 @@ MACRO(find_imported_library3 FOLDER_NAME LIB_NAME DEBUG_LIB_NAME IS_SHARED)
 	if(${LIB_NAME}_LIBRARY_RELEASE)
 		if(${LIB_NAME}_LIBRARY_DEBUG)
 			add_imported_library(${FOLDER_NAME}::${LIB_NAME} "${${LIB_NAME}_LIBRARY_RELEASE}"
-				"${${LIB_NAME}_LIBRARY_DEBUG}" IS_SHARED)
+				"${${LIB_NAME}_LIBRARY_DEBUG}" ${IS_SHARED})
 		else()
 			add_imported_library(${FOLDER_NAME}::${LIB_NAME} "${${LIB_NAME}_LIBRARY_RELEASE}"
-				"${${LIB_NAME}_LIBRARY_RELEASE}" IS_SHARED)
+				"${${LIB_NAME}_LIBRARY_RELEASE}" ${IS_SHARED})
 		endif()
 	else()
 		set(${FOLDER_NAME}_FOUND FALSE)
@@ -106,7 +106,7 @@ MACRO(find_imported_library3 FOLDER_NAME LIB_NAME DEBUG_LIB_NAME IS_SHARED)
 ENDMACRO()
 
 MACRO(find_imported_library_shared2 FOLDER_NAME LIB_NAME DEBUG_LIB_NAME)
-		find_imported_library3(${FOLDER_NAME} ${LIB_NAME} ${DEBUG_LIB_NAME} TRUE)
+	find_imported_library3(${FOLDER_NAME} ${LIB_NAME} ${DEBUG_LIB_NAME} TRUE)
 ENDMACRO()
 
 MACRO(find_imported_library_shared FOLDER_NAME LIB_NAME)
@@ -157,8 +157,14 @@ function(update_binary_deps DEP_VERSION)
 	# Clean and create a temporary folder
 	execute_process(COMMAND ${CMAKE_COMMAND} -E remove_directory ${PROJECT_SOURCE_DIR}/../Temp)	
 	execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${PROJECT_SOURCE_DIR}/../Temp)	
-	
-	set(BINARY_DEPENDENCIES_URL http://data.banshee3d.com/BansheeDependencies_VS2015_Master_${DEP_VERSION}.zip)
+
+	if(WIN32)
+		set(DEP_TYPE VS2015)
+	elseif(LINUX)
+		set(DEP_TYPE Linux)
+	endif()
+
+	set(BINARY_DEPENDENCIES_URL http://data.banshee3d.com/BansheeDependencies_${DEP_TYPE}_Master_${DEP_VERSION}.zip)
 	file(DOWNLOAD ${BINARY_DEPENDENCIES_URL} ${PROJECT_SOURCE_DIR}/../Temp/Dependencies.zip 
 		SHOW_PROGRESS
 		STATUS DOWNLOAD_STATUS)

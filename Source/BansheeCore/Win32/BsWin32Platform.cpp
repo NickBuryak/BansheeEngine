@@ -6,14 +6,44 @@
 #include "BsCoreApplication.h"
 #include "Debug/BsDebug.h"
 #include "Managers/BsRenderWindowManager.h"
-#include "Win32/BsWin32Defs.h"
+#include "Platform/BsDropTarget.h"
 #include "Win32/BsWin32DropTarget.h"
-#include "Win32/BsWin32PlatformData.h"
 #include "Win32/BsWin32PlatformUtility.h"
 #include "TimeAPI.h"
+#include <shellapi.h>
 
 namespace bs
 {
+	/** Encapsulate native cursor data so we can avoid including windows.h as it pollutes the global namespace. */
+	struct BS_CORE_EXPORT NativeCursorData
+	{
+		HCURSOR cursor;
+	};
+
+	/**	Encapsulate drop target data so we can avoid including windows.h as it pollutes the global namespace. */
+	struct BS_CORE_EXPORT NativeDropTargetData
+	{
+		Map<const RenderWindow*, Win32DropTarget*> dropTargetsPerWindow;
+		Vector<Win32DropTarget*> dropTargetsToInitialize;
+		Vector<Win32DropTarget*> dropTargetsToDestroy;
+	};
+
+	struct Platform::Pimpl
+	{
+		bool mIsCursorHidden = false;
+		NativeCursorData mCursor;
+		bool mUsingCustomCursor = false;
+		Map<const ct::RenderWindow*, WindowNonClientAreaData> mNonClientAreas;
+
+		bool mIsTrackingMouse = false;
+		NativeDropTargetData mDropTargets;
+
+		bool mRequiresStartUp = false;
+		bool mRequiresShutDown = false;
+
+		Mutex mSync;
+	};
+
 	Event<void(const Vector2I&, const OSPointerButtonStates&)> Platform::onCursorMoved;
 	Event<void(const Vector2I&, OSMouseButton button, const OSPointerButtonStates&)> Platform::onCursorButtonPressed;
 	Event<void(const Vector2I&, OSMouseButton button, const OSPointerButtonStates&)> Platform::onCursorButtonReleased;
@@ -22,7 +52,6 @@ namespace bs
 	Event<void(float)> Platform::onMouseWheelScrolled;
 	Event<void(UINT32)> Platform::onCharInput;
 
-	Event<void(ct::RenderWindow*)> Platform::onMouseLeftWindow;
 	Event<void()> Platform::onMouseCaptureChanged;
 
 	Platform::Pimpl* Platform::mData = bs_new<Platform::Pimpl>();
@@ -251,8 +280,10 @@ namespace bs
 		Sleep((DWORD)duration);
 	}
 
-	OSDropTarget& Platform::createDropTarget(const RenderWindow* window, INT32 x, INT32 y, UINT32 width, UINT32 height)
+	void Win32Platform::registerDropTarget(DropTarget* target)
 	{
+		const RenderWindow* window = target->_getOwnerWindow();
+
 		Win32DropTarget* win32DropTarget = nullptr;
 		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(window);
 		if (iterFind == mData->mDropTargets.dropTargetsPerWindow.end())
@@ -271,15 +302,12 @@ namespace bs
 		else
 			win32DropTarget = iterFind->second;
 
-		OSDropTarget* newDropTarget = new (bs_alloc<OSDropTarget>()) OSDropTarget(window, x, y, width, height);
-		win32DropTarget->registerDropTarget(newDropTarget);
-
-		return *newDropTarget;
+		win32DropTarget->registerDropTarget(target);
 	}
 
-	void Platform::destroyDropTarget(OSDropTarget& target)
+	void Win32Platform::unregisterDropTarget(DropTarget* target)
 	{
-		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(target._getOwnerWindow());
+		auto iterFind = mData->mDropTargets.dropTargetsPerWindow.find(target->_getOwnerWindow());
 		if (iterFind == mData->mDropTargets.dropTargetsPerWindow.end())
 		{
 			LOGWRN("Attempting to destroy a drop target but cannot find its parent window.");
@@ -287,7 +315,7 @@ namespace bs
 		else
 		{
 			Win32DropTarget* win32DropTarget = iterFind->second;
-			win32DropTarget->unregisterDropTarget(&target);
+			win32DropTarget->unregisterDropTarget(target);
 
 			if(win32DropTarget->getNumDropTargets() == 0)
 			{
@@ -299,8 +327,6 @@ namespace bs
 				}
 			}
 		}
-		
-		BS_PVT_DELETE(OSDropTarget, &target);
 	}
 
 	void Platform::copyToClipboard(const WString& string)
@@ -368,6 +394,11 @@ namespace bs
 		return StringUtil::WBLANK;
 	}
 
+	void Platform::openFolder(const Path& path)
+	{
+		ShellExecuteW(nullptr, L"open", path.toWString().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+	}
+
 	void Platform::_messagePump()
 	{
 		MSG  msg;
@@ -387,7 +418,6 @@ namespace bs
 			LOGWRN("Unable to set timer resolution to 1ms. This can cause significant waste " \
 				"in performance for waiting threads.");
 		}
-
 
 		mData->mRequiresStartUp = true;
 	}
@@ -517,8 +547,6 @@ namespace bs
 	 *
 	 * @param[in]	virtualKeyCode	Virtual key code to try to translate to a command.
 	 * @param[out]	command			Input command. Only valid if function returns true.
-	 * @param[in]	ignoreMovement	If true, then movement keys (up/down/left/right) will be ignored and not considered
-	 *								as input commands (useful if you need to parse num keys as numbers and not movement).
 	 */
 	bool getCommand(unsigned int virtualKeyCode, InputCommandType& command)
 	{
@@ -552,8 +580,6 @@ namespace bs
 
 		return false;
 	}
-
-	
 
 	LRESULT CALLBACK Win32Platform::_win32WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -673,7 +699,7 @@ namespace bs
 			break;
 		case WM_CLOSE:
 			{
-				gCoreApplication().quitRequested();
+				win->_notifyCloseRequested();
 
 				return 0;
 			}
@@ -732,9 +758,7 @@ namespace bs
 				mData->mIsTrackingMouse = false; // TrackMouseEvent ends when this message is received and needs to be re-applied
 
 				Lock lock(mData->mSync);
-
-				if (!onMouseLeftWindow.empty())
-					onMouseLeftWindow(win);
+				win->_notifyMouseLeft();
 			}
 			return 0;
 		case WM_LBUTTONUP:

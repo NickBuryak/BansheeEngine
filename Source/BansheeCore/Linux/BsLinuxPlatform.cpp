@@ -6,9 +6,14 @@
 #include "Linux/BsLinuxPlatform.h"
 #include "Linux/BsLinuxWindow.h"
 #include "RenderAPI/BsRenderWindow.h"
-#include "BsLinuxDragAndDrop.h"
+#include "BsLinuxDropTarget.h"
+#include "BsCoreApplication.h"
+#include <X11/X.h>
 #include <X11/Xatom.h>
 #include <X11/Xcursor/Xcursor.h>
+#include <X11/Xlib.h>
+#include <X11/XKBlib.h>
+#include <pwd.h>
 
 namespace bs
 {
@@ -20,7 +25,6 @@ namespace bs
 	Event<void(float)> Platform::onMouseWheelScrolled;
 	Event<void(UINT32)> Platform::onCharInput;
 
-	Event<void(ct::RenderWindow*)> Platform::onMouseLeftWindow;
 	Event<void()> Platform::onMouseCaptureChanged;
 
 	enum class X11CursorType
@@ -48,7 +52,7 @@ namespace bs
 		::Display* xDisplay = nullptr;
 		::Window mainXWindow = 0;
 		::Window fullscreenXWindow = 0;
-		std::unordered_map<::Window, LinuxWindow*> windowMap;
+		UnorderedMap<::Window, LinuxWindow*> windowMap;
 		Mutex lock;
 
 		XIM IM;
@@ -56,6 +60,10 @@ namespace bs
 		Time lastButtonPressTime;
 
 		Atom atomDeleteWindow;
+		Atom atomWmState;
+		Atom atomWmStateHidden;
+		Atom atomWmStateMaxVert;
+		Atom atomWmStateMaxHorz;
 
 		// Clipboard
 		WString clipboardData;
@@ -141,22 +149,21 @@ namespace bs
 		if(!data->cursorClipEnabled)
 			return false;
 
-		int32_t clippedX = pos.x - data->cursorClipRect.x;
-		int32_t clippedY = pos.y - data->cursorClipRect.y;
+		INT32 clippedX = pos.x - data->cursorClipRect.x;
+		INT32 clippedY = pos.y - data->cursorClipRect.y;
 
 		if(clippedX < 0)
-			clippedX = data->cursorClipRect.x + data->cursorClipRect.width + clippedX;
-		else if(clippedX >= data->cursorClipRect.width)
-			clippedX = data->cursorClipRect.x + (clippedX - data->cursorClipRect.width);
-		else
-			clippedX = data->cursorClipRect.x + clippedX;
+			clippedX = 0;
+		else if(clippedX >= (INT32)data->cursorClipRect.width)
+			clippedX = data->cursorClipRect.width > 0 ? data->cursorClipRect.width - 1 : 0;
 
 		if(clippedY < 0)
-			clippedY = data->cursorClipRect.y + data->cursorClipRect.height + clippedY;
-		else if(clippedY >= data->cursorClipRect.height)
-			clippedY = data->cursorClipRect.y + (clippedY - data->cursorClipRect.height);
-		else
-			clippedY = data->cursorClipRect.y + clippedY;
+			clippedY = 0;
+		else if(clippedY >= (INT32)data->cursorClipRect.height)
+			clippedY = data->cursorClipRect.height > 0 ? data->cursorClipRect.height - 1 : 0;
+
+		clippedX += data->cursorClipRect.x;
+		clippedY += data->cursorClipRect.y;
 
 		if(clippedX != pos.x || clippedY != pos.y)
 		{
@@ -177,6 +184,59 @@ namespace bs
 		data->currentCursor = cursor;
 		for(auto& entry : data->windowMap)
 			applyCurrentCursor(data, entry.first);
+	}
+
+	/**
+	 * Searches the window hierarchy, from top to bottom, looking for the top-most window that contains the specified
+	 * point. Returns 0 if one is not found.
+	 */
+	::Window getWindowUnderPoint(::Display* display, ::Window rootWindow, ::Window window, const Vector2I& screenPos)
+	{
+		::Window outRoot, outParent;
+		::Window* children;
+		UINT32 numChildren;
+		XQueryTree(display, window, &outRoot, &outParent, &children, &numChildren);
+
+		if(children == nullptr || numChildren == 0)
+			return window;
+
+		for(UINT32 j = 0; j < numChildren; j++)
+		{
+			::Window curWindow = children[numChildren - j - 1];
+
+			XWindowAttributes xwa;
+			XGetWindowAttributes(display, curWindow, &xwa);
+
+			if(xwa.map_state != IsViewable || xwa.c_class != InputOutput)
+				continue;
+
+			// Get position in root window coordinates
+			::Window outChild;
+			Vector2I pos;
+			if(!XTranslateCoordinates(display, curWindow, rootWindow, 0, 0, &pos.x, &pos.y, &outChild))
+				continue;
+
+			Rect2I area(pos.x, pos.y, (UINT32)xwa.width, (UINT32)xwa.height);
+			if(area.contains(screenPos))
+			{
+				XFree(children);
+				return getWindowUnderPoint(display, rootWindow, curWindow, screenPos);
+			}
+		}
+
+		XFree(children);
+		return 0;
+	}
+
+	int x11ErrorHandler(::Display* display, XErrorEvent* event)
+	{
+		// X11 by default crashes the app on error, even though some errors can be just fine. So we provide our own handler.
+
+		char buffer[256];
+		XGetErrorText(display, event->error_code, buffer, sizeof(buffer));
+		LOGWRN("X11 error: " + String(buffer));
+
+		return 0;
 	}
 
 	Platform::Pimpl* Platform::mData = bs_new<Platform::Pimpl>();
@@ -202,9 +262,9 @@ namespace bs
 		Lock lock(mData->lock);
 
 		LinuxWindow* linuxWindow;
-		window.getCustomAttribute("WINDOW", &linuxWindow);
+		window.getCustomAttribute("LINUX_WINDOW", &linuxWindow);
 
-		uint32_t mask = ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask;
+		UINT32 mask = ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask;
 		XGrabPointer(mData->xDisplay, linuxWindow->_getXWindow(), False, mask, GrabModeAsync,
 				GrabModeAsync, None, None, CurrentTime);
 		XSync(mData->xDisplay, False);
@@ -223,22 +283,17 @@ namespace bs
 		Lock lock(mData->lock);
 
 		LinuxWindow* linuxWindow;
-		window.getCustomAttribute("WINDOW", &linuxWindow);
+		window.getCustomAttribute("LINUX_WINDOW", &linuxWindow);
 		::Window xWindow = linuxWindow->_getXWindow();
 
-		Vector2I pos;
 		UINT32 screenCount = (UINT32)XScreenCount(mData->xDisplay);
 
 		for (UINT32 i = 0; i < screenCount; ++i)
 		{
-			::Window outRoot, outChild;
-			INT32 childX, childY;
-			UINT32 mask;
-			if(XQueryPointer(mData->xDisplay, XRootWindow(mData->xDisplay, i), &outRoot, &outChild, &pos.x,
-					&pos.y, &childX, &childY, &mask))
-			{
-				return outChild == xWindow;
-			}
+			::Window rootWindow = XRootWindow(mData->xDisplay, i);
+
+			::Window curWindow = getWindowUnderPoint(mData->xDisplay, rootWindow, rootWindow, screenPos);
+			return curWindow == xWindow;
 		}
 
 		return false;
@@ -273,7 +328,7 @@ namespace bs
 		Lock lock(mData->lock);
 
 		LinuxWindow* linuxWindow;
-		window.getCustomAttribute("WINDOW", &linuxWindow);
+		window.getCustomAttribute("LINUX_WINDOW", &linuxWindow);
 
 		mData->cursorClipEnabled = true;
 		mData->cursorClipWindow = linuxWindow;
@@ -316,8 +371,8 @@ namespace bs
 		Lock lock(mData->lock);
 
 		XcursorImage* image = XcursorImageCreate((int)bgraData->getWidth(), (int)bgraData->getHeight());
-		image->xhot = hotSpot.x;
-		image->yhot = hotSpot.y;
+		image->xhot = (XcursorDim)hotSpot.x;
+		image->yhot = (XcursorDim)hotSpot.y;
 		image->delay = 0;
 
 		memcpy(image->pixels, bgraData->getData(), bgraData->getSize());
@@ -354,10 +409,9 @@ namespace bs
 		Lock lock(mData->lock);
 
 		LinuxWindow* linuxWindow;
-		window.getCustomAttribute("WINDOW", &linuxWindow);
+		window.getCustomAttribute("LINUX_WINDOW", &linuxWindow);
 
-		// Note: Only supporting a single area
-		linuxWindow->_setDragZone(nonClientAreas[0]);
+		linuxWindow->_setDragZones(nonClientAreas);
 	}
 
 	void Platform::setResizeNonClientAreas(const ct::RenderWindow& window, const Vector<NonClientResizeArea>& nonClientAreas)
@@ -367,22 +421,17 @@ namespace bs
 
 	void Platform::resetNonClientAreas(const ct::RenderWindow& window)
 	{
-		// Do nothing, resize areas not supported on Linux (but they are provided even on undecorated windows by the WM)
+		Lock lock(mData->lock);
+
+		LinuxWindow* linuxWindow;
+		window.getCustomAttribute("LINUX_WINDOW", &linuxWindow);
+
+		linuxWindow->_setDragZones({});
 	}
 
 	void Platform::sleep(UINT32 duration)
 	{
 		usleep(duration * 1000);
-	}
-
-	OSDropTarget& Platform::createDropTarget(const RenderWindow* window, INT32 x, INT32 y, UINT32 width, UINT32 height)
-	{
-		return LinuxDragAndDrop::createDropTarget(window, x, y, width, height);
-	}
-
-	void Platform::destroyDropTarget(OSDropTarget& target)
-	{
-		LinuxDragAndDrop::destroyDropTarget(target);
 	}
 
 	void Platform::copyToClipboard(const WString& string)
@@ -445,11 +494,240 @@ namespace bs
 		return L"";
 	}
 
-	WString Platform::keyCodeToUnicode(UINT32 keyCode)
+	/** Maps Banshee button codes to X11 names for physical key locations. */
+	const char* keyCodeToKeyName(ButtonCode code)
+	{
+		switch(code)
+		{
+			// Row #1
+		case BC_F1:			return "FK01";
+		case BC_F2:			return "FK02";
+		case BC_F3:			return "FK03";
+		case BC_F4:			return "FK04";
+		case BC_F5:			return "FK05";
+		case BC_F6:			return "FK06";
+		case BC_F7:			return "FK07";
+		case BC_F8:			return "FK08";
+		case BC_F9:			return "FK09";
+		case BC_F10:		return "FK10";
+		case BC_F11:		return "FK11";
+		case BC_F12:		return "FK12";
+
+			// Row #2
+		case BC_GRAVE:		return "TLDE";
+		case BC_1: 			return "AE01";
+		case BC_2:			return "AE02";
+		case BC_3:			return "AE03";
+		case BC_4:			return "AE04";
+		case BC_5:			return "AE05";
+		case BC_6:			return "AE06";
+		case BC_7:			return "AE07";
+		case BC_8:			return "AE08";
+		case BC_9:			return "AE09";
+		case BC_0:			return "AE10";
+		case BC_MINUS:		return "AE11";
+		case BC_EQUALS:		return "AE12";
+		case BC_BACK:		return "BKSP";
+
+			// Row #3
+		case BC_TAB:		return "TAB";
+		case BC_Q:			return "AD01";
+		case BC_W:			return "AD02";
+		case BC_E:			return "AD03";
+		case BC_R:			return "AD04";
+		case BC_T:			return "AD05";
+		case BC_Y:			return "AD06";
+		case BC_U:			return "AD07";
+		case BC_I:			return "AD08";
+		case BC_O:			return "AD09";
+		case BC_P:			return "AD10";
+		case BC_LBRACKET:	return "AD11";
+		case BC_RBRACKET:	return "AD12";
+
+			// Row #4
+		case BC_A:			return "AC01";
+		case BC_S:			return "AC02";
+		case BC_D:			return "AC03";
+		case BC_F:			return "AC04";
+		case BC_G:			return "AC05";
+		case BC_H:			return "AC06";
+		case BC_J:			return "AC07";
+		case BC_K:			return "AC08";
+		case BC_L:			return "AC09";
+		case BC_SEMICOLON:	return "AC10";
+		case BC_APOSTROPHE:	return "AC11";
+		case BC_BACKSLASH:	return "BKSL";
+
+			// Row #5
+		case BC_Z:			return "AB01";
+		case BC_X:			return "AB02";
+		case BC_C:			return "AB03";
+		case BC_V:			return "AB04";
+		case BC_B:			return "AB05";
+		case BC_N:			return "AB06";
+		case BC_M:			return "AB07";
+		case BC_COMMA:		return "AB08";
+		case BC_PERIOD:		return "AB09";
+		case BC_SLASH:		return "AB10";
+
+			// Keypad
+		case BC_NUMPAD0:	return "KP0";
+		case BC_NUMPAD1:	return "KP1";
+		case BC_NUMPAD2:	return "KP2";
+		case BC_NUMPAD3:	return "KP3";
+		case BC_NUMPAD4:	return "KP4";
+		case BC_NUMPAD5:	return "KP5";
+		case BC_NUMPAD6:	return "KP6";
+		case BC_NUMPAD7:	return "KP7";
+		case BC_NUMPAD8:	return "KP8";
+		case BC_NUMPAD9:	return "KP9";
+
+		default:
+			break;
+		}
+
+		return nullptr;
+	}
+
+	WString Platform::keyCodeToUnicode(UINT32 buttonCode)
 	{
 		Lock lock(mData->lock);
-		// TODOPORT
+
+		static bool mapInitialized = false;
+		static UnorderedMap<String, KeyCode> keyMap;
+		if(!mapInitialized)
+		{
+			char name[XkbKeyNameLength + 1];
+
+			XkbDescPtr desc = XkbGetMap(mData->xDisplay, 0, XkbUseCoreKbd);
+			XkbGetNames(mData->xDisplay, XkbKeyNamesMask, desc);
+
+			for(UINT32 keyCode = desc->min_key_code; keyCode <= desc->max_key_code; keyCode++)
+			{
+				memcpy(name, desc->names->keys[keyCode].name, XkbKeyNameLength);
+				name[XkbKeyNameLength] = '\0';
+
+				keyMap[String(name)] = keyCode;
+			}
+
+			XkbFreeNames(desc, XkbKeyNamesMask, True);
+			XkbFreeKeyboard(desc, 0, True);
+
+			mapInitialized = true;
+		}
+
+		const char* keyName = keyCodeToKeyName((ButtonCode)buttonCode);
+		if(keyName == nullptr)
+		{
+			// Not a printable key
+			return L"";
+		}
+
+		auto iterFind = keyMap.find(String(keyName));
+		if(iterFind == keyMap.end())
+		{
+			// Cannot find mapping, although this shouldn't really happen
+			return L"";
+		}
+
+		XKeyPressedEvent event;
+		bs_zero_out(event);
+		event.type = KeyPress;
+		event.keycode = iterFind->second;
+		event.display = mData->xDisplay;
+		event.time = CurrentTime;
+		event.window = mData->mainXWindow;
+		event.root = RootWindow(mData->xDisplay, XDefaultScreen(mData->xDisplay));
+
+		Status status;
+		char buffer[16];
+
+		INT32 length = Xutf8LookupString(mData->IC, &event, buffer, sizeof(buffer), nullptr, &status);
+		if(length > 0)
+		{
+			buffer[length] = '\0';
+
+			return UTF8::toWide(String(buffer));
+		}
+
 		return L"";
+	}
+
+	void Platform::openFolder(const Path& path)
+	{
+		String pathString = path.toString();
+
+		const char* commandPattern = "xdg-open '%s'";
+
+		char* commandStr = (char*)bs_stack_alloc((UINT32)pathString.size() + (UINT32)strlen(commandPattern) + 1);
+		sprintf(commandStr, commandPattern, pathString.c_str());
+
+		(void)system(commandStr);
+		bs_stack_free(commandStr);
+	}
+
+	/**
+	 * Converts an X11 KeySym code into an input command, if possible. Returns true if conversion was done.
+	 *
+	 * @param[in]	keySym			KeySym to try to translate to a command.
+	 * @param[in]	shift			True if the shift key was held down when the key was pressed.
+	 * @param[out]	command			Input command. Only valid if function returns true.
+	 * @return						True if the KeySym is an input command.
+	 */
+	bool parseInputCommand(KeySym keySym, bool shift, InputCommandType& command)
+	{
+		switch (keySym)
+		{
+		case XK_Left:
+			command = shift ? InputCommandType::SelectLeft : InputCommandType::CursorMoveLeft;
+			return true;
+		case XK_Right:
+			command = shift ? InputCommandType::SelectRight : InputCommandType::CursorMoveRight;
+			return true;
+		case XK_Up:
+			command = shift ? InputCommandType::SelectUp : InputCommandType::CursorMoveUp;
+			return true;
+		case XK_Down:
+			command = shift ? InputCommandType::SelectDown : InputCommandType::CursorMoveDown;
+			return true;
+		case XK_Escape:
+			command = InputCommandType::Escape;
+			return true;
+		case XK_Return:
+			command = shift ? InputCommandType::Return : InputCommandType::Confirm;
+			return true;
+		case XK_BackSpace:
+			command = InputCommandType::Backspace;
+			return true;
+		case XK_Delete:
+			command = InputCommandType::Delete;
+			return true;
+		}
+
+		return false;
+	}
+
+	/** Returns a LinuxWindow from a native X11 window handle. */
+	LinuxWindow* getLinuxWindow(LinuxPlatform::Pimpl* data, ::Window xWindow)
+	{
+		auto iterFind = data->windowMap.find(xWindow);
+		if (iterFind != data->windowMap.end())
+		{
+			LinuxWindow* window = iterFind->second;
+			return window;
+		}
+
+		return nullptr;
+	}
+
+	/** Returns a RenderWindow from a native X11 window handle. Returns null if the window isn't a RenderWindow */
+	ct::RenderWindow* getRenderWindow(LinuxPlatform::Pimpl* data, ::Window xWindow)
+	{
+		LinuxWindow* linuxWindow = getLinuxWindow(data, xWindow);
+		if(linuxWindow != nullptr)
+			return (ct::RenderWindow*)linuxWindow->_getUserData();
+
+		return nullptr;
 	}
 
 	void Platform::_messagePump()
@@ -457,6 +735,7 @@ namespace bs
 		while(true)
 		{
 			Lock lock(mData->lock);
+
 			if(XPending(mData->xDisplay) <= 0)
 				break;
 
@@ -470,76 +749,73 @@ namespace bs
 				if(LinuxDragAndDrop::handleClientMessage(event.xclient))
 					break;
 
-				if(event.xclient.data.l[0] == mData->atomDeleteWindow)
-					XDestroyWindow(mData->xDisplay, event.xclient.window);
-			}
-				break;
-			case DestroyNotify:
-			{
-				auto iterFind = mData->windowMap.find(event.xdestroywindow.window);
-				if (iterFind == mData->windowMap.end())
-					break;
-
-				LinuxWindow* window = iterFind->second;
-				window->_cleanUp();
-
-				if(mData->mainXWindow == 0)
-					return;
+				// User requested the window to close
+				if((Atom)event.xclient.data.l[0] == mData->atomDeleteWindow)
+				{
+					LinuxWindow* window = getLinuxWindow(mData, event.xclient.window);
+					if(window != nullptr)
+					{
+						// If it's a render window we allow the client code to handle the message
+						ct::RenderWindow* renderWindow = (ct::RenderWindow*)window->_getUserData();
+						if(renderWindow != nullptr)
+							renderWindow->_notifyCloseRequested();
+						else // If not, we just destroy the window
+							window->_destroy();
+					}
+				}
 			}
 				break;
 			case KeyPress:
 			{
 				// Process text input
+				KeySym keySym = XkbKeycodeToKeysym(mData->xDisplay, (KeyCode)event.xkey.keycode, 0, 0);
+
 				//// Check if input manager wants this event. If not, we process it.
-				if(!XFilterEvent(&event, None))
+				if(XFilterEvent(&event, None) == False)
 				{
-					Status status;
-					char buffer[16];
-
-					INT32 length = Xutf8LookupString(mData->IC, &event.xkey, buffer, sizeof(buffer), nullptr,
-							&status);
-
-					if(length > 0)
+					// Don't consider Return key a character
+					if(keySym != XK_Return)
 					{
-						buffer[length] = '\0';
+						Status status;
+						char buffer[16];
 
-						U32String utfStr = UTF8::toUTF32(String(buffer));
-						if(utfStr.length() > 0)
-							onCharInput((UINT32)utfStr[0]);
+						INT32 length = Xutf8LookupString(mData->IC, &event.xkey, buffer, sizeof(buffer), nullptr,
+								&status);
+
+						if (length > 0)
+						{
+							buffer[length] = '\0';
+
+							U32String utfStr = UTF8::toUTF32(String(buffer));
+							if (utfStr.length() > 0)
+								onCharInput((UINT32) utfStr[0]);
+						}
 					}
 				}
 
-				// Process normal key press
+				// Handle input commands
+				InputCommandType command = InputCommandType::Backspace;
+
+				bool shift = (event.xkey.state & ShiftMask) != 0;
+
+				if(parseInputCommand(keySym, shift, command))
 				{
-					static XComposeStatus keyboard;
-					uint8_t buffer[16];
-					KeySym symbol;
-					XLookupString(&event.xkey, (char*)buffer, sizeof(buffer), &symbol, &keyboard);
-
-					bool alt = event.xkey.state & Mod1Mask;
-					bool control = event.xkey.state & ControlMask;
-					bool shift = event.xkey.state & ShiftMask;
-
-					// TODOPORT - Report key press
+					if(!onInputCommand.empty())
+						onInputCommand(command);
 				}
 			}
 				break;
 			case KeyRelease:
-			{
-				uint8_t buffer[16];
-				KeySym symbol;
-				XLookupString(&event.xkey, (char *) buffer, sizeof(buffer), &symbol, nullptr);
-
-				bool alt = (event.xkey.state & Mod1Mask) != 0;
-				bool control = (event.xkey.state & ControlMask) != 0;
-				bool shift = (event.xkey.state & ShiftMask) != 0;
-
-				// TODOPORT - Report key release
-			}
+				// Do nothing
 				break;
 			case ButtonPress:
 			{
 				UINT32 button = event.xbutton.button;
+
+				OSPointerButtonStates btnStates;
+				btnStates.mouseButtons[0] = (event.xbutton.state & Button1Mask) != 0;
+				btnStates.mouseButtons[1] = (event.xbutton.state & Button2Mask) != 0;
+				btnStates.mouseButtons[2] = (event.xbutton.state & Button3Mask) != 0;
 
 				OSMouseButton mouseButton;
 				bool validPress = false;
@@ -547,14 +823,17 @@ namespace bs
 				{
 				case Button1:
 					mouseButton = OSMouseButton::Left;
+					btnStates.mouseButtons[0] = true;
 					validPress = true;
 					break;
 				case Button2:
 					mouseButton = OSMouseButton::Middle;
+					btnStates.mouseButtons[1] = true;
 					validPress = true;
 					break;
 				case Button3:
 					mouseButton = OSMouseButton::Right;
+					btnStates.mouseButtons[2] = true;
 					validPress = true;
 					break;
 
@@ -569,12 +848,8 @@ namespace bs
 					pos.x = event.xbutton.x_root;
 					pos.y = event.xbutton.y_root;
 
-					OSPointerButtonStates btnStates;
 					btnStates.ctrl = (event.xbutton.state & ControlMask) != 0;
 					btnStates.shift = (event.xbutton.state & ShiftMask) != 0;
-					btnStates.mouseButtons[0] = (event.xbutton.state & Button1Mask) != 0;
-					btnStates.mouseButtons[1] = (event.xbutton.state & Button2Mask) != 0;
-					btnStates.mouseButtons[2] = (event.xbutton.state & Button3Mask) != 0;
 
 					onCursorButtonPressed(pos, mouseButton, btnStates);
 
@@ -594,12 +869,9 @@ namespace bs
 				// Handle window dragging for windows without a title bar
 				if(button == Button1)
 				{
-					auto iterFind = mData->windowMap.find(event.xbutton.window);
-					if (iterFind != mData->windowMap.end())
-					{
-						LinuxWindow* window = iterFind->second;
-						window->_dragStart(event.xbutton.x, event.xbutton.y);
-					}
+					LinuxWindow* window = getLinuxWindow(mData, event.xbutton.window);
+					if(window != nullptr)
+						window->_dragStart(event.xbutton);
 				}
 
 				break;
@@ -622,12 +894,15 @@ namespace bs
 				switch(button)
 				{
 				case Button1:
+					btnStates.mouseButtons[0] = false;
 					onCursorButtonReleased(pos, OSMouseButton::Left, btnStates);
 					break;
 				case Button2:
+					btnStates.mouseButtons[1] = false;
 					onCursorButtonReleased(pos, OSMouseButton::Middle, btnStates);
 					break;
 				case Button3:
+					btnStates.mouseButtons[2] = false;
 					onCursorButtonReleased(pos, OSMouseButton::Right, btnStates);
 					break;
 				case Button4: // Vertical mouse wheel
@@ -644,12 +919,9 @@ namespace bs
 				// Handle window dragging for windows without a title bar
 				if(button == Button1)
 				{
-					auto iterFind = mData->windowMap.find(event.xbutton.window);
-					if (iterFind != mData->windowMap.end())
-					{
-						LinuxWindow* window = iterFind->second;
+					LinuxWindow* window = getLinuxWindow(mData, event.xbutton.window);
+					if(window != nullptr)
 						window->_dragEnd();
-					}
 				}
 
 				break;
@@ -673,56 +945,72 @@ namespace bs
 				btnStates.mouseButtons[2] = (event.xmotion.state & Button3Mask) != 0;
 
 				onCursorMoved(pos, btnStates);
-
-				// Handle window dragging for windows without a title bar
-				auto iterFind = mData->windowMap.find(event.xmotion.window);
-				if (iterFind != mData->windowMap.end())
-				{
-					LinuxWindow* window = iterFind->second;
-					window->_dragUpdate(event.xmotion.x, event.xmotion.y);
-				}
 			}
 				break;
 			case EnterNotify:
-				if(event.xcrossing.mode == NotifyNormal)
-				{
-					// TODOPORT - Send mouse enter event
-				}
+				// Do nothing
 				break;
 			case LeaveNotify:
-				if(event.xcrossing.mode == NotifyNormal)
+			{
+				if (event.xcrossing.mode == NotifyNormal)
 				{
 					Vector2I pos;
 					pos.x = event.xcrossing.x_root;
 					pos.y = event.xcrossing.y_root;
 
-					if(clipCursor(mData, pos))
+					if (clipCursor(mData, pos))
 						_setCursorPosition(mData, pos);
-
-					// TODOPORT - Send mouse leave event
 				}
+
+				ct::RenderWindow* renderWindow = getRenderWindow(mData, event.xcrossing.window);
+				if(renderWindow != nullptr)
+					renderWindow->_notifyMouseLeft();
+			}
 				break;
 			case ConfigureNotify:
 			{
-				const XConfigureEvent &xce = event.xconfigure;
+				LinuxWindow* window = getLinuxWindow(mData, event.xconfigure.window);
+				if(window != nullptr)
+				{
+					updateClipBounds(mData, window);
 
-				auto iterFind = mData->windowMap.find(event.xdestroywindow.window);
-				if (iterFind == mData->windowMap.end())
-					break;
-
-				LinuxWindow* window = iterFind->second;
-				updateClipBounds(mData, window);
-
-				// TODOPORT - Send move/resize event
+					ct::RenderWindow* renderWindow = (ct::RenderWindow*)window->_getUserData();
+					if(renderWindow != nullptr)
+						renderWindow->_windowMovedOrResized();
+				}
 			}
 				break;
 			case FocusIn:
+			{
 				// Update input context focus
 				XSetICFocus(mData->IC);
+
+				// Send event to render window
+				ct::RenderWindow* renderWindow = getRenderWindow(mData, event.xfocus.window);
+
+				// Not a render window, so it doesn't care about these events
+				if (renderWindow != nullptr)
+				{
+					if (!renderWindow->getProperties().hasFocus)
+						renderWindow->_windowFocusReceived();
+				}
+			}
 				break;
 			case FocusOut:
+			{
 				// Update input context focus
 				XUnsetICFocus(mData->IC);
+
+				// Send event to render window
+				ct::RenderWindow* renderWindow = getRenderWindow(mData, event.xfocus.window);
+
+				// Not a render window, so it doesn't care about these events
+				if (renderWindow != nullptr)
+				{
+					if (renderWindow->getProperties().hasFocus)
+						renderWindow->_windowFocusLost();
+				}
+			}
 				break;
 			case SelectionNotify:
 				LinuxDragAndDrop::handleSelectionNotify(event.xselection);
@@ -774,6 +1062,61 @@ namespace bs
 				XFlush (mData->xDisplay);
 			}
 				break;
+			case PropertyNotify:
+				// Report minimize, maximize and restore events
+				if(event.xproperty.atom == mData->atomWmState)
+				{
+					// Check that the window hasn't been destroyed
+					if(getLinuxWindow(mData, event.xproperty.window) == nullptr)
+						break;
+
+					Atom type;
+					INT32 format;
+					unsigned long count, bytesRemaining;
+					UINT8* data = nullptr;
+
+					INT32 result = XGetWindowProperty(mData->xDisplay, event.xproperty.window, mData->atomWmState,
+							0, 1024, False, AnyPropertyType, &type, &format,
+							&count, &bytesRemaining, &data);
+
+					if (result == Success)
+					{
+						ct::RenderWindow* renderWindow = getRenderWindow(mData, event.xproperty.window);
+
+						// Not a render window, so it doesn't care about these events
+						if(renderWindow == nullptr)
+							continue;
+
+						Atom* atoms = (Atom*)data;
+
+						bool foundHorz = false;
+						bool foundVert = false;
+						for (unsigned long i = 0; i < count; i++)
+						{
+							if (atoms[i] == mData->atomWmStateMaxHorz) foundHorz = true;
+							if (atoms[i] == mData->atomWmStateMaxVert) foundVert = true;
+
+							if (foundVert && foundHorz)
+							{
+								if(event.xproperty.state == PropertyNewValue)
+									renderWindow->_notifyMaximized();
+								else
+									renderWindow->_notifyRestored();
+							}
+
+							if(atoms[i] == mData->atomWmStateHidden)
+							{
+								if(event.xproperty.state == PropertyNewValue)
+									renderWindow->_notifyMinimized();
+								else
+									renderWindow->_notifyRestored();
+							}
+						}
+
+						XFree(atoms);
+					}
+				}
+				break;
 			default:
 				break;
 			}
@@ -784,10 +1127,11 @@ namespace bs
 	{
 		Lock lock(mData->lock);
 		mData->xDisplay = XOpenDisplay(nullptr);
+		XSetErrorHandler(x11ErrorHandler);
 
 		if(XSupportsLocale())
 		{
-			XSetLocaleModifiers("");
+			XSetLocaleModifiers("@im=none");
 			mData->IM = XOpenIM(mData->xDisplay, nullptr, nullptr, nullptr);
 
 			// Note: Currently our windows don't support pre-edit and status areas, which are used for more complex types
@@ -796,6 +1140,10 @@ namespace bs
 		}
 
 		mData->atomDeleteWindow = XInternAtom(mData->xDisplay, "WM_DELETE_WINDOW", False);
+		mData->atomWmState = XInternAtom(mData->xDisplay, "_NET_WM_STATE", False);
+		mData->atomWmStateHidden = XInternAtom(mData->xDisplay, "_NET_WM_STATE_HIDDEN", False);
+		mData->atomWmStateMaxHorz = XInternAtom(mData->xDisplay, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+		mData->atomWmStateMaxVert = XInternAtom(mData->xDisplay, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 
 		// Drag and drop
 		LinuxDragAndDrop::startUp(mData->xDisplay);
@@ -863,6 +1211,15 @@ namespace bs
 		return mData->mainXWindow;
 	}
 
+	Path LinuxPlatform::getHomeDir()
+	{
+		const char* homeDir = getenv("HOME");
+		if(!homeDir)
+			homeDir = getpwuid(getuid())->pw_dir;
+
+		return Path(homeDir);
+	}
+
 	void LinuxPlatform::lockX()
 	{
 		mData->lock.lock();
@@ -907,13 +1264,22 @@ namespace bs
 			mData->mainXWindow = 0;
 	}
 
-	Pixmap LinuxPlatform::createPixmap(const PixelData& data)
+	Pixmap LinuxPlatform::createPixmap(const PixelData& data, UINT32 depth)
 	{
-		SPtr<PixelData> bgraData = PixelData::create(data.getWidth(), data.getHeight(), 1, PF_BGRA8);
-		PixelUtil::bulkPixelConversion(data, *bgraData);
+		// Premultiply alpha
+		Vector<Color> colors = data.getColors();
+		for(auto& color : colors)
+		{
+			color.r *= color.a;
+			color.g *= color.a;
+			color.b *= color.a;
+		}
 
-		UINT32 depth = (UINT32)XDefaultDepth(mData->xDisplay, 0);
-		XImage* image = XCreateImage(mData->xDisplay, XDefaultVisual(mData->xDisplay, 0), depth, ZPixmap, 0,
+		// Convert to BGRA
+		SPtr<PixelData> bgraData = PixelData::create(data.getWidth(), data.getHeight(), 1, PF_BGRA8);
+		bgraData->setColors(colors);
+
+		XImage* image = XCreateImage(mData->xDisplay, CopyFromParent, depth, ZPixmap, 0,
 				(char*)bgraData->getData(), data.getWidth(), data.getHeight(), 32, 0);
 
 		Pixmap pixmap = XCreatePixmap(mData->xDisplay, XDefaultRootWindow(mData->xDisplay),

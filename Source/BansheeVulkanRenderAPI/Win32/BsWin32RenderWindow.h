@@ -3,7 +3,7 @@
 #pragma once
 
 #include "BsVulkanPrerequisites.h"
-#include "Renderapi/BsRenderWindow.h"
+#include "RenderAPI/BsRenderWindow.h"
 
 namespace bs
 {
@@ -94,6 +94,9 @@ namespace bs
 
 		/** @copydoc RenderWindow::setWindowed */
 		void setWindowed(UINT32 width, UINT32 height) override;
+	
+		/** @copydoc RenderWindow::setVSync */
+		void setVSync(bool enabled, UINT32 interval = 1) override;
 
 		/** 
 		 * Copies the contents of a frame buffer into the pre-allocated buffer. 

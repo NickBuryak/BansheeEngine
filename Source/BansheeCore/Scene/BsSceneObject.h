@@ -10,6 +10,7 @@
 #include "Scene/BsGameObjectManager.h"
 #include "Scene/BsGameObject.h"
 #include "Scene/BsComponent.h"
+#include "Scene/BsTransform.h"
 
 namespace bs
 {
@@ -25,13 +26,17 @@ namespace bs
 		SOF_Persistent = 0x04,		/**< Object will remain in the scene even after scene clear, unless destroyed directly. 
 										 This only works with top-level objects. */
 		SOF_Internal = 0x08			/**< Provides a hint to external systems that his object is used by engine internals.
-									     For example, those systems might not want to display those objects together with the
+										 For example, those systems might not want to display those objects together with the
 										 user created ones. */
 	};
 
 	/**
-	 * An object in the scene graph. It has a world position, place in the hierarchy and optionally a number of attached 
-	 * components.
+	 * An object in the scene graph. It has a transform object that allows it to be positioned, scaled and rotated. It can
+	 * have other scene objects as children, and will have a scene object as a parent, in which case transform changes
+	 * to the parent are reflected to the child scene objects (children are relative to the parent).
+	 * 
+	 * Each scene object can have one or multiple Component%s attached to it, where the components inherit the scene
+	 * object's transform, and receive updates about transform and hierarchy changes.
 	 */
 	class BS_CORE_EXPORT SceneObject : public GameObject
 	{
@@ -74,7 +79,7 @@ namespace bs
 		 * @param[in]	onlyDirect	If true, this method will return prefab link only for the root object of the prefab
 		 *							instance. If false the parent objects will be searched for the prefab ID.
 		 */
-		String getPrefabLink(bool onlyDirect = false) const;
+		UUID getPrefabLink(bool onlyDirect = false) const;
 
 		/** 
 		 * Returns the root object of the prefab instance that this object belongs to, if any. Returns null if the object 
@@ -117,13 +122,13 @@ namespace bs
 		 * Returns the UUID of the prefab this object is linked to, if any. Unlike getPrefabLink() method this will not
 		 * search parents, but instead return only the value assigned to this object.
 		 */
-		const String& _getPrefabLinkUUID() const { return mPrefabLinkUUID; }
+		const UUID& _getPrefabLinkUUID() const { return mPrefabLinkUUID; }
 
 		/**
 		 * Allows you to change the prefab link UUID of this object. Normally this should be accompanied by reassigning the
 		 * link IDs.
 		 */
-		void _setPrefabLinkUUID(const String& UUID) { mPrefabLinkUUID = UUID; }
+		void _setPrefabLinkUUID(const UUID& UUID) { mPrefabLinkUUID = UUID; }
 
 		/**
 		 * Returns a prefab diff object containing instance specific modifications of this object compared to its prefab
@@ -181,7 +186,7 @@ namespace bs
 
 	private:
 		HSceneObject mThisHandle;
-		String mPrefabLinkUUID;
+		UUID mPrefabLinkUUID;
 		SPtr<PrefabDiff> mPrefabDiff;
 		UINT32 mPrefabHash;
 		UINT32 mFlags;
@@ -190,43 +195,26 @@ namespace bs
 		/* 								Transform	                     		*/
 		/************************************************************************/
 	public:
+		/** Gets the transform object representing object's position/rotation/scale in world space. */
+		const Transform& getTransform() const;
+
+		/** Gets the transform object representing object's position/rotation/scale relative to its parent. */
+		const Transform& getLocalTransform() const { return mLocalTfrm; }
+
 		/**	Sets the local position of the object. */
 		void setPosition(const Vector3& position);
-
-		/**	Gets the local position of the object. */
-		const Vector3& getPosition() const { return mPosition; }
 
 		/**	Sets the world position of the object. */
 		void setWorldPosition(const Vector3& position);
 
-		/**
-		 * Gets the world position of the object.
-		 *
-		 * @note	Performance warning: This might involve updating the transforms if the transform is dirty.
-		 */
-		const Vector3& getWorldPosition() const;
-
 		/**	Sets the local rotation of the object. */
 		void setRotation(const Quaternion& rotation);
-
-		/**	Gets the local rotation of the object. */
-		const Quaternion& getRotation() const { return mRotation; }
 
 		/**	Sets the world rotation of the object. */
 		void setWorldRotation(const Quaternion& rotation);
 
-		/**
-		 * Gets world rotation of the object.
-		 *
-		 * @note	Performance warning: This might involve updating the transforms if the transform is dirty.
-		 */
-		const Quaternion& getWorldRotation() const;
-
 		/**	Sets the local scale of the object. */
 		void setScale(const Vector3& scale);
-
-		/**	Gets the local scale of the object. */
-		const Vector3& getScale() const { return mScale; }
 
 		/**
 		 * Sets the world scale of the object.
@@ -234,13 +222,6 @@ namespace bs
 		 * @note	This will not work properly if this object or any of its parents have non-affine transform matrices.
 		 */
 		void setWorldScale(const Vector3& scale);
-
-		/**
-		 * Gets world scale of the object.
-		 *
-		 * @note	Performance warning: This might involve updating the transforms if the transform is dirty.
-		 */
-		const Vector3& getWorldScale() const;
 
 		/**
 		 * Orients the object so it is looking at the provided @p location (world space) where @p up is used for 
@@ -253,44 +234,23 @@ namespace bs
 		 *
 		 * @note	Performance warning: This might involve updating the transforms if the transform is dirty.
 		 */
-		const Matrix4& getWorldTfrm() const;
+		const Matrix4& getWorldMatrix() const;
 
 		/**
 		 * Gets the objects inverse world transform matrix.
 		 *
 		 * @note	Performance warning: This might involve updating the transforms if the transform is dirty.
 		 */
-		Matrix4 getInvWorldTfrm() const;
+		Matrix4 getInvWorldMatrix() const;
 
 		/** Gets the objects local transform matrix. */
-		const Matrix4& getLocalTfrm() const;
+		const Matrix4& getLocalMatrix() const;
 
 		/**	Moves the object's position by the vector offset provided along world axes. */
-        void move(const Vector3& vec);
+		void move(const Vector3& vec);
 
 		/**	Moves the object's position by the vector offset provided along it's own axes (relative to orientation). */
-        void moveRelative(const Vector3& vec);
-
-		/**
-		 * Gets the Z (forward) axis of the object, in world space.
-		 *
-		 * @return	Forward axis of the object.
-		 */
-		Vector3 getForward() const { return getWorldRotation().rotate(-Vector3::UNIT_Z); }
-
-		/**
-		 * Gets the Y (up) axis of the object, in world space.
-		 *
-		 * @return	Up axis of the object.
-		 */
-		Vector3 getUp() const { return getWorldRotation().rotate(Vector3::UNIT_Y); }
-
-		/**
-		 * Gets the X (right) axis of the object, in world space.
-		 *
-		 * @return	Right axis of the object.
-		 */
-		Vector3 getRight() const { return getWorldRotation().rotate(Vector3::UNIT_X); }
+		void moveRelative(const Vector3& vec);
 
 		/**
 		 * Rotates the game object so it's forward axis faces the provided direction.
@@ -302,10 +262,10 @@ namespace bs
 		void setForward(const Vector3& forwardDir);
 
 		/**	Rotate the object around an arbitrary axis. */
-        void rotate(const Vector3& axis, const Radian& angle);
+		void rotate(const Vector3& axis, const Radian& angle);
 
 		/**	Rotate the object around an arbitrary axis using a Quaternion. */
-        void rotate(const Quaternion& q);
+		void rotate(const Quaternion& q);
 
 		/**
 		 * Rotates around local Z axis.
@@ -344,13 +304,8 @@ namespace bs
 		UINT32 getTransformHash() const { return mDirtyHash; }
 
 	private:
-		Vector3 mPosition;
-		Quaternion mRotation;
-		Vector3 mScale;
-
-		mutable Vector3 mWorldPosition;
-		mutable Quaternion mWorldRotation;
-		mutable Vector3 mWorldScale;
+		Transform mLocalTfrm;
+		mutable Transform mWorldTfrm;
 
 		mutable Matrix4 mCachedLocalTfrm;
 		mutable Matrix4 mCachedWorldTfrm;
@@ -421,6 +376,14 @@ namespace bs
 		/**	Gets the number of all child GameObjects. */
 		UINT32 getNumChildren() const { return (UINT32)mChildren.size(); }
 
+		/** 
+		 * Searches the scene object hierarchy to find a child scene object using the provided path.
+		 *
+		 * @param[in]	path	Path to the property, where each element of the path is separated with "/" Path elements signify
+		 *						names of child scene objects (first one relative to this object). 
+		 */
+		HSceneObject findPath(const String& path) const;
+
 		/**
 		 * Searches the child objects for an object matching the specified name.
 		 *
@@ -453,7 +416,7 @@ namespace bs
 		 * @param[in]	self	If true, the method will only check if this particular object was activated or deactivated
 		 *						directly via setActive. If false we we also check if any of the objects parents are inactive.
 		 */
-		bool getActive(bool self = false);
+		bool getActive(bool self = false) const;
 
 		/**
 		 * Sets the mobility of a scene object. This is used primarily as a performance hint to engine systems. Objects

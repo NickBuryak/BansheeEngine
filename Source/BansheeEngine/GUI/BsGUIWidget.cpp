@@ -104,9 +104,10 @@ namespace bs
 		// as the GUIManager batching relies on object positions, so it needs to be updated.
 		const float diffEpsilon = 0.0001f;
 
-		Vector3 position = parent->getWorldPosition();
-		Quaternion rotation = parent->getWorldRotation();
-		Vector3 scale = parent->getWorldScale();
+		const Transform& tfrm = parent->getTransform();
+		Vector3 position = tfrm.getPosition();
+		Quaternion rotation = tfrm.getRotation();
+		Vector3 scale = tfrm.getScale();
 
 		if(!mWidgetIsDirty)
 		{
@@ -127,7 +128,7 @@ namespace bs
 		mPosition = position;
 		mRotation = rotation;
 		mScale = scale;
-		mTransform = parent->getWorldTfrm();
+		mTransform = parent->getWorldMatrix();
 	}
 
 	void GUIWidget::_updateRT()
@@ -361,7 +362,7 @@ namespace bs
 			return false;
 
 		// Technically GUI widget bounds can be larger than the viewport, so make sure we clip to viewport first
-		if(!target->getArea().contains(position))
+		if(!target->getPixelArea().contains(position))
 			return false;
 
 		Vector3 vecPos((float)position.x, (float)position.y, 0.0f);
@@ -401,8 +402,9 @@ namespace bs
 		if (target == nullptr)
 			return;
 
-		UINT32 width = target->getWidth();
-		UINT32 height = target->getHeight();
+		Rect2I area = target->getPixelArea();
+		UINT32 width = area.width;
+		UINT32 height = area.height;
 
 		GUILayoutData layoutData;
 		layoutData.area.width = width;

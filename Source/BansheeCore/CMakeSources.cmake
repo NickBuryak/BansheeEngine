@@ -80,13 +80,16 @@ set(BS_BANSHEECORE_INC_SCENE
 	"Scene/BsPrefab.h"
 	"Scene/BsPrefabDiff.h"
 	"Scene/BsPrefabUtility.h"
+	"Scene/BsTransform.h"
+	"Scene/BsSceneActor.h"
 )
 
 set(BS_BANSHEECORE_INC_INPUT
-	"Input/BsRawInputHandler.h"
-	"Input/BsOSInputHandler.h"
 	"Input/BsInputFwd.h"
 	"Input/BsInput.h"
+	"Input/BsMouse.h"
+	"Input/BsKeyboard.h"
+	"Input/BsGamepad.h"
 )
 
 set(BS_BANSHEECORE_INC_RENDERER
@@ -230,7 +233,6 @@ set(BS_BANSHEECORE_SRC_UTILITY
 	"Utility/BsUtility.cpp"
 	"Utility/BsDeferredCallManager.cpp"
 	"Utility/BsIconUtility.cpp"
-	"Utility/BsUUID.cpp"
 )
 
 set(BS_BANSHEECORE_INC_TEXT
@@ -290,7 +292,6 @@ set(BS_BANSHEECORE_INC_UTILITY
 	"Utility/BsUtility.h"
 	"Utility/BsDeferredCallManager.h"
 	"Utility/BsIconUtility.h"
-	"Utility/BsUUID.h"
 )
 
 set(BS_BANSHEECORE_INC_RTTI
@@ -371,6 +372,7 @@ set(BS_BANSHEECORE_INC_RTTI
 	"RTTI/BsSkyboxRTTI.h"
 	"RTTI/BsLightProbeVolumeRTTI.h"
 	"RTTI/BsCLightProbeVolumeRTTI.h"
+	"RTTI/BsTransformRTTI.h"
 )
 
 set(BS_BANSHEECORE_SRC_RENDERER
@@ -431,7 +433,6 @@ set(BS_BANSHEECORE_SRC_MATERIAL
 
 set(BS_BANSHEECORE_SRC_INPUT
 	"Input/BsInput.cpp"
-	"Input/BsOSInputHandler.cpp"
 )
 
 set(BS_BANSHEECORE_INC_LOCALIZATION
@@ -529,6 +530,8 @@ set(BS_BANSHEECORE_SRC_SCENE
 	"Scene/BsPrefab.cpp"
 	"Scene/BsPrefabDiff.cpp"
 	"Scene/BsPrefabUtility.cpp"
+	"Scene/BsTransform.cpp"
+	"Scene/BsSceneActor.cpp"
 )
 
 set(BS_BANSHEECORE_INC_AUDIO
@@ -577,36 +580,45 @@ set(BS_BANSHEECORE_SRC_ANIMATION
 set(BS_BANSHEECORE_INC_PLATFORM
 	"Platform/BsPlatform.h"
 	"Platform/BsFolderMonitor.h"
-)
-
-set(BS_BANSHEECORE_INC_PLATFORM_WIN32
-	"Win32/BsWin32FolderMonitor.h"
-	"Win32/BsWin32DropTarget.h"
-	"Win32/BsWin32Defs.h"
-	"Win32/BSWin32PlatformData.h"
-	"Win32/BsWin32Platform.h"
+	"Platform/BsDropTarget.h"
 )
 
 set(BS_BANSHEECORE_SRC_PLATFORM
-	"Platform/BsPlatform.cpp"
+		"Platform/BsDropTarget.cpp"
+		)
+
+set(BS_BANSHEECORE_INC_PLATFORM_WIN32
+	"Win32/BsWin32DropTarget.h"
+	"Win32/BsWin32Platform.h"
+	"Win32/BsWin32Input.h"
 )
 
 set(BS_BANSHEECORE_SRC_PLATFORM_WIN32
 	"Win32/BsWin32FolderMonitor.cpp"
 	"Win32/BsWin32Platform.cpp"
-	"Win32/BsWin32BrowseDialogs.cpp"
+	"Win32/BsWin32DropTarget.cpp"
+	"Win32/BsWin32Input.cpp"
+	"Win32/BsWin32Mouse.cpp"
+	"Win32/BsWin32Keyboard.cpp"
+	"Win32/BsWin32Gamepad.cpp"
 )
 
 set(BS_BANSHEECORE_INC_PLATFORM_UNIX
 	"Linux/BsLinuxPlatform.h"
 	"Linux/BsLinuxWindow.h"
-	"Linux/BsLinuxDragAndDrop.h"
+	"Linux/BsLinuxDropTarget.h"
+	"Linux/BsLinuxInput.h"
 )
 
 set(BS_BANSHEECORE_SRC_PLATFORM_UNIX
 	"Linux/BsLinuxPlatform.cpp"
 	"Linux/BsLinuxWindow.cpp"
-	"Linux/BsLinuxDragAndDrop.cpp"
+	"Linux/BsLinuxDropTarget.cpp"
+	"Linux/BsLinuxFolderMonitor.cpp"
+	"Linux/BsLinuxInput.cpp"
+	"Linux/BsLinuxGamepad.cpp"
+	"Linux/BsLinuxMouse.cpp"
+	"Linux/BsLinuxKeyboard.cpp"
 )
 
 if(WIN32)

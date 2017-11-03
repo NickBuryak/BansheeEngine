@@ -40,7 +40,6 @@ namespace bs
 
 		Cursor::shutDown();
 
-		ShortcutManager::shutDown();
 		GUIManager::shutDown();
 		SpriteManager::shutDown();
 		BuiltinResources::shutDown();
@@ -81,6 +80,9 @@ namespace bs
 		// Need to clear all objects before I unload any plugins, as they
 		// could have allocated parts or all of those objects.
 		SceneManager::instance().clearScene(true);
+
+		// Shut down before script manager as scripts could have registered shortcut callbacks
+		ShortcutManager::shutDown();
 
 		ScriptManager::shutDown();
 		DebugDraw::shutDown();
@@ -140,7 +142,6 @@ namespace bs
 		desc.renderer = BS_RENDERER_MODULE;
 		desc.audio = BS_AUDIO_MODULE;
 		desc.physics = BS_PHYSICS_MODULE;
-		desc.input = BS_INPUT_MODULE;
 		desc.scripting = false;
 
 		desc.importers.push_back("BansheeFreeImgImporter");

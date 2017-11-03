@@ -215,31 +215,30 @@ namespace bs
 	static const StringID RenderAPIAny = "AnyRenderAPI";
 	static const StringID RendererAny = "AnyRenderer";
 
-    class Color;
-    class GpuProgram;
-    class GpuProgramManager;
-    class IndexBuffer;
-    class VertexBuffer;
+	class Color;
+	class GpuProgram;
+	class GpuProgramManager;
+	class IndexBuffer;
+	class VertexBuffer;
 	class GpuBuffer;
 	class GpuProgramManager;
 	class GpuProgramFactory;
-    class IndexData;
-    class Pass;
+	class IndexData;
+	class Pass;
 	class Technique;
 	class Shader;
 	class Material;
-    class RenderAPICapabilities;
-    class RenderTarget;
-    class RenderTexture;
-    class RenderWindow;
+	class RenderAPICapabilities;
+	class RenderTarget;
+	class RenderTexture;
+	class RenderWindow;
 	class RenderTargetProperties;
-    class SamplerState;
-    class TextureManager;
-    class Viewport;
-    class VertexDeclaration;
+	class SamplerState;
+	class TextureManager;
+	class Viewport;
+	class VertexDeclaration;
 	class Input;
 	struct PointerEvent;
-	class RawInputHandler;
 	class RendererFactory;
 	class AsyncOp;
 	class HardwareBufferManager;
@@ -347,6 +346,8 @@ namespace bs
 	class CReflectionProbe;
 	class CSkybox;
 	class CLightProbeVolume;
+	class Transform;
+	class SceneActor;
 	// Asset import
 	class SpecificImporter;
 	class Importer;
@@ -361,7 +362,7 @@ namespace bs
 	class MeshHeap;
 	class Font;
 	class ResourceMetaData;
-	class OSDropTarget;
+	class DropTarget;
 	class StringTable;
 	class PhysicsMaterial;
 	class PhysicsMesh;
@@ -575,6 +576,8 @@ namespace bs
 		TID_LightProbeVolume = 1136,
 		TID_SavedLightProbeInfo = 1137,
 		TID_CLightProbeVolume = 1138,
+		TID_Transform = 1139,
+		TID_SceneActor = 1140,
 
 		// Moved from Engine layer
 		TID_CCamera = 30000,

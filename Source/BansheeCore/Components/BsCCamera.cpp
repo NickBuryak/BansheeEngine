@@ -4,31 +4,35 @@
 #include "RTTI/BsCCameraRTTI.h"
 #include "Scene/BsSceneObject.h"
 #include "Scene/BsSceneManager.h"
+#include "BsCoreApplication.h"
 
 namespace bs 
 {
 	CCamera::CCamera()
 	{
-		Component::setFlag(ComponentFlag::AlwaysRun, true);
+		setFlag(ComponentFlag::AlwaysRun, true);
 		setName("Camera");
 	}
 
 	CCamera::CCamera(const HSceneObject& parent, SPtr<RenderTarget> target, float left, float top, float width, float height)
 		: Component(parent), mTarget(target), mLeft(left), mTop(top), mWidth(width), mHeight(height)
-    {
-		Component::setFlag(ComponentFlag::AlwaysRun, true);
-		setName("Camera");
-    }
+	{
+		if(mTarget == nullptr)
+			mTarget = CoreApplication::instance().getPrimaryWindow();
 
-    CCamera::~CCamera()
-    {
+		setFlag(ComponentFlag::AlwaysRun, true);
+		setName("Camera");
+	}
+
+	CCamera::~CCamera()
+	{
 		mInternal->destroy();
-    }
+	}
 
 	ConvexVolume CCamera::getWorldFrustum() const
 	{
 		const Vector<Plane>& frustumPlanes = getFrustum().getPlanes();
-		Matrix4 worldMatrix = SO()->getWorldTfrm();
+		Matrix4 worldMatrix = SO()->getWorldMatrix();
 
 		Vector<Plane> worldPlanes(frustumPlanes.size());
 		UINT32 i = 0;
@@ -43,14 +47,7 @@ namespace bs
 
 	void CCamera::updateView() const
 	{
-		UINT32 curHash = SO()->getTransformHash();
-		if (curHash != mInternal->_getLastModifiedHash())
-		{
-			mInternal->setPosition(SO()->getWorldPosition());
-			mInternal->setRotation(SO()->getWorldRotation());
-
-			mInternal->_setLastModifiedHash(curHash);
-		}
+		mInternal->_updateState(*SO());
 	}
 
 	void CCamera::setMain(bool main)
@@ -77,12 +74,12 @@ namespace bs
 			mTarget = nullptr;
 		}
 
-		gSceneManager()._registerCamera(mInternal, SO());
+		gSceneManager()._bindActor(mInternal, SO());
 	}
 
 	void CCamera::onDestroyed()
 	{
-		gSceneManager()._unregisterCamera(mInternal);
+		gSceneManager()._unbindActor(mInternal);
 	}
 
 	RTTITypeBase* CCamera::getRTTIStatic()

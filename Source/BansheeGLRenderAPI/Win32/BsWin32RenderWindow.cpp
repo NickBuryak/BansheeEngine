@@ -30,6 +30,10 @@ namespace bs
 
 	}
 
+	Win32RenderWindow::~Win32RenderWindow()
+	{
+	}
+
 	void Win32RenderWindow::getCustomAttribute(const String& name, void* pData) const
 	{
 		if (name == "WINDOW")
@@ -79,13 +83,13 @@ namespace bs
 
 	namespace ct
 	{
-		Win32RenderWindow::Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, Win32GLSupport& glsupport)
+	Win32RenderWindow::Win32RenderWindow(const RENDER_WINDOW_DESC& desc, UINT32 windowId, Win32GLSupport& glsupport)
 		: RenderWindow(desc, windowId), mWindow(nullptr), mGLSupport(glsupport), mHDC(nullptr), mIsChild(false)
 		, mDeviceName(nullptr), mDisplayFrequency(0), mShowOnSwap(false), mContext(nullptr), mProperties(desc)
 		, mSyncedProperties(desc)
 	{ }
 
-		Win32RenderWindow::~Win32RenderWindow()
+	Win32RenderWindow::~Win32RenderWindow()
 	{ 
 		RenderWindowProperties& props = mProperties;
 
@@ -104,6 +108,8 @@ namespace bs
 			bs_free(mDeviceName);
 			mDeviceName = nullptr;
 		}
+
+		Platform::resetNonClientAreas(*this);
 	}
 
 	void Win32RenderWindow::initialize()
@@ -115,15 +121,17 @@ namespace bs
 		mDisplayFrequency = Math::roundToInt(mDesc.videoMode.getRefreshRate());
 
 		WINDOW_DESC windowDesc;
-		windowDesc.border = mDesc.border;
-		windowDesc.enableDoubleClick = mDesc.enableDoubleClick;
+		windowDesc.showTitleBar = mDesc.showTitleBar;
+		windowDesc.showBorder = mDesc.showBorder;
+		windowDesc.allowResize = mDesc.allowResize;
+		windowDesc.enableDoubleClick = true;
 		windowDesc.fullscreen = mDesc.fullscreen;
 		windowDesc.width = mDesc.videoMode.getWidth();
 		windowDesc.height = mDesc.videoMode.getHeight();
 		windowDesc.hidden = mDesc.hidden || mDesc.hideUntilSwap;
 		windowDesc.left = mDesc.left;
 		windowDesc.top = mDesc.top;
-		windowDesc.outerDimensions = mDesc.outerDimensions;
+		windowDesc.outerDimensions = false;
 		windowDesc.title = mDesc.title;
 		windowDesc.toolWindow = mDesc.toolWindow;
 		windowDesc.creationParams = this;
@@ -242,6 +250,9 @@ namespace bs
 		props.multisampleCount = testMultisample;
 
 		mContext = mGLSupport.createContext(mHDC, nullptr);
+
+		if (props.vsync && props.vsyncInterval > 0)
+			setVSync(true, props.vsyncInterval);
 
 		{
 			ScopedSpinLock lock(mLock);
@@ -431,6 +442,22 @@ namespace bs
 		THROW_IF_NOT_CORE_THREAD;
 
 		mWindow->restore();
+	}
+
+	void Win32RenderWindow::setVSync(bool enabled, UINT32 interval)
+	{
+		wglSwapIntervalEXT(interval);
+
+		mProperties.vsync = enabled;
+		mProperties.vsyncInterval = interval;
+
+		{
+			ScopedSpinLock lock(mLock);
+			mSyncedProperties.vsync = enabled;
+			mSyncedProperties.vsyncInterval = interval;
+		}
+
+		bs::RenderWindowManager::instance().notifySyncDataDirty(this);
 	}
 
 	void Win32RenderWindow::swapBuffers(UINT32 syncMask)

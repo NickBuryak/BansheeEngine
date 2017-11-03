@@ -52,7 +52,7 @@ namespace bs {	namespace ct
 		UINT32 cameraId = camera->getRendererId();
 		RendererView* view = mInfo.views[cameraId];
 
-		if((updateFlag & (UINT32)CameraDirtyFlag::Everything) != 0)
+		if((updateFlag & ((UINT32)ActorDirtyFlag::Everything | (UINT32)ActorDirtyFlag::Active)) != 0)
 		{
 			RENDERER_VIEW_DESC viewDesc = createViewDesc(camera);
 
@@ -69,9 +69,10 @@ namespace bs {	namespace ct
 		{
 			view = mInfo.views[cameraId];
 
+			const Transform& tfrm = camera->getTransform();
 			view->setTransform(
-				camera->getPosition(),
-				camera->getForward(),
+				tfrm.getPosition(),
+				tfrm.getForward(),
 				camera->getViewMatrix(),
 				camera->getProjectionMatrixRS(),
 				camera->getWorldFrustum());
@@ -410,7 +411,7 @@ namespace bs {	namespace ct
 		}
 
 		// No empty slot was found
-		if (probeInfo.arrayIdx == -1)
+		if (probeInfo.arrayIdx == (UINT32)-1)
 		{
 			setReflectionProbeArrayIndex(probeId, numArrayEntries, false);
 			mInfo.reflProbeCubemapArrayUsedSlots.push_back(true);
@@ -441,7 +442,7 @@ namespace bs {	namespace ct
 		UINT32 probeId = probe->getRendererId();
 		UINT32 arrayIdx = mInfo.reflProbes[probeId].arrayIdx;
 
-		if (arrayIdx != -1)
+		if (arrayIdx != (UINT32)-1)
 			mInfo.reflProbeCubemapArrayUsedSlots[arrayIdx] = false;
 
 		ReflectionProbe* lastProbe = mInfo.reflProbes.back().probe;
@@ -512,29 +513,26 @@ namespace bs {	namespace ct
 	RENDERER_VIEW_DESC RendererScene::createViewDesc(Camera* camera) const
 	{
 		SPtr<Viewport> viewport = camera->getViewport();
+		ClearFlags clearFlags = viewport->getClearFlags();
 		RENDERER_VIEW_DESC viewDesc;
 
 		viewDesc.target.clearFlags = 0;
-		if (viewport->getRequiresColorClear())
+		if (clearFlags.isSet(ClearFlagBits::Color))
 			viewDesc.target.clearFlags |= FBT_COLOR;
 
-		if (viewport->getRequiresDepthClear())
+		if (clearFlags.isSet(ClearFlagBits::Depth))
 			viewDesc.target.clearFlags |= FBT_DEPTH;
 
-		if (viewport->getRequiresStencilClear())
+		if (clearFlags.isSet(ClearFlagBits::Stencil))
 			viewDesc.target.clearFlags |= FBT_STENCIL;
 
-		viewDesc.target.clearColor = viewport->getClearColor();
+		viewDesc.target.clearColor = viewport->getClearColorValue();
 		viewDesc.target.clearDepthValue = viewport->getClearDepthValue();
 		viewDesc.target.clearStencilValue = viewport->getClearStencilValue();
 
 		viewDesc.target.target = viewport->getTarget();
-		viewDesc.target.nrmViewRect = viewport->getNormArea();
-		viewDesc.target.viewRect = Rect2I(
-			viewport->getX(),
-			viewport->getY(),
-			(UINT32)viewport->getWidth(),
-			(UINT32)viewport->getHeight());
+		viewDesc.target.nrmViewRect = viewport->getArea();
+		viewDesc.target.viewRect = viewport->getPixelArea();
 
 		if (viewDesc.target.target != nullptr)
 		{
@@ -559,8 +557,9 @@ namespace bs {	namespace ct
 		viewDesc.farPlane = camera->getFarClipDistance();
 		viewDesc.flipView = false;
 
-		viewDesc.viewOrigin = camera->getPosition();
-		viewDesc.viewDirection = camera->getForward();
+		const Transform& tfrm = camera->getTransform();
+		viewDesc.viewOrigin = tfrm.getPosition();
+		viewDesc.viewDirection = tfrm.getForward();
 		viewDesc.projTransform = camera->getProjectionMatrixRS();
 		viewDesc.viewTransform = camera->getViewMatrix();
 		viewDesc.projType = camera->getProjectionType();

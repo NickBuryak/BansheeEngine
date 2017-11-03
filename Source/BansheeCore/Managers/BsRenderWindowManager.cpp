@@ -2,6 +2,7 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 #include "Managers/BsRenderWindowManager.h"
 #include "Platform/BsPlatform.h"
+#include "BsCoreApplication.h"
 
 using namespace std::placeholders;
 
@@ -9,9 +10,7 @@ namespace bs
 {
 	RenderWindowManager::RenderWindowManager()
 		:mWindowInFocus(nullptr), mNewWindowInFocus(nullptr)
-	{
-		Platform::onMouseLeftWindow.connect(std::bind(&RenderWindowManager::windowMouseLeft, this, _1));
-	}
+	{ }
 
 	RenderWindowManager::~RenderWindowManager()
 	{
@@ -30,6 +29,9 @@ namespace bs
 
 			mWindows[renderWindow->mWindowId] = renderWindow.get();
 		}
+
+		if (renderWindow->getProperties().isModal)
+			mModalWindowStack.push_back(renderWindow.get());
 
 		renderWindow->initialize();
 		
@@ -52,6 +54,12 @@ namespace bs
 
 			mWindows.erase(window->mWindowId);
 			mDirtyProperties.erase(window);
+		}
+
+		{
+			auto iterFind = std::find(begin(mModalWindowStack), end(mModalWindowStack), window);
+			if(iterFind != mModalWindowStack.end())
+				mModalWindowStack.erase(iterFind);
 		}
 	}
 
@@ -78,7 +86,7 @@ namespace bs
 		if (window == nullptr)
 			return;
 
-		auto iterFind = std::find_if(begin(mMovedOrResizedWindows), end(mMovedOrResizedWindows), 
+		auto iterFind = std::find_if(begin(mMovedOrResizedWindows), end(mMovedOrResizedWindows),
 			[&](const MoveOrResizeData& x) { return x.window == window; });
 
 		const RenderWindowProperties& props = coreWindow->getProperties();
@@ -96,11 +104,33 @@ namespace bs
 			mMovedOrResizedWindows.push_back(newEntry);
 			moveResizeData = &mMovedOrResizedWindows.back();
 		}
-		
+
 		moveResizeData->x = props.left;
 		moveResizeData->y = props.top;
 		moveResizeData->width = props.width;
 		moveResizeData->height = props.height;
+	}
+
+	void RenderWindowManager::notifyMouseLeft(ct::RenderWindow* coreWindow)
+	{
+		Lock lock(mWindowMutex);
+
+		RenderWindow* window = getNonCore(coreWindow);
+		auto iterFind = std::find(begin(mMouseLeftWindows), end(mMouseLeftWindows), window);
+
+		if (iterFind == end(mMouseLeftWindows))
+			mMouseLeftWindows.push_back(window);
+	}
+
+	void RenderWindowManager::notifyCloseRequested(ct::RenderWindow* coreWindow)
+	{
+		Lock lock(mWindowMutex);
+
+		RenderWindow* window = getNonCore(coreWindow);
+		auto iterFind = std::find(begin(mCloseRequestedWindows), end(mCloseRequestedWindows), window);
+
+		if (iterFind == end(mCloseRequestedWindows))
+			mCloseRequestedWindows.push_back(window);
 	}
 
 	void RenderWindowManager::notifySyncDataDirty(ct::RenderWindow* coreWindow)
@@ -113,22 +143,12 @@ namespace bs
 			mDirtyProperties.insert(window);
 	}
 
-	void RenderWindowManager::windowMouseLeft(ct::RenderWindow* coreWindow)
-	{
-		Lock lock(mWindowMutex);
-
-		RenderWindow* window = getNonCore(coreWindow);
-		auto iterFind = std::find(begin(mMouseLeftWindows), end(mMouseLeftWindows), window);
-
-		if (iterFind == end(mMouseLeftWindows))
-			mMouseLeftWindows.push_back(window);
-	}
-
 	void RenderWindowManager::_update()
 	{
 		RenderWindow* newWinInFocus = nullptr;
 		Vector<MoveOrResizeData> movedOrResizedWindows;
 		Vector<RenderWindow*> mouseLeftWindows;
+		Vector<RenderWindow*> closeRequestedWindows;
 
 		{
 			Lock lock(mWindowMutex);
@@ -158,6 +178,8 @@ namespace bs
 				dirtyPropertyWindow->syncProperties();
 
 			mDirtyProperties.clear();
+
+			std::swap(mCloseRequestedWindows, closeRequestedWindows);
 		}
 
 		if(mWindowInFocus != newWinInFocus)
@@ -172,15 +194,26 @@ namespace bs
 		}
 
 		for (auto& moveResizeData : movedOrResizedWindows)
-		{
 			moveResizeData.window->onResized();
-		}
 
 		if (!onMouseLeftWindow.empty())
 		{
 			for (auto& window : mouseLeftWindows)
 				onMouseLeftWindow(*window);
-		}			
+		}
+
+		SPtr<RenderWindow> primaryWindow = gCoreApplication().getPrimaryWindow();
+		for(auto& entry : closeRequestedWindows)
+		{
+			// Default behaviour for primary window is to quit the app on close
+			if(entry == primaryWindow.get() && entry->onCloseRequested.empty())
+			{
+				gCoreApplication().quitRequested();
+				continue;
+			}
+
+			entry->onCloseRequested();
+		}
 	}
 
 	Vector<RenderWindow*> RenderWindowManager::getRenderWindows() const
@@ -192,6 +225,14 @@ namespace bs
 			windows.push_back(windowPair.second);
 
 		return windows;
+	}
+
+	RenderWindow* RenderWindowManager::getTopMostModal() const
+	{
+		if (mModalWindowStack.empty())
+			return nullptr;
+		
+		return mModalWindowStack.back();
 	}
 
 	RenderWindow* RenderWindowManager::getNonCore(const ct::RenderWindow* window) const

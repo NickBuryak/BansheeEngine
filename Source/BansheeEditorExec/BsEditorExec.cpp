@@ -34,4 +34,13 @@ int CALLBACK WinMain(
 
 	return 0;
 }
+#else
+using namespace bs;
+
+int main()
+{
+	EditorApplication::startUp();
+	EditorApplication::instance().runMainLoop();
+	EditorApplication::shutDown();
+}
 #endif // End BS_PLATFORM

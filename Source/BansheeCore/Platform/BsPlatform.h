@@ -69,89 +69,6 @@ namespace bs
 		bool shift, ctrl;
 	};
 
-	/** Type of drop event type. This is used when dragging items over drop targets. */
-	enum class OSDropType
-	{
-		FileList,
-		None
-	};
-
-	/**
-	 * Drop targets allow you to register a certain portion of a window as a drop target that accepts certain drop types 
-	 * from the OS (platform) specific drag and drop system. Accepted drop types are provided by the OS and include things
-	 * like file and item dragging.
-	 *
-	 * You will receive events with the specified drop area as long as it is active.
-	 */
-	class BS_CORE_EXPORT OSDropTarget
-	{
-	public:
-		OSDropTarget(const RenderWindow* ownerWindow, INT32 x, INT32 y, UINT32 width, UINT32 height);
-		~OSDropTarget();
-
-		/**
-		 * Triggered when a pointer is being dragged over the drop area. Provides window coordinates of the pointer position.
-		 */
-		Event<void(INT32 x, INT32 y)> onDragOver;
-
-		/**
-		 * Triggered when the user completes a drop while pointer is over the drop area. Provides window coordinates of the 
-		 * pointer position.
-		 */
-		Event<void(INT32 x, INT32 y)> onDrop;
-
-		/**
-		 * Triggered when a pointer enters the drop area. Provides window coordinates of the pointer position.
-		 */
-		Event<void(INT32 x, INT32 y)> onEnter;
-
-		/** Triggered when a pointer leaves the drop area. */
-		Event<void()> onLeave;
-
-		/**	Sets the drop target area, in local window coordinates. */
-		void setArea(INT32 x, INT32 y, UINT32 width, UINT32 height);
-
-		/**	Gets the type of drop that this drop target is looking for. Only valid after a drop has been triggered. */
-		OSDropType getDropType() const { return mDropType; }
-
-		/**	
-		 * Returns a list of files received by the drop target. Only valid after a drop of FileList type has been triggered.
-		 */
-		const Vector<WString>& getFileList() const { return *mFileList; }
-
-		/** Clears all internal values. */
-		void _clear();
-
-		/** Sets the file list and marks the drop event as FileList. */
-		void _setFileList(const Vector<WString>& fileList);
-
-		/** Marks the drop area as inactive or active. */
-		void _setActive(bool active) { mActive = active; }
-
-		/**	Checks is the specified position within the current drop area. Position should be in window local coordinates. */
-		bool _isInside(const Vector2I& pos) const;
-
-		/** Returns true if the drop target is active. */
-		bool _isActive() const { return mActive; }
-
-		/**	Returns a render window this drop target is attached to. */
-		const RenderWindow* _getOwnerWindow() const { return mOwnerWindow; }
-	private:
-		friend class Platform;
-
-		INT32 mX, mY;
-		UINT32 mWidth, mHeight;
-		bool mActive;
-		const RenderWindow* mOwnerWindow;
-
-		OSDropType mDropType;
-
-		union
-		{
-			Vector<WString>* mFileList;
-		};
-	};
-
 	/**	Represents a specific non client area used for window resizing. */
 	struct BS_CORE_EXPORT NonClientResizeArea
 	{
@@ -314,34 +231,11 @@ namespace bs
 		static void sleep(UINT32 duration);
 
 		/**
-		 * Creates a drop target that you can use for tracking OS drag and drop operations performed over a certain area 
-		 * on the specified window.
+		 * Opens the provided folder using the default application, as specified by the operating system.
 		 *
-		 * @param[in]	window	The window on which to track drop operations.
-		 * @param[in]	x	  	The x coordinate of the area to track, relative to window.
-		 * @param[in]	y	  	The y coordinate of the area to track, relative to window.
-		 * @param[in]	width 	The width of the area to track.
-		 * @param[in]	height	The height of the area to track.
-		 * @return				OSDropTarget that you will use to receive all drop data. When no longer needed make sure 
-		 *						to destroy it with destroyDropTarget().
+		 * @param[in]	path	Absolute path to the folder to open.
 		 */
-		static OSDropTarget& createDropTarget(const RenderWindow* window, INT32 x, INT32 y, UINT32 width, UINT32 height);
-
-		/** Destroys a drop target previously created with createDropTarget. */
-		static void destroyDropTarget(OSDropTarget& target);
-
-		/**
-		 * Displays a platform specific file/folder open/save dialog.
-		 *
-		 * @param[in]	type		Type of dialog to open.
-		 * @param[in]	defaultPath	Initial path the dialog will be set to once opened.
-		 * @param[in]	filterList	Semi-colon separated list of file names or types to display in the dialog, 
-		 *							for example "exe;txt;png". Ignored if dialog is to display folders instead of files.
-		 * @param[out]	paths		Output list of selected file or folder paths (if any).
-		 * @return					True if file was selected and false if selection was canceled.
-		 */
-		static bool openBrowseDialog(FileDialogType type, const Path& defaultPath, const WString& filterList,
-			Vector<Path>& paths);
+		static void openFolder(const Path& path);
 
 		/**
 		 * Adds a string to the clipboard.
@@ -400,13 +294,6 @@ namespace bs
 		 * @note	Sim thread only.
 		 */
 		static void _shutDown();
-
-		/**
-		 * Triggered when a pointer leaves the provided window.
-		 *
-		 * @note	Sim thread only.
-		 */
-		static Event<void(ct::RenderWindow*)> onMouseLeftWindow;
 
 		/**
 		 * Triggered whenever the pointer moves.

@@ -10,6 +10,7 @@
 #include "Scene/BsPrefab.h"
 #include "BsApplication.h"
 #include "Scene/BsSceneObject.h"
+#include "Renderer/BsCamera.h"
 #include "BsScriptGameObjectManager.h"
 #include "Resources/BsGameResourceManager.h"
 #include "BsScriptResourceManager.h"
@@ -22,7 +23,7 @@ namespace bs
 	HEvent ScriptScene::OnRefreshDomainLoadedConn;
 	HEvent ScriptScene::OnRefreshStartedConn;
 
-	String ScriptScene::ActiveSceneUUID;
+	UUID ScriptScene::ActiveSceneUUID;
 	WString ScriptScene::ActiveSceneName;
 	bool ScriptScene::IsGenericPrefab;
 
@@ -83,7 +84,7 @@ namespace bs
 	{
 		MonoMethod* uuidMethod = metaData.scriptClass->getMethod("GetSceneUUID");
 		if (uuidMethod != nullptr)
-			ActiveSceneUUID = MonoUtil::monoToString((MonoString*)uuidMethod->invoke(nullptr, nullptr));
+			ActiveSceneUUID = ScriptUUID::unbox(uuidMethod->invoke(nullptr, nullptr));
 
 		MonoMethod* nameMethod = metaData.scriptClass->getMethod("GetSceneName");
 		if (nameMethod != nullptr)
@@ -100,7 +101,7 @@ namespace bs
 		if (uuidMethod != nullptr)
 		{
 			void* params[1];
-			params[0] = MonoUtil::stringToMono(ActiveSceneUUID);
+			params[0] = ScriptUUID::box(ActiveSceneUUID);
 
 			uuidMethod->invoke(nullptr, params);
 		}
@@ -137,11 +138,12 @@ namespace bs
 
 	MonoObject* ScriptScene::internal_GetMainCameraSO()
 	{
-		SceneCameraData cameraData = gSceneManager().getMainCamera();
-		if (cameraData.sceneObject == nullptr)
+		SPtr<Camera> camera = gSceneManager().getMainCamera();
+		HSceneObject so = gSceneManager()._getActorSO(camera);
+		if (so == nullptr)
 			return nullptr;
 
-		ScriptSceneObject* cameraSo = ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(cameraData.sceneObject);
+		ScriptSceneObject* cameraSo = ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(so);
 		return cameraSo->getManagedInstance();
 	}
 }

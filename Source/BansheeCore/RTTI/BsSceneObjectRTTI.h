@@ -28,19 +28,15 @@ namespace bs
 	class BS_CORE_EXPORT SceneObjectRTTI : public RTTIType<SceneObject, GameObject, SceneObjectRTTI>
 	{
 	private:
-		Vector3& getPosition(SceneObject* obj) { return obj->mPosition; }
-		void setPosition(SceneObject* obj, Vector3& value) { obj->mPosition = value; }
+		Transform& getTransform(SceneObject* obj) { return obj->mWorldTfrm; }
+		void setTransform(SceneObject* obj, Transform& value) { obj->mWorldTfrm = value; }
 
-		Quaternion& getRotation(SceneObject* obj) { return obj->mRotation; }
-		void setRotation(SceneObject* obj, Quaternion& value) { obj->mRotation = value; }
-
-		Vector3& getScale(SceneObject* obj) { return obj->mScale; }
-		void setScale(SceneObject* obj, Vector3& value) { obj->mScale = value; }
+		Transform& getLocalTransform(SceneObject* obj) { return obj->mLocalTfrm; }
+		void setLocalTransform(SceneObject* obj, Transform& value) { obj->mLocalTfrm = value; }
 
 		bool& getActive(SceneObject* obj) { return obj->mActiveSelf; }
 		void setActive(SceneObject* obj, bool& value) { obj->mActiveSelf = value; }
 
-		// NOTE - These can only be set sequentially, specific array index is ignored
 		SPtr<SceneObject> getChild(SceneObject* obj, UINT32 idx) { return obj->mChildren[idx].getInternalPtr(); }
 		void setChild(SceneObject* obj, UINT32 idx, SPtr<SceneObject> param)
 		{
@@ -48,8 +44,13 @@ namespace bs
 			GODeserializationData& goDeserializationData = any_cast_ref<GODeserializationData>(so->mRTTIData);
 			SODeserializationData& soDeserializationData = any_cast_ref<SODeserializationData>(goDeserializationData.moreData);
 
-			soDeserializationData.children.push_back(param);
-		} 
+			// It's important that child indices remain the same after deserialization, as some systems (like SO
+			// record/restore) depend on it
+			if(idx >= soDeserializationData.children.size())
+				soDeserializationData.children.resize(idx + 1);
+
+			soDeserializationData.children[idx] = param;
+		}
 
 		UINT32 getNumChildren(SceneObject* obj) { return (UINT32)obj->mChildren.size(); }
 		void setNumChildren(SceneObject* obj, UINT32 size) { /* DO NOTHING */ }
@@ -62,13 +63,18 @@ namespace bs
 			GODeserializationData& goDeserializationData = any_cast_ref<GODeserializationData>(so->mRTTIData);
 			SODeserializationData& soDeserializationData = any_cast_ref<SODeserializationData>(goDeserializationData.moreData);
 
-			soDeserializationData.components.push_back(param);
+			// It's important that child indices remain the same after deserialization, as some systems (like SO
+			// record/restore) depend on it
+			if(idx >= soDeserializationData.components.size())
+				soDeserializationData.components.resize(idx + 1);
+
+			soDeserializationData.components[idx] = param;
 		}
 		UINT32 getNumComponents(SceneObject* obj) { return (UINT32)obj->mComponents.size(); }
 		void setNumComponents(SceneObject* obj, UINT32 size) { /* DO NOTHING */ }
 
-		String& getPrefabLink(SceneObject* obj) { return obj->mPrefabLinkUUID; }
-		void setPrefabLink(SceneObject* obj, String& value) { obj->mPrefabLinkUUID = value; }
+		UUID& getPrefabLink(SceneObject* obj) { return obj->mPrefabLinkUUID; }
+		void setPrefabLink(SceneObject* obj, UUID& value) { obj->mPrefabLinkUUID = value; }
 
 		SPtr<PrefabDiff> getPrefabDiff(SceneObject* obj) { return obj->mPrefabDiff; }
 		void setPrefabDiff(SceneObject* obj, SPtr<PrefabDiff> value) { obj->mPrefabDiff = value; }
@@ -92,11 +98,11 @@ namespace bs
 			addPlainField("mFlags", 3, &SceneObjectRTTI::getFlags, &SceneObjectRTTI::setFlags);
 			addReflectablePtrField("mPrefabDiff", 4, &SceneObjectRTTI::getPrefabDiff, &SceneObjectRTTI::setPrefabDiff);
 			addPlainField("mPrefabHash", 5, &SceneObjectRTTI::getPrefabHash, &SceneObjectRTTI::setPrefabHash);
-			addPlainField("mPosition", 6, &SceneObjectRTTI::getPosition, &SceneObjectRTTI::setPosition);
-			addPlainField("mRotation", 7, &SceneObjectRTTI::getRotation, &SceneObjectRTTI::setRotation);
-			addPlainField("mScale", 8, &SceneObjectRTTI::getScale, &SceneObjectRTTI::setScale);
 			addPlainField("mActiveSelf", 9, &SceneObjectRTTI::getActive, &SceneObjectRTTI::setActive);
 			addPlainField("mMobility", 10, &SceneObjectRTTI::getMobility, &SceneObjectRTTI::setMobility);
+
+			addReflectableField("mWorldTfrm", 11, &SceneObjectRTTI::getTransform, &SceneObjectRTTI::setTransform);
+			addReflectableField("mLocalTfrm", 12, &SceneObjectRTTI::getLocalTransform, &SceneObjectRTTI::setLocalTransform);
 		}
 
 		void onDeserializationStarted(IReflectable* obj, const UnorderedMap<String, UINT64>& params) override
@@ -151,7 +157,10 @@ namespace bs
 				so->addComponentInternal(component);
 
 			for (auto& child : soDeserializationData.children)
-				child->_setParent(so->mThisHandle, false);
+			{
+				if(child != nullptr)
+					child->_setParent(so->mThisHandle, false);
+			}
 
 			// If this is the deserialization parent, end deserialization (which resolves all game object handles, if we 
 			// provided valid IDs), and instantiate (i.e. activate) the deserialized hierarchy.

@@ -5,11 +5,16 @@
 #include "BsMonoClass.h"
 #include "Handles/BsHandleManager.h"
 #include "Handles/BsHandleDrawManager.h"
-#include "Wrappers/BsScriptFont.h"
 #include "BsMonoUtil.h"
+
+#include "BsScriptFont.generated.h"
 
 namespace bs
 {
+	ScriptHandleDrawing::ScriptHandleDrawing(MonoObject* instance)
+		:ScriptObject(instance)
+	{ }
+
 	void ScriptHandleDrawing::initRuntimeData()
 	{
 		metaData.scriptClass->addInternalCall("Internal_SetColor", (void*)&ScriptHandleDrawing::internal_SetColor);

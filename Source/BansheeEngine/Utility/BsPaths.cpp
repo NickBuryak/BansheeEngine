@@ -7,10 +7,10 @@
 
 namespace bs
 {
-	const Path Paths::RELEASE_ASSEMBLY_PATH = "bin\\Assemblies\\Release\\";
-	const Path Paths::DEBUG_ASSEMBLY_PATH = "bin\\Assemblies\\Debug\\";
-	const Path Paths::RUNTIME_DATA_PATH = "Data\\";
-	const Path Paths::ENGINE_DATA_PATH = RUNTIME_DATA_PATH + "Engine\\";
+	const Path Paths::RELEASE_ASSEMBLY_PATH = "bin/Assemblies/Release/";
+	const Path Paths::DEBUG_ASSEMBLY_PATH = "bin/Assemblies/Debug/";
+	const Path Paths::RUNTIME_DATA_PATH = "Data/";
+	const Path Paths::ENGINE_DATA_PATH = RUNTIME_DATA_PATH + "Engine/";
 
 	const Path& Paths::getReleaseAssemblyPath()
 	{
@@ -61,7 +61,7 @@ namespace bs
 			Path anchorFile = path;
 			anchorFile.setFilename("BansheeEngine" + String(DynLib::EXTENSION));
 
-			if (!FileSystem::exists(path))
+			if (!FileSystem::exists(anchorFile))
 			{
 				path = BINARIES_PATH;
 				if (!FileSystem::exists(path))

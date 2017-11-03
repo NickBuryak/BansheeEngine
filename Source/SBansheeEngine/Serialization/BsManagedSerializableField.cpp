@@ -7,7 +7,6 @@
 #include "BsMonoManager.h"
 #include "BsScriptResourceManager.h"
 #include "BsScriptGameObjectManager.h"
-#include "Wrappers/BsScriptSpriteTexture.h"
 #include "Wrappers/BsScriptManagedResource.h"
 #include "Wrappers/BsScriptSceneObject.h"
 #include "Wrappers/BsScriptComponent.h"
@@ -261,6 +260,8 @@ namespace bs
 
 				return fieldData;
 			}
+			default:
+				break;
 			}
 		}
 		else if(typeInfo->getTypeId() == TID_SerializableTypeInfoObject)
@@ -1032,7 +1033,7 @@ namespace bs
 
 	size_t ManagedSerializableFieldDataResourceRef::getHash()
 	{
-		std::hash<String> hasher;
+		std::hash<UUID> hasher;
 		return hasher(value.getUUID());
 	}
 

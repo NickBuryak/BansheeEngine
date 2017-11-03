@@ -18,16 +18,15 @@ namespace bs
 	{
 	private:
 		BS_BEGIN_RTTI_MEMBERS
-			BS_RTTI_MEMBER_PLAIN(mPosition, 0)
-			BS_RTTI_MEMBER_PLAIN(mRotation, 1)
-			BS_RTTI_MEMBER_PLAIN(mScale, 2)
+			BS_RTTI_MEMBER_REFL(mTransform, 0)
+			BS_RTTI_MEMBER_PLAIN(mActive, 1)
+			BS_RTTI_MEMBER_PLAIN(mMobility, 2)
 			BS_RTTI_MEMBER_PLAIN(mType, 3)
 			BS_RTTI_MEMBER_PLAIN(mRadius, 4)
 			BS_RTTI_MEMBER_PLAIN(mExtents, 5)
 			BS_RTTI_MEMBER_PLAIN(mTransitionDistance, 6)
 			BS_RTTI_MEMBER_REFL(mCustomTexture, 7)
-			BS_RTTI_MEMBER_PLAIN(mUUID, 8)
-			BS_RTTI_MEMBER_REFLPTR(mFilteredTexture, 9)
+			BS_RTTI_MEMBER_REFLPTR(mFilteredTexture, 8)
 		BS_END_RTTI_MEMBERS
 	public:
 		ReflectionProbeRTTI()

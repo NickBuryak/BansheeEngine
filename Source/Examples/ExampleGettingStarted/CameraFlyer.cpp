@@ -14,7 +14,7 @@ namespace bs
 	const float CameraFlyer::TOP_SPEED = 130.0f;
 	const float CameraFlyer::ACCELERATION = 10.0f;
 	const float CameraFlyer::FAST_MODE_MULTIPLIER = 2.0f;
-	const float CameraFlyer::ROTATION_SPEED = 360.0f; // Degrees/second
+	const float CameraFlyer::ROTATION_SPEED = 3.0f;
 
 	/** Wraps an angle so it always stays in [0, 360) range. */
 	Degree wrapAngle(Degree angle)
@@ -75,8 +75,8 @@ namespace bs
 		float frameDelta = gTime().getFrameDelta();
 		if (camRotating)
 		{
-			mYaw += Degree(gVirtualInput().getAxisValue(mHorizontalAxis) * ROTATION_SPEED * frameDelta);
-			mPitch += Degree(gVirtualInput().getAxisValue(mVerticalAxis) * ROTATION_SPEED * frameDelta);
+			mYaw += Degree(gVirtualInput().getAxisValue(mHorizontalAxis) * ROTATION_SPEED);
+			mPitch += Degree(gVirtualInput().getAxisValue(mVerticalAxis) * ROTATION_SPEED);
 
 			mYaw = wrapAngle(mYaw);
 			mPitch = wrapAngle(mPitch);
@@ -93,12 +93,14 @@ namespace bs
 			SO()->setRotation(camRot);
 		}
 
+		const Transform& tfrm = SO()->getTransform();
+
 		// If the movement button is pressed, determine direction to move in
 		Vector3 direction = Vector3::ZERO;
-		if (goingForward) direction += SO()->getForward();
-		if (goingBack) direction -= SO()->getForward();
-		if (goingRight) direction += SO()->getRight();
-		if (goingLeft) direction -= SO()->getRight();
+		if (goingForward) direction += tfrm.getForward();
+		if (goingBack) direction -= tfrm.getForward();
+		if (goingRight) direction += tfrm.getRight();
+		if (goingLeft) direction -= tfrm.getRight();
 
 		// If a direction is chosen, normalize it to determine final direction.
 		if (direction.squaredLength() != 0)

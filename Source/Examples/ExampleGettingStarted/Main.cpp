@@ -84,9 +84,6 @@ int CALLBACK WinMain(
 int main()
 #endif
 {
-	// Ensure all errors are reported properly
-	CrashHandler::startUp();
-
 	// Descriptor used for initializing the engine
 	START_UP_DESC startUpDesc;
 
@@ -95,7 +92,6 @@ int main()
 	startUpDesc.renderer = BS_RENDERER_MODULE;
 	startUpDesc.audio = BS_AUDIO_MODULE;
 	startUpDesc.physics = BS_PHYSICS_MODULE;
-	startUpDesc.input = BS_INPUT_MODULE;
 
 	// Descriptor used for initializing the primary application window.
 	startUpDesc.primaryWindowDesc.videoMode = VideoMode(windowResWidth, windowResHeight);
@@ -120,7 +116,6 @@ int main()
 	Application::instance().runMainLoop();
 
 	Application::shutDown();
-	CrashHandler::shutDown();
 
 	return 0;
 }
@@ -128,9 +123,9 @@ int main()
 namespace bs
 {
 	Path dataPath = Paths::getRuntimeDataPath();
-	Path exampleModelPath = dataPath + "Examples\\Dragon.fbx";
-	Path exampleTexturePath = dataPath + "Examples\\Dragon.tga";
-	Path exampleShaderPath = dataPath + "Examples\\Example.bsl";
+	Path exampleModelPath = dataPath + "Examples/Dragon.fbx";
+	Path exampleTexturePath = dataPath + "Examples/Dragon.tga";
+	Path exampleShaderPath = dataPath + "Examples/Example.bsl";
 
 	GUIButton* toggleFullscreenButton = nullptr;
 	bool fullscreen = false;
@@ -191,6 +186,9 @@ namespace bs
 
 				// Ensures we can save the mesh contents
 				importOptions->setCPUCached(true);
+
+				// Modify the mesh scale so it matches Banshee's units (meters)
+				importOptions->setImportScale(100.0f);
 			}
 
 			model = gImporter().import<Mesh>(exampleModelPath, meshImportOptions);
@@ -404,7 +402,7 @@ namespace bs
 		guiCamera->setLayers(0);
 
 		// Don't clear this camera as that would clear anything the main camera has rendered.
-		guiCamera->getViewport()->setRequiresClear(false, false, false);
+		guiCamera->getViewport()->setClearFlags(ClearFlagBits::Empty);
 
 		// Add a GUIWidget, the top-level GUI component, parent to all GUI elements. GUI widgets
 		// require you to specify a viewport that they will output rendered GUI elements to.

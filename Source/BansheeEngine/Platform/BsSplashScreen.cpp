@@ -37,7 +37,9 @@ namespace bs
 			return;
 
 		WINDOW_DESC windowDesc;
-		windowDesc.border = WindowBorder::None;
+		windowDesc.allowResize = false;
+		windowDesc.showBorder = false;
+		windowDesc.showTitleBar = false;
 		windowDesc.width = 543;
 		windowDesc.height = 680;
 		windowDesc.left = -1;
@@ -114,6 +116,7 @@ namespace bs
 		windowDesc.title = "Banshee Splash";
 		windowDesc.showDecorations = false;
 		windowDesc.allowResize = false;
+		windowDesc.hidden = false;
 
 		SPtr<PixelData> splashPixelData = BuiltinResources::getSplashScreen();
 		if (splashPixelData == nullptr)
@@ -122,9 +125,14 @@ namespace bs
 		windowDesc.background = splashPixelData;
 
 		LinuxPlatform::lockX();
-		windowDesc.screen = XDefaultScreen(LinuxPlatform::getXDisplay());
+		::Display* display = LinuxPlatform::getXDisplay();
+
+		windowDesc.screen = (UINT32)XDefaultScreen(display);
 		windowDesc.visualInfo.depth = XDefaultDepth(LinuxPlatform::getXDisplay(), windowDesc.screen);
 		windowDesc.visualInfo.visual = XDefaultVisual(LinuxPlatform::getXDisplay(), windowDesc.screen);
+
+		// Get a RGBA visual
+		XMatchVisualInfo(display, DefaultScreen(display), 32, TrueColor, &windowDesc.visualInfo);
 
 		m->window = bs_new<LinuxWindow>(windowDesc);
 		LinuxPlatform::unlockX();

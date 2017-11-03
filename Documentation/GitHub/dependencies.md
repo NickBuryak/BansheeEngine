@@ -66,18 +66,12 @@ Additionally, if the dependency structure still isn't clear, download one of the
 - Required by BansheeFreeImgImporter
 - Compile as a static library
    
-**OIS**
-- OIS 1.3
-- https://github.com/BearishSun/OIS
-- Required by BansheeOISInput
-- Compile as a dynamic library
-   
 **mono**
-- Mono 4.4.0
+- Mono 5.4
 - http://www.mono-project.com/
 - Required by BansheeMono
 - Compile as a dynamic library
- - See Mono-4.4.0-IntegrationGuide.txt for additional notes
+ - See MonoIntegrationGuide.txt for additional notes
    
 **PhysX**
 - PhysX 3.3
@@ -89,6 +83,9 @@ Additionally, if the dependency structure still isn't clear, download one of the
 - OpenAL Soft 1.17.2
 - https://github.com/kcat/openal-soft
 - Required by BansheeOpenAudio
+- **Linux only**
+ - Make sure to get audio backend libraries before compiling: PulseAudio, OSS, ALSA and JACK
+ - On Debian/Ubuntu run: *apt-get install libpulse libasound2-dev libjack-dev* 
 - Compile as a dynamic library
    
 **libogg**
@@ -114,7 +111,7 @@ Additionally, if the dependency structure still isn't clear, download one of the
   - Requires libogg, as described in its readme file.
    
 **glslang**
-- glslang commit: 19bdf90eba71390f04bb85226337517df65d73e2
+- glslang commit: 258b700f5957fc13b0512b3734a1b0e81a1c271d
 - https://github.com/KhronosGroup/glslang
 - Required by BansheeVulkanRenderAPI
 - Compile as a static library

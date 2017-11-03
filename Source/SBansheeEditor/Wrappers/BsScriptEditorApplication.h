@@ -47,6 +47,7 @@ namespace bs
 		static MonoString* internal_GetProjectName();
 		static bool internal_GetProjectLoaded();
 		static MonoString* internal_GetCompilerPath();
+		static MonoString* internal_GetMonoExecPath();
 		static MonoString* internal_GetBuiltinReleaseAssemblyPath();
 		static MonoString* internal_GetBuiltinDebugAssemblyPath();
 		static MonoString* internal_GetScriptAssemblyPath();
@@ -62,7 +63,7 @@ namespace bs
 		static void internal_UnloadProject();
 		static void internal_CreateProject(MonoString* path);
 		static void internal_ReloadAssemblies();
-		static void internal_OpenExternally(MonoString* path);
+		static void internal_OpenFolder(MonoString* path);
 		static void internal_RunUnitTests();
 		static void internal_Quit();
 		static void internal_ToggleToolbarItem(MonoString* name, bool on);

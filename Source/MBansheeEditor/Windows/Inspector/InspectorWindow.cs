@@ -2,7 +2,6 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.IO;
 using BansheeEngine;
 
@@ -149,7 +148,7 @@ namespace BansheeEditor
             inspectorResource = new InspectorResource();
             inspectorResource.panel = inspectorLayout.AddPanel();
 
-            var persistentProperties = persistentData.GetProperties(activeResource.UUID);
+            var persistentProperties = persistentData.GetProperties(activeResource.UUID.ToString());
 
             inspectorResource.inspector = InspectorUtility.GetInspector(activeResource.GetType());
             inspectorResource.inspector.Initialize(inspectorResource.panel, activeResource, persistentProperties);

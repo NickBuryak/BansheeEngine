@@ -27,6 +27,8 @@ namespace bs
 		bool showDecorations;
 		bool allowResize;
 		bool modal;
+		bool showOnTaskBar;
+		bool hidden;
 		::Window parent;
 		XVisualInfo visualInfo;
 		SPtr<PixelData> background;
@@ -69,9 +71,6 @@ namespace bs
 		/**	Restores the window to original position and size if it is minimized or maximized. */
 		void restore();
 
-		/** Closes the window. Window becomes unusable past this call. */
-		void close();
-
 		/**	Change the size of the window. */
 		void resize(UINT32 width, UINT32 height);
 
@@ -92,30 +91,27 @@ namespace bs
 		 * @{
 		 */
 
-		/** Unregisters the window from the manager. Should be called before the window is destroyed. */
-		void _cleanUp();
+		/**
+		 * Destroys the window, cleaning up any resources and removing it from the display. No further methods should be
+		 * called on this object after it has been destroyed.
+		 */
+		void _destroy();
 
 		/**
 		 * Sets a portion of the window in which the user can click and drag in order to move the window. This is needed
 		 * when window has no title bar, yet you still want to allow the user to drag it by clicking on some specific area
 		 * (e.g. a title bar you manually render).
 		 *
-		 * @param[in]	rect	Area of the window (relative to the window origin in top-left corner) in which the drag
+		 * @param[in]	rects	Areas of the window (relative to the window origin in top-left corner) in which the drag
 		 * 						operation in allowed.
 		 */
-		void _setDragZone(const Rect2I& rect);
+		void _setDragZones(const Vector<Rect2I>& rects);
 
 		/**
-		 * Notifies the window that user has started dragging the window using the custom drag zone. Provided coordinates
-		 * specify the location of the drag start. They are relative to the window top left origin.
+		 * Notifies the window that user has started dragging the window using a custom drag zone. Provided parameter is the
+		 * event that started the drag.
 		 */
-		bool _dragStart(int32_t x, int32_t y);
-
-		/**
-		 * Notifies the window that the user has moved the cursor while dragging the window. The provided coordinates are
-		 * relative to the window top left origin.
-		 */
-		void _dragUpdate(int32_t x, int32_t y);
+		void _dragStart(const XButtonEvent& event);
 
 		/** Notifies the window the user has stopped the window drag operation. */
 		void _dragEnd();
@@ -125,6 +121,12 @@ namespace bs
 
 		/** Toggles between fullscreen and windowed mode. */
 		void _setFullscreen(bool fullscreen);
+
+		/** Attaches non-specific user data that can later be retrieved through _getUserData(). */
+		void _setUserData(void* data);
+
+		/** Returns user data attached to the object when _setUserData was called. */
+		void* _getUserData() const;
 
 		/** @} */
 
@@ -147,6 +149,9 @@ namespace bs
 		 */
 		void minimize(bool enable);
 
+		/** Shows or hides the window icon from the taskbar. */
+		void showOnTaskbar(bool enable);
+
 		/**
 		 * Shows or hides window decorations. Decorations include window title bar, border and similar. Essentially anything
 		 * not part of the main rendering area.
@@ -166,4 +171,3 @@ namespace bs
 	/** @} */
 	/** @} */
 }
-

@@ -19,9 +19,9 @@
 
 namespace bs
 {
-	const String MONO_LIB_DIR = "bin\\Mono\\lib\\";
-	const String MONO_ETC_DIR = "bin\\Mono\\etc\\";
-	const String MONO_COMPILER_DIR = "bin\\Mono\\compiler\\";
+	const String MONO_LIB_DIR = "bin/Mono/lib/";
+	const String MONO_ETC_DIR = "bin/Mono/etc/";
+	const String MONO_COMPILER_DIR = "bin/Mono/compiler/";
 	const MonoVersion MONO_VERSION = MonoVersion::v4_5;
 	
 	struct MonoVersionData
@@ -32,7 +32,7 @@ namespace bs
 
 	static const MonoVersionData MONO_VERSION_DATA[1] =
 	{
-		{ MONO_LIB_DIR + "mono\\4.5", "v4.0.30319" }
+		{ MONO_LIB_DIR + "mono/4.5", "v4.0.30319" }
 	};
 
 	void monoLogCallback(const char* logDomain, const char* logLevel, const char* message, mono_bool fatal, void* userData)
@@ -102,11 +102,11 @@ namespace bs
 #if BS_DEBUG_MODE
 		mono_debug_init(MONO_DEBUG_FORMAT_MONO);
 
-		char* options[] = {
+		const char* options[] = {
 			"--soft-breakpoints",
 			"--debugger-agent=transport=dt_socket,address=127.0.0.1:17615,embedding=1,server=y,suspend=n"
 		};
-		mono_jit_parse_options(2, options);
+		mono_jit_parse_options(2, (char**)options);
 		mono_trace_set_level_string("warning"); // Note: Switch to "debug" for detailed output, disabled for now due to spam
 #else
 		mono_trace_set_level_string("warning");
@@ -139,6 +139,10 @@ namespace bs
 			mono_jit_cleanup(mRootDomain);
 			mRootDomain = nullptr;
 		}
+
+		// Make sure to explicitly clear this meta-data, as it contains structures allocated from other dynamic libraries,
+		// which will likely get unloaded right after shutdown
+		getScriptMetaData().clear();
 	}
 
 	MonoAssembly& MonoManager::loadAssembly(const WString& path, const String& name)
@@ -185,12 +189,18 @@ namespace bs
 			assembly.load(mScriptDomain);
 
 			// Fully initialize all types that use this assembly
-			Vector<ScriptMeta*>& mTypeMetas = getScriptMetaData()[assembly.mName];
-			for (auto& meta : mTypeMetas)
+			Vector<ScriptMetaInfo>& typeMetas = getScriptMetaData()[assembly.mName];
+			for (auto& entry : typeMetas)
 			{
+				ScriptMeta* meta = entry.metaData;
+				*meta = entry.localMetaData;
+
 				meta->scriptClass = assembly.getClass(meta->ns, meta->name);
 				if (meta->scriptClass == nullptr)
-					BS_EXCEPT(InvalidParametersException, "Unable to find class of type: \"" + meta->ns + "::" + meta->name + "\"");
+				{
+					BS_EXCEPT(InvalidParametersException,
+							"Unable to find class of type: \"" + meta->ns + "::" + meta->name + "\"");
+				}
 
 				if (meta->scriptClass->hasField("mCachedPtr"))
 					meta->thisPtrField = meta->scriptClass->getField("mCachedPtr");
@@ -230,10 +240,10 @@ namespace bs
 		return nullptr;
 	}
 
-	void MonoManager::registerScriptType(ScriptMeta* metaData)
+	void MonoManager::registerScriptType(ScriptMeta* metaData, const ScriptMeta& localMetaData)
 	{
-		Vector<ScriptMeta*>& mMetas = getScriptMetaData()[metaData->assembly];
-		mMetas.push_back(metaData);
+		Vector<ScriptMetaInfo>& mMetas = getScriptMetaData()[localMetaData.assembly];
+		mMetas.push_back({ metaData, localMetaData });
 	}
 
 	MonoClass* MonoManager::findClass(const String& ns, const String& typeName)
@@ -287,11 +297,11 @@ namespace bs
 			assemblyEntry.second->unload();
 
 			// Metas hold references to various assembly objects that were just deleted, so clear them
-			Vector<ScriptMeta*>& typeMetas = getScriptMetaData()[assemblyEntry.first];
+			Vector<ScriptMetaInfo>& typeMetas = getScriptMetaData()[assemblyEntry.first];
 			for (auto& entry : typeMetas)
 			{
-				entry->scriptClass = nullptr;
-				entry->thisPtrField = nullptr;
+				entry.metaData->scriptClass = nullptr;
+				entry.metaData->thisPtrField = nullptr;
 			}
 		}
 
@@ -337,13 +347,20 @@ namespace bs
 	Path MonoManager::getCompilerPath() const
 	{
 		Path compilerPath = Paths::findPath(MONO_COMPILER_DIR);
+		compilerPath.append("mcs.exe");
+		return compilerPath;
+	}
+
+	Path MonoManager::getMonoExecPath() const
+	{
+		Path path = Paths::getBinariesPath();
 
 #if BS_PLATFORM == BS_PLATFORM_WIN32
-		compilerPath.append("mcs.exe");
+		path.append("MonoExec.exe");
 #else
-		compilerPath.append("mcs");
+		path.append("MonoExec");
 #endif
 
-		return compilerPath;
+		return path;
 	}
 }

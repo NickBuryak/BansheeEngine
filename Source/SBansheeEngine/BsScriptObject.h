@@ -87,6 +87,8 @@ namespace bs
 		{
 			ScriptObject<Type, Base>::_initMetaData();
 		}
+
+		void makeSureIAmInstantiated() { }
 	};
 
 	/**	Template version of ScriptObjectBase populates the object meta-data on library load. */
@@ -96,7 +98,9 @@ namespace bs
 	public:
 		ScriptObject(MonoObject* instance)
 			:Base(instance)
-		{	
+		{
+			initOnStart.makeSureIAmInstantiated();
+
 			Type* param = (Type*)(Base*)this; // Needed due to multiple inheritance. Safe since Type must point to an class derived from this one.
 
 			if(metaData.thisPtrField != nullptr)
@@ -158,20 +162,23 @@ namespace bs
 		 */
 		static void _initMetaData()
 		{
-			metaData = ScriptMeta(Type::getAssemblyName(), Type::getNamespace(), Type::getTypeName(), &Type::initRuntimeData);
+			// Need to delay init of actual metaData since it's also a static, and we can't guarantee the order
+			// (if it gets initialized after this, it will just overwrite the data)
+			ScriptMeta localMetaData = ScriptMeta(Type::getAssemblyName(), Type::getNamespace(), Type::getTypeName(),
+					&Type::initRuntimeData);
 
-			MonoManager::registerScriptType(&metaData);
+			MonoManager::registerScriptType(&metaData, localMetaData);
 		}
 
 	protected:
 		static ScriptMeta metaData;
 
 	private:
-		static volatile InitScriptObjectOnStart<Type, Base> initOnStart;
+		static InitScriptObjectOnStart<Type, Base> initOnStart;
 	};
 
 	template <typename Type, typename Base>
-	volatile InitScriptObjectOnStart<Type, Base> ScriptObject<Type, Base>::initOnStart;
+	InitScriptObjectOnStart<Type, Base> ScriptObject<Type, Base>::initOnStart;
 
 	template <typename Type, typename Base>
 	ScriptMeta ScriptObject<Type, Base>::metaData;

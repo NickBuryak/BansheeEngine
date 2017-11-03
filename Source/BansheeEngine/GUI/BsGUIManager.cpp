@@ -1254,11 +1254,15 @@ namespace bs
 			uniqueWindows.insert(window);
 		}
 
+		RenderWindow* topMostModal = RenderWindowManager::instance().getTopMostModal();
 		for(auto& window : uniqueWindows)
 		{
 			if(Platform::isPointOverWindow(*window, pointerScreenPos))
 			{
-				windowUnderPointer = window;
+				// If there's a top most modal window, it needs to be this one, otherwise we ignore input to that window
+				if(topMostModal == nullptr || window == topMostModal)
+					windowUnderPointer = window;
+
 				break;
 			}
 		}
@@ -1266,7 +1270,6 @@ namespace bs
 		if(windowUnderPointer != nullptr)
 		{
 			Vector2I windowPos = windowUnderPointer->screenToWindowPos(pointerScreenPos);
-			Vector4 vecWindowPos((float)windowPos.x, (float)windowPos.y, 0.0f, 1.0f);
 
 			UINT32 widgetIdx = 0;
 			for(auto& widgetInfo : mWidgets)
@@ -1755,8 +1758,8 @@ namespace bs
 	{
 		Vector<GUIManager::GUICoreRenderData>& renderData = mPerCameraData[&camera];
 
-		float invViewportWidth = 1.0f / (camera.getViewport()->getWidth() * 0.5f);
-		float invViewportHeight = 1.0f / (camera.getViewport()->getHeight() * 0.5f);
+		float invViewportWidth = 1.0f / (camera.getViewport()->getPixelArea().width * 0.5f);
+		float invViewportHeight = 1.0f / (camera.getViewport()->getPixelArea().height * 0.5f);
 		float viewflipYFlip = bs::RenderAPI::getAPIInfo().isFlagSet(RenderAPIFeatureFlag::NDCYAxisDown) ? -1.0f : 1.0f;
 
 		for (auto& entry : renderData)

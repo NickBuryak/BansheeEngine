@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 #pragma once
 
+#include "Platform/BsPlatform.h"
 #include <X11/X.h>
 #include <X11/Xlib.h>
-#include "Platform/BsPlatform.h"
 
 namespace bs
 {
@@ -26,6 +26,9 @@ namespace bs
 		/** Returns the main X11 window. Caller must ensure the main window has been created. */
 		static ::Window getMainXWindow();
 
+		/** Retruns the absolute path to the user's home directory. */
+		static Path getHomeDir();
+
 		/** Locks access to the X11 system, not allowing any other thread to access it. Must be used for every X11 access. */
 		static void lockX();
 
@@ -39,14 +42,8 @@ namespace bs
 		static void _unregisterWindow(::Window xWindow);
 
 		/** Generates a X11 Pixmap from the provided pixel data. */
-		static Pixmap createPixmap(const PixelData& data);
+		static Pixmap createPixmap(const PixelData& data, UINT32 depth);
 	};
 
 	/** @} */
 }
-
-// Undefine conflicting defines from X.h
-#undef None
-#undef Success
-#undef Convex
-#undef Bool

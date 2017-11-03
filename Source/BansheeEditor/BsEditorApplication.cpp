@@ -44,13 +44,13 @@ namespace bs
 		startUpDesc.renderer = BS_RENDERER_MODULE;
 		startUpDesc.audio = BS_AUDIO_MODULE;
 		startUpDesc.physics = BS_PHYSICS_MODULE;
-		startUpDesc.input = BS_INPUT_MODULE;
 		startUpDesc.scripting = true;
 
 		startUpDesc.primaryWindowDesc.videoMode = VideoMode(1920, 1080);
 		startUpDesc.primaryWindowDesc.title = "BansheeEditor";
 		startUpDesc.primaryWindowDesc.fullscreen = false;
-		startUpDesc.primaryWindowDesc.border = WindowBorder::None;
+		startUpDesc.primaryWindowDesc.showTitleBar = false;
+		startUpDesc.primaryWindowDesc.showBorder = false;
 		startUpDesc.primaryWindowDesc.hideUntilSwap = true;
 		startUpDesc.primaryWindowDesc.depthBuffer = false;
 
@@ -145,6 +145,21 @@ namespace bs
 		loadPlugin("BansheeMono", &mMonoPlugin);
 		loadPlugin("SBansheeEngine", &mSBansheeEnginePlugin);
 		loadPlugin("SBansheeEditor", &mSBansheeEditorPlugin);
+	}
+
+	void EditorApplication::unloadScriptSystem()
+	{
+		// These plugins must be unloaded before any other script plugins, because
+		// they will cause finalizers to trigger and various modules those finalizers
+		// might reference must still be active
+		if(mSBansheeEditorPlugin != nullptr)
+			unloadPlugin(mSBansheeEditorPlugin);
+
+		if(mSBansheeEnginePlugin != nullptr)
+			unloadPlugin(mSBansheeEnginePlugin);
+
+		if(mMonoPlugin != nullptr)
+			unloadPlugin(mMonoPlugin);
 	}
 
 	void EditorApplication::startUp()

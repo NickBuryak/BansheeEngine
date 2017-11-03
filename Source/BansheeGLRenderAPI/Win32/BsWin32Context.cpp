@@ -9,21 +9,21 @@
 
 namespace bs { namespace ct
 {
-    Win32Context::Win32Context(HDC hdc, HGLRC glrc, bool ownsContext):
-		mHDC(hdc), mGlrc(glrc), mOwnsContext(ownsContext)
-    {
-    }
-    
-    Win32Context::~Win32Context()
-    {
+	Win32Context::Win32Context(HDC hdc, HGLRC glrc, bool ownsContext):
+			mHDC(hdc), mGlrc(glrc), mOwnsContext(ownsContext)
+	{
+	}
+
+	Win32Context::~Win32Context()
+	{
 		if (mOwnsContext)
 			releaseContext();
-    }
-        
-    void Win32Context::setCurrent()
-    {
-         wglMakeCurrent(mHDC, mGlrc);      
-    }
+	}
+
+	void Win32Context::setCurrent(const RenderWindow& window)
+	{
+		wglMakeCurrent(mHDC, mGlrc);
+	}
 
 	void Win32Context::endCurrent()
 	{
@@ -36,7 +36,7 @@ namespace bs { namespace ct
 		{
 			wglDeleteContext(mGlrc);
 			mGlrc = 0;
-			mHDC  = 0;
-		}		
+			mHDC = 0;
+		}
 	}
 }}

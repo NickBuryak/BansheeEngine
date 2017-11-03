@@ -195,6 +195,11 @@ namespace BansheeEditor
         /// </summary>
         internal static string CompilerPath { get { return Internal_GetCompilerPath(); } }
 
+		/// <summary>
+		/// Returns the absolute path to the executable capable of executing managed assemblies.
+        /// </summary>
+        internal static string MonoExecPath { get { return Internal_GetMonoExecPath(); } }
+
         /// <summary>
         /// Returns the path to the folder where the custom script assemblies are located at.
         /// </summary>
@@ -242,12 +247,15 @@ namespace BansheeEditor
         internal static VirtualButton DuplicateKey = new VirtualButton(DuplicateBinding);
         internal static VirtualButton DeleteKey = new VirtualButton(DeleteBinding);
 
-        private static EditorApplication instance;
         private static FolderMonitor monitor;
         private static ScriptCodeManager codeManager;
         private static bool sceneDirty;
         private static bool unitTestsExecuted;
         private static EditorPersistentData persistentData;
+
+        #pragma warning disable 0414
+        private static EditorApplication instance;
+        #pragma warning restore 0414
 
         /// <summary>
         /// Constructs a new editor application. Called at editor start-up by the runtime, and any time assembly refresh
@@ -415,7 +423,7 @@ namespace BansheeEditor
         /// </summary>
         public static void SaveScene(Action onSuccess = null, Action onFailure = null)
         {
-            if (!string.IsNullOrEmpty(Scene.ActiveSceneUUID))
+            if (!Scene.ActiveSceneUUID.IsEmpty())
             {
                 string scenePath = ProjectLibrary.GetPath(Scene.ActiveSceneUUID);
                 if (!string.IsNullOrEmpty(scenePath))
@@ -552,7 +560,7 @@ namespace BansheeEditor
                 if (EditorUtility.IsInternal(child))
                     continue;
 
-                string prefabUUID = PrefabUtility.GetPrefabUUID(child);
+                UUID prefabUUID = PrefabUtility.GetPrefabUUID(child);
                 if (prefabUUID == Scene.ActiveSceneUUID)
                     root = child;
 
@@ -645,7 +653,7 @@ namespace BansheeEditor
             // Save all dirty resources to disk
             foreach (var KVP in persistentData.dirtyResources)
             {
-                string resourceUUID = KVP.Key;
+                UUID resourceUUID = KVP.Key;
                 string path = ProjectLibrary.GetPath(resourceUUID);
                 if (!IsNative(path))
                     continue; // Imported resources can't be changed
@@ -703,12 +711,12 @@ namespace BansheeEditor
         }
 
         /// <summary>
-        /// Opens a file or a folder in the default external application.
+        /// Opens a folder in the default external application.
         /// </summary>
-        /// <param name="path">Absolute path to the file or folder to open.</param>
-        public static void OpenExternally(string path)
+        /// <param name="path">Absolute path to the folder to open.</param>
+        public static void OpenFolder(string path)
         {
-            Internal_OpenExternally(path);
+            Internal_OpenFolder(path);
         }
 
         /// <summary>
@@ -750,7 +758,7 @@ namespace BansheeEditor
             sceneDirty = dirty;
             SetStatusScene(Scene.ActiveSceneName, dirty);
 
-            if (!dirty && Scene.ActiveSceneUUID != null)
+            if (!dirty && !Scene.ActiveSceneUUID.IsEmpty())
                 persistentData.dirtyResources.Remove(Scene.ActiveSceneUUID);
         }
 
@@ -949,6 +957,13 @@ namespace BansheeEditor
             EditorSettings.Save();
 
             ProjectLibrary.Refresh();
+
+            if(monitor != null)
+            {
+                monitor.Destroy();
+                monitor = null;
+            }
+
             monitor = new FolderMonitor(ProjectLibrary.ResourceFolder);
             monitor.OnAdded += OnAssetModified;
             monitor.OnRemoved += OnAssetModified;
@@ -989,6 +1004,9 @@ namespace BansheeEditor
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern string Internal_GetCompilerPath();
+
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern string Internal_GetMonoExecPath();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern string Internal_GetBuiltinReleaseAssemblyPath();
@@ -1036,7 +1054,7 @@ namespace BansheeEditor
         private static extern void Internal_ReloadAssemblies();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_OpenExternally(string path);
+        private static extern void Internal_OpenFolder(string path);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void Internal_RunUnitTests();

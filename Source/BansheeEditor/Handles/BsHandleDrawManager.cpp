@@ -178,7 +178,8 @@ namespace bs
 			mLastFrameIdx = frameIdx;
 		}
 
-		mDrawHelper->buildMeshes(DrawHelper::SortType::BackToFront, camera->getPosition(), camera->getLayers());
+		const Transform& tfrm = camera->getTransform();
+		mDrawHelper->buildMeshes(DrawHelper::SortType::BackToFront, tfrm.getPosition(), camera->getLayers());
 
 		const Vector<DrawHelper::ShapeMeshData>& meshes = mDrawHelper->getMeshes();
 		mActiveMeshes.push_back(meshes);
@@ -321,7 +322,7 @@ namespace bs
 			float width = (float)renderTarget->getProperties().width;
 			float height = (float)renderTarget->getProperties().height;
 
-			Rect2 normArea = camera.getViewport()->getNormArea();
+			Rect2 normArea = camera.getViewport()->getArea();
 
 			Rect2I screenArea;
 			screenArea.x = (int)(normArea.x * width);
@@ -332,7 +333,7 @@ namespace bs
 			Matrix4 viewProjMat = camera.getProjectionMatrixRS() * camera.getViewMatrix();
 
 			gHandleParamBlockDef.gMatViewProj.set(mParamBuffer, viewProjMat);
-			gHandleParamBlockDef.gViewDir.set(mParamBuffer, (Vector4)camera.getForward());
+			gHandleParamBlockDef.gViewDir.set(mParamBuffer, (Vector4)camera.getTransform().getForward());
 
 			UINT32 currentType = -1;
 			for (auto& meshData : meshes)

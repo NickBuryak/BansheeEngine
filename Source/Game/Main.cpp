@@ -44,6 +44,12 @@ int CALLBACK WinMain(
 
 	return 0;
 }
+#else
+int main()
+{
+	runApplication();
+	return 0;
+}
 #endif // End BS_PLATFORM
 
 using namespace bs;
@@ -72,7 +78,6 @@ void runApplication()
 	startUpDesc.renderer = BS_RENDERER_MODULE;
 	startUpDesc.audio = BS_AUDIO_MODULE;
 	startUpDesc.physics = BS_PHYSICS_MODULE;
-	startUpDesc.input = BS_INPUT_MODULE;
 	startUpDesc.scripting = true;
 
 	startUpDesc.primaryWindowDesc.videoMode = VideoMode(resolutionWidth, resolutionHeight);

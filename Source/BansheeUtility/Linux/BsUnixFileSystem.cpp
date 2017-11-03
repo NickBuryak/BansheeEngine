@@ -122,7 +122,7 @@ namespace bs
 
 		DataStream::AccessMode accessMode = DataStream::READ;
 		if (!readOnly)
-			accessMode = (DataStream::AccessMode)(accessMode | (UINT32)DataStream::WRITE);
+			accessMode = (DataStream::AccessMode)((UINT32)accessMode | (UINT32)DataStream::WRITE);
 
 		return bs_shared_ptr_new<FileDataStream>(path, accessMode, true);
 	}
@@ -138,12 +138,12 @@ namespace bs
 
 		if (stat(path.toString().c_str(), &st_buf) == 0)
 		{
-			return st_buf.st_size;
+			return (UINT64)st_buf.st_size;
 		}
 		else
 		{
 			HANDLE_PATH_ERROR(path.toString(), errno);
-			return -1;
+			return (UINT64)-1;
 		}
 	}
 
@@ -177,6 +177,10 @@ namespace bs
 			parentPath.append(path[i]);
 			unix_createDirectory(parentPath.toString());
 		}
+
+		// Last "file" entry is also considered a directory
+		if(!parentPath.equals(path))
+			unix_createDirectory(path.toString());
 	}
 
 	void FileSystem::getChildren(const Path& dirPath, Vector<Path>& files, Vector<Path>& directories)
@@ -185,7 +189,6 @@ namespace bs
 
 		if (unix_isFile(pathStr))
 			return;
-
 
 		DIR *dp = opendir(pathStr.c_str());
 		if (dp == NULL)
@@ -223,22 +226,74 @@ namespace bs
 		char *buffer = bs_newN<char>(PATH_MAX);
 
 		String wd;
-		if (getcwd(buffer, PATH_MAX) != NULL)
+		if (getcwd(buffer, PATH_MAX) != nullptr)
 			wd = buffer;
+		else
+			LOGERR(String("Error when calling getcwd(): ") + strerror(errno));
 
 		bs_free(buffer);
-
-		const int error = errno;
-		if (error)
-			LOGERR(String("Error when calling getcwd(): ") + strerror(error));
-
 		return Path(wd);
 	}
 
 	bool FileSystem::iterate(const Path& dirPath, std::function<bool(const Path&)> fileCallback,
 		std::function<bool(const Path&)> dirCallback, bool recursive)
 	{
-		BS_ASSERT(!"TODOPORT: implement FileSystem::iterate()");
+		String pathStr = dirPath.toString();
+
+		if (unix_isFile(pathStr))
+			return false;
+
+		DIR* dirHandle = opendir(pathStr.c_str());
+		if (dirHandle == nullptr)
+		{
+			HANDLE_PATH_ERROR(pathStr, errno);
+			return false;
+		}
+
+		dirent* entry;
+		while((entry = readdir(dirHandle)))
+		{
+			String filename(entry->d_name);
+			if (filename == "." || filename == "..")
+				continue;
+
+			Path fullPath = dirPath;
+			if (unix_isDirectory(pathStr + "/" + filename))
+			{
+				Path childDir = fullPath.append(filename + "/");
+				if (dirCallback != nullptr)
+				{
+					if (!dirCallback(childDir))
+					{
+						closedir(dirHandle);
+						return false;
+					}
+				}
+
+				if (recursive)
+				{
+					if (!iterate(childDir, fileCallback, dirCallback, recursive))
+					{
+						closedir(dirHandle);
+						return false;
+					}
+				}
+			}
+			else
+			{
+				Path filePath = fullPath.append(filename);
+				if (fileCallback != nullptr)
+				{
+					if (!fileCallback(filePath))
+					{
+						closedir(dirHandle);
+						return false;
+					}
+				}
+			}
+		}
+		closedir(dirHandle);
+
 		return true;
 	}
 

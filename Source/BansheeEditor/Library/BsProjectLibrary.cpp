@@ -16,13 +16,14 @@
 #include "Resources/BsResource.h"
 #include "BsEditorApplication.h"
 #include "Material/BsShader.h"
+#include "String/BsUnicode.h"
 #include <regex>
 
 using namespace std::placeholders;
 
 namespace bs
 {
-	const Path ProjectLibrary::RESOURCES_DIR = L"Resources\\";
+	const Path ProjectLibrary::RESOURCES_DIR = L"Resources/";
 	const Path ProjectLibrary::INTERNAL_RESOURCES_DIR = PROJECT_INTERNAL_DIR + GAME_RESOURCES_FOLDER_NAME;
 	const WString ProjectLibrary::LIBRARY_ENTRIES_FILENAME = L"ProjectLibrary.asset";
 	const WString ProjectLibrary::RESOURCE_MANIFEST_FILENAME = L"ResourceManifest.asset";
@@ -298,7 +299,7 @@ namespace bs
 			auto& resourceMetas = resource->meta->getResourceMetaData();
 			for(auto& entry : resourceMetas)
 			{
-				String uuid = entry->getUUID();
+				const UUID& uuid = entry->getUUID();
 
 				Path path;
 				if (mResourceManifest->uuidToFilePath(uuid, path))
@@ -437,7 +438,7 @@ namespace bs
 				{
 					SPtr<ResourceMetaData> subMeta = entry.value->getMetaData();
 					UINT32 typeId = entry.value->getTypeId();
-					const String& UUID = entry.value.getUUID();
+					const UUID& UUID = entry.value.getUUID();
 
 					SPtr<ProjectResourceMeta> resMeta = ProjectResourceMeta::create(entry.name, UUID, typeId, subMeta);
 					fileEntry->meta->add(resMeta);
@@ -452,7 +453,7 @@ namespace bs
 					{
 						SubResource& entry = importedResources[i];
 
-						const String& UUID = entry.value.getUUID();
+						const UUID& UUID = entry.value.getUUID();
 						mUUIDToPath[UUID] = fileEntry->path + entry.name;
 					}
 				}
@@ -498,7 +499,7 @@ namespace bs
 
 							SPtr<ResourceMetaData> subMeta = resEntry.value->getMetaData();
 							UINT32 typeId = resEntry.value->getTypeId();
-							const String& UUID = importedResource.getUUID();
+							const UUID& UUID = importedResource.getUUID();
 
 							SPtr<ProjectResourceMeta> resMeta = ProjectResourceMeta::create(resEntry.name, UUID, typeId, subMeta);
 							fileEntry->meta->add(resMeta);
@@ -545,10 +546,12 @@ namespace bs
 
 				for (auto& entry : importedResources)
 				{
-					internalResourcesPath.setFilename(toWString(entry.value.getUUID()) + L".asset");
+					String uuidStr = entry.value.getUUID().toString();
+
+					internalResourcesPath.setFilename(toWString(uuidStr) + L".asset");
 					gResources().save(entry.value, internalResourcesPath, true);
 
-					String uuid = entry.value.getUUID();
+					const UUID& uuid = entry.value.getUUID();
 					mResourceManifest->registerResource(uuid, internalResourcesPath);
 				}
 			}
@@ -593,7 +596,12 @@ namespace bs
 		WString replace(L"\\\\&");
 		WString escapedPattern = std::regex_replace(pattern, escape, replace, std::regex_constants::match_default | std::regex_constants::format_sed);
 
+		// For some reason MSVC stdlib implementation requires a different pattern than stdlib one
+#if BS_PLATFORM == BS_PLATFORM_WIN32
 		std::wregex wildcard(L"\\\\\\*");
+#else
+		std::wregex wildcard(L"\\\\\\\\\\*");
+#endif
 		WString wildcardReplace(L".*");
 		WString searchPattern = std::regex_replace(escapedPattern, wildcard, L".*");
 
@@ -679,9 +687,9 @@ namespace bs
 			if (idx == numElems)
 				return current;
 
-			WString curElem;
+			String curElem;
 			if (relPath.isFile() && idx == (numElems - 1))
-				curElem = relPath.getWFilename();
+				curElem = relPath.getFilename();
 			else
 				curElem = relPath[idx];
 
@@ -691,7 +699,7 @@ namespace bs
 				current = nullptr;
 				for (auto& child : dirEntry->mChildren)
 				{
-					if (Path::comparePathElem(curElem, child->elementName))
+					if (Path::comparePathElem(curElem, UTF8::fromWide(child->elementName)))
 					{
 						idx++;
 						current = child;
@@ -765,7 +773,7 @@ namespace bs
 				DirectoryEntry* dirEntry = static_cast<DirectoryEntry*>(entry);
 				for (auto& child : dirEntry->mChildren)
 				{
-					if (Path::comparePathElem(path.getWTail(), child->elementName))
+					if (Path::comparePathElem(path.getTail(), UTF8::fromWide(child->elementName)))
 					{
 						if (child->type == LibraryEntryType::File)
 						{
@@ -796,7 +804,7 @@ namespace bs
 		}
 	}
 
-	Path ProjectLibrary::uuidToPath(const String& uuid) const
+	Path ProjectLibrary::uuidToPath(const UUID& uuid) const
 	{
 		auto iterFind = mUUIDToPath.find(uuid);
 
@@ -936,7 +944,7 @@ namespace bs
 							{
 								SPtr<ProjectResourceMeta> resMeta = resourceMetas[i];
 
-								const String& UUID = resMeta->getUUID();
+								const UUID& UUID = resMeta->getUUID();
 								mUUIDToPath[UUID] = newFullPath + resMeta->getUniqueName();
 							}
 						}
@@ -1213,7 +1221,7 @@ namespace bs
 
 		ResourceLoadFlags loadFlags = ResourceLoadFlag::Default | ResourceLoadFlag::KeepSourceData;
 
-		String resUUID = meta->getUUID();
+		const UUID& resUUID = meta->getUUID();
 		return gResources().loadFromUUID(resUUID, false, loadFlags);
 	}
 
@@ -1496,7 +1504,7 @@ namespace bs
 			Vector<Path> toDelete;
 			auto processFile = [&](const Path& file)
 			{
-				String uuid = file.getFilename(false);
+				UUID uuid = UUID(file.getFilename(false));
 				if (mUUIDToPath.find(uuid) == mUUIDToPath.end())
 				{
 					mResourceManifest->unregisterResource(uuid);

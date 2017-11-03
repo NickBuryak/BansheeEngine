@@ -15,7 +15,7 @@
 #include "BsVulkanCommandBuffer.h"
 #include "Managers/BsVulkanTextureManager.h"
 #include "Managers/BsVulkanHardwareBufferManager.h"
-#include "Renderapi/BsGpuParamDesc.h"
+#include "RenderAPI/BsGpuParamDesc.h"
 
 namespace bs { namespace ct
 {
@@ -226,7 +226,7 @@ namespace bs { namespace ct
 
 		VulkanGpuPipelineParamInfo& vkParamInfo = static_cast<VulkanGpuPipelineParamInfo&>(*mParamInfo);
 		UINT32 bindingIdx = vkParamInfo.getBindingIdx(set, slot);
-		if(bindingIdx == -1)
+		if(bindingIdx == (UINT32)-1)
 		{
 			LOGERR("Provided set/slot combination is not used by the GPU program: " + toString(set) + "," + 
 				toString(slot) + ".");
@@ -277,7 +277,7 @@ namespace bs { namespace ct
 
 		VulkanGpuPipelineParamInfo& vkParamInfo = static_cast<VulkanGpuPipelineParamInfo&>(*mParamInfo);
 		UINT32 bindingIdx = vkParamInfo.getBindingIdx(set, slot);
-		if (bindingIdx == -1)
+		if (bindingIdx == (UINT32)-1)
 		{
 			LOGERR("Provided set/slot combination is not used by the GPU program: " + toString(set) + "," +
 				   toString(slot) + ".");
@@ -309,8 +309,8 @@ namespace bs { namespace ct
 				if (surface.numMipLevels == 0)
 					actualSurface.numMipLevels = texProps.getNumMipmaps() + 1;
 				
-				if(surface.numArraySlices == 0)
-					actualSurface.numArraySlices = texProps.getNumFaces();
+				if(surface.numFaces == 0)
+					actualSurface.numFaces = texProps.getNumFaces();
 
 				perSetData.writeInfos[bindingIdx].image.imageView = imageRes->getView(actualSurface, false);
 				mPerDeviceData[i].sampledImages[sequentialIdx] = imageRes->getHandle();
@@ -338,7 +338,7 @@ namespace bs { namespace ct
 
 		VulkanGpuPipelineParamInfo& vkParamInfo = static_cast<VulkanGpuPipelineParamInfo&>(*mParamInfo);
 		UINT32 bindingIdx = vkParamInfo.getBindingIdx(set, slot);
-		if (bindingIdx == -1)
+		if (bindingIdx == (UINT32)-1)
 		{
 			LOGERR("Provided set/slot combination is not used by the GPU program: " + toString(set) + "," +
 				   toString(slot) + ".");
@@ -389,7 +389,7 @@ namespace bs { namespace ct
 
 		VulkanGpuPipelineParamInfo& vkParamInfo = static_cast<VulkanGpuPipelineParamInfo&>(*mParamInfo);
 		UINT32 bindingIdx = vkParamInfo.getBindingIdx(set, slot);
-		if (bindingIdx == -1)
+		if (bindingIdx == (UINT32)-1)
 		{
 			LOGERR("Provided set/slot combination is not used by the GPU program: " + toString(set) + "," +
 				   toString(slot) + ".");
@@ -473,7 +473,7 @@ namespace bs { namespace ct
 
 		VulkanGpuPipelineParamInfo& vkParamInfo = static_cast<VulkanGpuPipelineParamInfo&>(*mParamInfo);
 		UINT32 bindingIdx = vkParamInfo.getBindingIdx(set, slot);
-		if (bindingIdx == -1)
+		if (bindingIdx == (UINT32)-1)
 		{
 			LOGERR("Provided set/slot combination is not used by the GPU program: " + toString(set) + "," +
 				   toString(slot) + ".");

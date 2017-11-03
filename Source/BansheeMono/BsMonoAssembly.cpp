@@ -152,8 +152,9 @@ namespace bs
 
 		if(mMonoImage != nullptr && !mIsDependency)
 		{
-			// Note: I used to call mono_image_close and mono_assembly_close here but those 
-			// didn't seem to be necessary and were just crashing the program.
+			// Make sure to close the image, otherwise when we try to re-load this assembly the Mono will return the cached
+			// image
+			mono_image_close(mMonoImage);
 			mMonoImage = nullptr;
 		}
 
@@ -267,6 +268,10 @@ namespace bs
 		mCachedClassList.clear();
 		Stack<MonoClass*> todo;
 
+		MonoAssembly* corlib = MonoManager::instance().getAssembly("corlib");
+		MonoClass* compilerGeneratedAttrib = corlib->getClass("System.Runtime.CompilerServices",
+				"CompilerGeneratedAttribute");
+
 		int numRows = mono_image_get_table_rows (mMonoImage, MONO_TABLE_TYPEDEF);
 
 		for(int i = 1; i < numRows; i++) // Skip Module
@@ -278,9 +283,12 @@ namespace bs
 			MonoUtil::getClassName(monoClass, ns, type);
 
 			MonoClass* curClass = getClass(ns, type);
-
 			if (curClass != nullptr)
 			{
+				// Skip compiler generates classes
+				if(curClass->hasAttribute(compilerGeneratedAttrib))
+					continue;
+
 				// Get nested types if it has any
 				todo.push(curClass);
 				while (!todo.empty())
@@ -300,6 +308,10 @@ namespace bs
 						MonoClass* nestedClass = getClass(ns, nestedType, rawNestedClass);
 						if (nestedClass != nullptr)
 						{
+							// Skip compiler generated classes
+							if(nestedClass->hasAttribute(compilerGeneratedAttrib))
+								continue;
+
 							mCachedClassList.push_back(nestedClass);
 							todo.push(nestedClass);
 						}

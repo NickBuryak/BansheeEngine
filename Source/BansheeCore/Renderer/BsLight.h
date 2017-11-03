@@ -9,6 +9,7 @@
 #include "Image/BsColor.h"
 #include "Math/BsSphere.h"
 #include "CoreThread/BsCoreObject.h"
+#include "Scene/BsSceneActor.h"
 
 namespace bs
 {
@@ -17,21 +18,13 @@ namespace bs
 	 */
 
 	/** Light type that determines how is light information parsed by the renderer and other systems. */
-	enum class LightType
+	enum BS_SCRIPT_EXPORT(m:Rendering) class LightType
 	{
 		Directional, 
 		Radial, 
 		Spot,
 
-		Count // Keep at end
-	};
-
-	/**	Signals which portion of a light is dirty. */
-	enum class LightDirtyFlag
-	{
-		Transform = 0x01,
-		Everything = 0x02,
-		Mobility = 0x04
+		Count			BS_SCRIPT_EXPORT(ex:true) // Keep at end
 	};
 
 	/** @} */
@@ -41,7 +34,7 @@ namespace bs
 	 */
 
 	/** Base class for both sim and core thread Light implementations. */
-	class BS_CORE_EXPORT LightBase
+	class BS_CORE_EXPORT LightBase : public SceneActor
 	{
 	public:
 		LightBase();
@@ -50,31 +43,17 @@ namespace bs
 
 		virtual ~LightBase() { }
 
-		/**	Returns the position of the light, in world space. */
-		Vector3 getPosition() const { return mPosition; }
-
-		/**	Sets the position of the light, in world space. */
-		void setPosition(const Vector3& position) 
-			{ mPosition = position; _markCoreDirty(LightDirtyFlag::Transform); updateBounds(); }
-
-		/**	Returns the rotation of the light, in world space. */
-		Quaternion getRotation() const { return mRotation; }
-
-		/**	Sets the rotation of the light, in world space. */
-		void setRotation(const Quaternion& rotation) 
-			{ mRotation = rotation; _markCoreDirty(LightDirtyFlag::Transform); updateBounds(); }
-
-		/**	Returns the type of the light. */
+		/**	Determines the type of the light. */
 		LightType getType() const { return mType; }
 
-		/**	Changes the type of the light. */
+		/** @copydoc getType() */
 		void setType(LightType type) { mType = type; _markCoreDirty(); updateBounds(); }
 
-		/**	Checks does this light cast shadows when rendered. */
-		bool getCastsShadow() const { return mCastsShadows; }
-
-		/**	Sets whether this light will cast shadows when rendered. */
+		/**	Determines does this light cast shadows when rendered. */
 		void setCastsShadow(bool castsShadow) { mCastsShadows = castsShadow; _markCoreDirty(); }
+
+		/** @copydoc setCastsShadow */
+		bool getCastsShadow() const { return mCastsShadows; }
 
 		/** 
 		 * Shadow bias determines shadow accuracy. Low bias values mean that shadows start closer near their caster surface
@@ -88,14 +67,11 @@ namespace bs
 		/** @copydoc setShadowBias() */
 		float getShadowBias() const { return mShadowBias; }
 
-		/**	Returns the color emitted from the light. */
-		Color getColor() const { return mColor; }
-
-		/**	Sets the color emitted from the light. */
+		/** Determines the color emitted by the light. */
 		void setColor(const Color& color) { mColor = color; _markCoreDirty(); }
 
-		/**	@see setAttenuationRadius */
-		float getAttenuationRadius() const { return mAttRadius; }
+		/** @copydoc setColor() */
+		Color getColor() const { return mColor; }
 
 		/**
 		 * Range at which the light contribution fades out to zero. Use setUseAutoAttenuation to provide a radius
@@ -104,8 +80,8 @@ namespace bs
 		 */
 		void setAttenuationRadius(float radius);
 
-		/**	@see setSourceRadius */
-		float getSourceRadius() const { return mSourceRadius; }
+		/**	@copydoc setAttenuationRadius */
+		float getAttenuationRadius() const { return mAttRadius; }
 
 		/**
 		 * Radius of the light source. If non-zero then this light represents an area light, otherwise it is a punctual
@@ -120,8 +96,8 @@ namespace bs
 		 */
 		void setSourceRadius(float radius);
 
-		/** @see setUseAutoAttenuation */
-		bool getUseAutoAttenuation() const { return mAutoAttenuation; }
+		/**	@copydoc setSourceRadius */
+		float getSourceRadius() const { return mSourceRadius; }
 
 		/** 
 		 * If enabled the attenuation radius will automatically be controlled in order to provide reasonable light radius, 
@@ -129,8 +105,8 @@ namespace bs
 		 */
 		void setUseAutoAttenuation(bool enabled);
 
-		/** @see setIntensity */
-		float getIntensity() const { return mIntensity; }
+		/** @copydoc setUseAutoAttenuation */
+		bool getUseAutoAttenuation() const { return mAutoAttenuation; }
 
 		/**
 		 * Determines the power of the light source. This will be luminous flux for radial & spot lights, 
@@ -139,24 +115,24 @@ namespace bs
 		 */
 		void setIntensity(float intensity);
 
-		/**	Gets the total angle covered by a spot light. */
-		Degree getSpotAngle() const { return mSpotAngle; }
+		/** @copydoc setIntensity */
+		float getIntensity() const { return mIntensity; }
 
-		/**	Sets the total angle covered by a spot light. */
+		/**	Determines the total angle covered by a spot light. */
 		void setSpotAngle(const Degree& spotAngle) { mSpotAngle = spotAngle; _markCoreDirty(); updateBounds(); }
 
-		/**
-		 * Gets the falloff angle covered by a spot light. Falloff angle determines at what point does light intensity 
-		 * starts quadratically falling off as the angle approaches the total spot angle.
-		 */
-		Degree getSpotFalloffAngle() const { return mSpotFalloffAngle; }
+		/** @copydoc setSpotAngle */
+		Degree getSpotAngle() const { return mSpotAngle; }
 
 		/**
-		 * Sets the falloff angle covered by a spot light. Falloff angle determines at what point does light intensity 
+		 * Determines the falloff angle covered by a spot light. Falloff angle determines at what point does light intensity 
 		 * starts quadratically falling off as the angle approaches the total spot angle.
 		 */
 		void setSpotFalloffAngle(const Degree& spotFallofAngle) 
 		{ mSpotFalloffAngle = spotFallofAngle; _markCoreDirty(); updateBounds(); }
+
+		/** @copydoc setSpotFalloffAngle */
+		Degree getSpotFalloffAngle() const { return mSpotFalloffAngle; }
 
 		/**	Returns world space bounds that completely encompass the light's area of influence. */
 		Sphere getBounds() const { return mBounds; }
@@ -170,40 +146,12 @@ namespace bs
 		 */
 		float getLuminance() const;
 
-		/**	Checks whether the light should be rendered or not. */
-		bool getIsActive() const { return mIsActive; }
-
-		/**	Sets whether the light should be rendered or not. */
-		void setIsActive(bool active) { mIsActive = active; _markCoreDirty(); }
-
-		/**
-		 * Sets the mobility of a scene object. This is used primarily as a performance hint to engine systems. Objects
-		 * with more restricted mobility will result in higher performance. Some mobility constraints will be enforced by
-		 * the engine itself, while for others the caller must be sure not to break the promise he made when mobility was
-		 * set. By default scene object's mobility is unrestricted.
-		 */
-		void setMobility(ObjectMobility mobility);
-
-		/** 
-		 * Gets the mobility setting for this scene object. See setMobility(); 
-		 */
-		ObjectMobility getMobility() const { return mMobility; }
-
-		/** 
-		 * Marks the simulation thread object as dirty and notifies the system its data should be synced with its core 
-		 * thread counterpart. 
-		 */
-		virtual void _markCoreDirty(LightDirtyFlag flag = LightDirtyFlag::Everything) { }
-
 	protected:
 		/** Updates the internal bounds for the light. Call this whenever a property affecting the bounds changes. */
 		void updateBounds();
 
 		/** Calculates maximum light range based on light intensity. */
 		void updateAttenuationRange();
-
-		Vector3 mPosition; /**< World space position. */
-		Quaternion mRotation; /**< World space rotation. */
 
 		LightType mType; /**< Type of light that determines how are the rest of the parameters interpreted. */
 		bool mCastsShadows; /**< Determines whether the light casts shadows. */
@@ -213,10 +161,8 @@ namespace bs
 		float mIntensity; /**< Power of the light source. @see setIntensity. */
 		Degree mSpotAngle; /**< Total angle covered by a spot light. */
 		Degree mSpotFalloffAngle; /**< Spot light angle at which falloff starts. Must be smaller than total angle. */
-		bool mIsActive; /**< Whether the light should be rendered or not. */
 		Sphere mBounds; /**< Sphere that bounds the light area of influence. */
 		bool mAutoAttenuation; /**< Determines is attenuation radius is automatically determined. */
-		ObjectMobility mMobility; /**< Determines if there are any restrictions placed on light movement. */
 		float mShadowBias; /**< See setShadowBias() */
 	};
 
@@ -227,26 +173,12 @@ namespace bs
 
 	namespace ct { class Light; }
 
-	/** Illuminates a portion of the scene covered by a light. */
+	/** Illuminates a portion of the scene covered by the light. */
 	class BS_CORE_EXPORT Light : public IReflectable, public CoreObject, public LightBase
 	{
 	public:
 		/**	Retrieves an implementation of the light usable only from the core thread. */
 		SPtr<ct::Light> getCore() const;
-
-		/** Returns the hash value that can be used to identify if the internal data needs an update. */
-		UINT32 _getLastModifiedHash() const { return mLastUpdateHash; }
-
-		/**	Sets the hash value that can be used to identify if the internal data needs an update. */
-		void _setLastModifiedHash(UINT32 hash) { mLastUpdateHash = hash; }
-
-		/**
-		 * Updates internal transform values from the specified scene object, in case that scene object's transform changed
-		 * since the last call.
-		 *
-		 * @note	Assumes the same scene object will be provided every time.
-		 */
-		void _updateTransform(const HSceneObject& parent);
 
 		/**
 		 * Creates a new light with provided settings.
@@ -273,15 +205,13 @@ namespace bs
 		SPtr<ct::CoreObject> createCore() const override;
 
 		/** @copydoc LightBase::_markCoreDirty */
-		void _markCoreDirty(LightDirtyFlag flag = LightDirtyFlag::Everything) override;
+		void _markCoreDirty(ActorDirtyFlag flag = ActorDirtyFlag::Everything) override;
 
 		/** @copydoc CoreObject::syncToCore */
 		CoreSyncData syncToCore(FrameAlloc* allocator) override;
 
 		/**	Creates a light with without initializing it. Used for serialization. */
 		static SPtr<Light> createEmpty();
-
-		UINT32 mLastUpdateHash;
 
 		/************************************************************************/
 		/* 								RTTI		                     		*/

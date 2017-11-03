@@ -6,14 +6,15 @@
 
 namespace bs { namespace ct
 {
-		typedef int(*ErrorHandlerProc)(::Display*, XErrorEvent*);
-		int contextErrorHandler(::Display* display, XErrorEvent* error)
-		{
-			// Do nothing
-		}
+	typedef int(*ErrorHandlerProc)(::Display*, XErrorEvent*);
+	int contextErrorHandler(::Display* display, XErrorEvent* error)
+	{
+		// Do nothing
+		return 0;
+	}
 
-		LinuxContext::LinuxContext(::Display* display, XVisualInfo& visualInfo)
-		: mDisplay(display), mContext(None)
+	LinuxContext::LinuxContext(::Display* display, XVisualInfo& visualInfo)
+	: mDisplay(display), mCurrentWindow(0), mContext(0)
 	{
 		LinuxPlatform::lockX();
 
@@ -52,13 +53,13 @@ namespace bs { namespace ct
 			if(windowConfig)
 			{
 				int32_t attributes[] =
-						{
-								GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
-								GLX_CONTEXT_MINOR_VERSION_ARB, 5,
-								0, 0, // Core profile
-								0, 0, // Debug flags
-								0 // Terminator
-						};
+				{
+					GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
+					GLX_CONTEXT_MINOR_VERSION_ARB, 5,
+					0, 0, // Core profile
+					0, 0, // Debug flags
+					0 // Terminator
+				};
 
 				if(extGLX_ARB_create_context_profile)
 				{
@@ -96,17 +97,19 @@ namespace bs { namespace ct
 		releaseContext();
 	}
 
-	void LinuxContext::setCurrent()
+	void LinuxContext::setCurrent(const RenderWindow& window)
 	{
+		window.getCustomAttribute("WINDOW", &mCurrentWindow);
+
 		LinuxPlatform::lockX();
-		glXMakeCurrent(mDisplay, LinuxPlatform::getMainXWindow(), mContext);
+		glXMakeCurrent(mDisplay, mCurrentWindow, mContext);
 		LinuxPlatform::unlockX();
 	}
 
 	void LinuxContext::endCurrent()
 	{
 		LinuxPlatform::lockX();
-		glXMakeCurrent(mDisplay, None, None);
+		glXMakeCurrent(mDisplay, 0, 0);
 		LinuxPlatform::unlockX();
 	}
 
@@ -117,7 +120,7 @@ namespace bs { namespace ct
 			LinuxPlatform::lockX();
 
 			glXDestroyContext(mDisplay, mContext);
-			mContext = None;
+			mContext = 0;
 
 			LinuxPlatform::unlockX();
 		}

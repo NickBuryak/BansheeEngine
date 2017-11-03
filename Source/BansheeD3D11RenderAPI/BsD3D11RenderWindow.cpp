@@ -99,6 +99,7 @@ namespace bs
 		}
 
 		destroySizeDependedD3DResources();
+		Platform::resetNonClientAreas(*this);
 	}
 
 	void D3D11RenderWindow::initialize()
@@ -111,15 +112,17 @@ namespace bs
 		mMultisampleType.Quality = 0;
 
 		WINDOW_DESC windowDesc;
-		windowDesc.border = mDesc.border;
-		windowDesc.enableDoubleClick = mDesc.enableDoubleClick;
+		windowDesc.showTitleBar = mDesc.showTitleBar;
+		windowDesc.showBorder = mDesc.showBorder;
+		windowDesc.allowResize = mDesc.allowResize;
+		windowDesc.enableDoubleClick = true;
 		windowDesc.fullscreen = mDesc.fullscreen;
 		windowDesc.width = mDesc.videoMode.getWidth();
 		windowDesc.height = mDesc.videoMode.getHeight();
 		windowDesc.hidden = mDesc.hidden || mDesc.hideUntilSwap;
 		windowDesc.left = mDesc.left;
 		windowDesc.top = mDesc.top;
-		windowDesc.outerDimensions = mDesc.outerDimensions;
+		windowDesc.outerDimensions = false;
 		windowDesc.title = mDesc.title;
 		windowDesc.toolWindow = mDesc.toolWindow;
 		windowDesc.creationParams = this;
@@ -445,6 +448,20 @@ namespace bs
 
 		bs::RenderWindowManager::instance().notifySyncDataDirty(this);
 		bs::RenderWindowManager::instance().notifyMovedOrResized(this);
+	}
+
+	void D3D11RenderWindow::setVSync(bool enabled, UINT32 interval)
+	{
+		mProperties.vsync = enabled;
+		mProperties.vsyncInterval = interval;
+
+		{
+			ScopedSpinLock lock(mLock);
+			mSyncedProperties.vsync = enabled;
+			mSyncedProperties.vsyncInterval = interval;
+		}
+
+		bs::RenderWindowManager::instance().notifySyncDataDirty(this);
 	}
 
 	HWND D3D11RenderWindow::_getWindowHandle() const
