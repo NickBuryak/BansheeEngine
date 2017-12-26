@@ -5,6 +5,7 @@
 #include "Material/BsGpuParamsSet.h"
 #include "Renderer/BsRendererUtility.h"
 #include "RenderAPI/BsGpuBuffer.h"
+#include "BsRenderBeast.h"
 
 namespace bs { namespace ct
 {
@@ -14,8 +15,9 @@ namespace bs { namespace ct
 	{
 		mParamBuffer = gReflectionCubeDownsampleParamDef.createBuffer();
 
-		mParamsSet->setParamBlockBuffer("Input", mParamBuffer);
-		mParamsSet->getGpuParams()->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
+		SPtr<GpuParams> gpuParams = mParamsSet->getGpuParams();
+		gpuParams->setParamBlockBuffer("Input", mParamBuffer);
+		gpuParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
 	}
 
 	void ReflectionCubeDownsampleMat::_initVariations(ShaderVariations& variations)
@@ -23,13 +25,28 @@ namespace bs { namespace ct
 		// Do nothing
 	}
 
-	void ReflectionCubeDownsampleMat::execute(const SPtr<Texture>& source, UINT32 face, const TextureSurface& surface, 
-											 const SPtr<RenderTarget>& target)
+	void ReflectionCubeDownsampleMat::execute(
+		const SPtr<Texture>& source,
+		UINT32 face,
+		UINT32 mip,
+		const SPtr<RenderTarget>& target)
 	{
-		mInputTexture.set(source, surface);
+		RenderAPI& rapi = RenderAPI::instance();
+		const RenderAPIInfo& rapiInfo = rapi.getAPIInfo();
+
 		gReflectionCubeDownsampleParamDef.gCubeFace.set(mParamBuffer, face);
 
-		RenderAPI& rapi = RenderAPI::instance();
+		if(rapiInfo.isFlagSet(RenderAPIFeatureFlag::TextureViews))
+		{
+			mInputTexture.set(source, TextureSurface(mip, 1, 0, 6));
+			gReflectionCubeDownsampleParamDef.gMipLevel.set(mParamBuffer, 0);
+		}
+		else
+		{
+			mInputTexture.set(source);
+			gReflectionCubeDownsampleParamDef.gMipLevel.set(mParamBuffer, mip);
+		}
+
 		rapi.setRenderTarget(target);
 
 		gRendererUtility().setPass(mMaterial);
@@ -44,8 +61,9 @@ namespace bs { namespace ct
 	{
 		mParamBuffer = gReflectionCubeImportanceSampleParamDef.createBuffer();
 
-		mParamsSet->setParamBlockBuffer("Input", mParamBuffer);
-		mParamsSet->getGpuParams()->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
+		SPtr<GpuParams> gpuParams = mParamsSet->getGpuParams();
+		gpuParams->setParamBlockBuffer("Input", mParamBuffer);
+		gpuParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
 	}
 
 	void ReflectionCubeImportanceSampleMat::_initVariations(ShaderVariations& variations)
@@ -108,9 +126,8 @@ namespace bs { namespace ct
 	{
 		mParamBuffer = gIrradianceComputeSHParamDef.createBuffer();
 
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer);
-
 		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		params->setParamBlockBuffer("Params", mParamBuffer);
 		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gInputTex", mInputTexture);
 		params->getBufferParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputBuffer);
 	}
@@ -179,6 +196,154 @@ namespace bs { namespace ct
 		return get(VAR_Order5);
 	}
 
+	IrradianceComputeSHFragParamDef gIrradianceComputeSHFragParamDef;
+
+	IrradianceComputeSHFragMat::IrradianceComputeSHFragMat()
+	{
+		mParamBuffer = gIrradianceComputeSHFragParamDef.createBuffer();
+
+		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		params->setParamBlockBuffer("Params", mParamBuffer);
+		params->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
+	}
+
+	void IrradianceComputeSHFragMat::_initVariations(ShaderVariations& variations)
+	{
+		// Do nothing
+	}
+
+	void IrradianceComputeSHFragMat::execute(const SPtr<Texture>& source, UINT32 face, UINT32 coefficientIdx, 
+		const SPtr<RenderTarget>& output)
+	{
+		// Set parameters
+		mInputTexture.set(source);
+
+		gIrradianceComputeSHFragParamDef.gCubeFace.set(mParamBuffer, face);
+		gIrradianceComputeSHFragParamDef.gFaceSize.set(mParamBuffer, source->getProperties().getWidth());
+		gIrradianceComputeSHFragParamDef.gCoeffIdx.set(mParamBuffer, coefficientIdx);
+
+		// Render
+		RenderAPI& rapi = RenderAPI::instance();
+		rapi.setRenderTarget(output);
+
+		gRendererUtility().setPass(mMaterial);
+		gRendererUtility().setPassParams(mParamsSet);
+		gRendererUtility().drawScreenQuad();
+
+		rapi.setRenderTarget(nullptr);
+	}
+
+	POOLED_RENDER_TEXTURE_DESC IrradianceComputeSHFragMat::getOutputDesc(const SPtr<Texture>& input)
+	{
+		auto& props = input->getProperties();
+		return POOLED_RENDER_TEXTURE_DESC::createCube(PF_RGBA16F, props.getWidth(), props.getHeight(), TU_RENDERTARGET);
+	}
+
+	IrradianceAccumulateSHParamDef gIrradianceAccumulateSHParamDef;
+
+	IrradianceAccumulateSHMat::IrradianceAccumulateSHMat()
+	{
+		mParamBuffer = gIrradianceAccumulateSHParamDef.createBuffer();
+
+		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		params->setParamBlockBuffer("Params", mParamBuffer);
+		params->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
+	}
+
+	void IrradianceAccumulateSHMat::_initVariations(ShaderVariations& variations)
+	{
+		// Do nothing
+	}
+
+	void IrradianceAccumulateSHMat::execute(const SPtr<Texture>& source, UINT32 face, UINT32 sourceMip, 
+		const SPtr<RenderTarget>& output)
+	{
+		// Set parameters
+		mInputTexture.set(source);
+
+		auto& props = source->getProperties();
+		Vector2 halfPixel(0.5f / props.getWidth(), 0.5f / props.getHeight());
+
+		gIrradianceAccumulateSHParamDef.gCubeFace.set(mParamBuffer, face);
+		gIrradianceAccumulateSHParamDef.gCubeMip.set(mParamBuffer, sourceMip);
+		gIrradianceAccumulateSHParamDef.gHalfPixel.set(mParamBuffer, halfPixel);
+
+		// Render
+		RenderAPI& rapi = RenderAPI::instance();
+		rapi.setRenderTarget(output);
+
+		gRendererUtility().setPass(mMaterial);
+		gRendererUtility().setPassParams(mParamsSet);
+		gRendererUtility().drawScreenQuad();
+
+		rapi.setRenderTarget(nullptr);
+	}
+
+	POOLED_RENDER_TEXTURE_DESC IrradianceAccumulateSHMat::getOutputDesc(const SPtr<Texture>& input)
+	{
+		auto& props = input->getProperties();
+
+		// Assuming it's a cubemap
+		UINT32 size = std::max(1U, (UINT32)(props.getWidth() * 0.5f));
+
+		return POOLED_RENDER_TEXTURE_DESC::createCube(PF_RGBA16F, size, size, TU_RENDERTARGET);
+	}
+
+	IrradianceAccumulateCubeSHMat::IrradianceAccumulateCubeSHMat()
+	{
+		mParamBuffer = gIrradianceAccumulateSHParamDef.createBuffer();
+
+		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		params->setParamBlockBuffer("Params", mParamBuffer);
+		params->getTextureParam(GPT_FRAGMENT_PROGRAM, "gInputTex", mInputTexture);
+	}
+
+	void IrradianceAccumulateCubeSHMat::_initVariations(ShaderVariations& variations)
+	{
+		// Do nothing
+	}
+
+	void IrradianceAccumulateCubeSHMat::execute(const SPtr<Texture>& source, UINT32 sourceMip, const Vector2I& outputOffset,
+		UINT32 coefficientIdx, const SPtr<RenderTarget>& output)
+	{
+		// Set parameters
+		mInputTexture.set(source);
+
+		auto& props = source->getProperties();
+		Vector2 halfPixel(0.5f / props.getWidth(), 0.5f / props.getHeight());
+
+		gIrradianceAccumulateSHParamDef.gCubeFace.set(mParamBuffer, 0);
+		gIrradianceAccumulateSHParamDef.gCubeMip.set(mParamBuffer, sourceMip);
+		gIrradianceAccumulateSHParamDef.gHalfPixel.set(mParamBuffer, halfPixel);
+
+		auto& rtProps = output->getProperties();
+
+		// Render to just one pixel corresponding to the coefficient
+		Rect2 viewRect;
+		viewRect.x = (outputOffset.x + coefficientIdx) / (float)rtProps.width;
+		viewRect.y = outputOffset.y / (float)rtProps.height;
+
+		viewRect.width = 1.0f / rtProps.width;
+		viewRect.height = 1.0f / rtProps.height;
+
+		// Render
+		RenderAPI& rapi = RenderAPI::instance();
+		rapi.setRenderTarget(output);
+		rapi.setViewport(viewRect);
+
+		gRendererUtility().setPass(mMaterial);
+		gRendererUtility().setPassParams(mParamsSet);
+		gRendererUtility().drawScreenQuad();
+
+		rapi.setRenderTarget(nullptr);
+		rapi.setViewport(Rect2(0, 0, 1, 1));
+	}
+
+	POOLED_RENDER_TEXTURE_DESC IrradianceAccumulateCubeSHMat::getOutputDesc()
+	{
+		return POOLED_RENDER_TEXTURE_DESC::create2D(PF_RGBA32F, 9, 1, TU_RENDERTARGET);
+	}
+
 	IrradianceReduceSHParamDef gIrradianceReduceSHParamDef;
 
 	ShaderVariation IrradianceReduceSHMat::VAR_Order3 = ShaderVariation({
@@ -193,11 +358,10 @@ namespace bs { namespace ct
 	{
 		mParamBuffer = gIrradianceReduceSHParamDef.createBuffer();
 
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer);
-
 		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		params->setParamBlockBuffer("Params", mParamBuffer);
 		params->getBufferParam(GPT_COMPUTE_PROGRAM, "gInput", mInputBuffer);
-		params->getBufferParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputBuffer);
+		params->getLoadStoreTextureParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputTexture);
 	}
 
 	void IrradianceReduceSHMat::_initVariations(ShaderVariations& variations)
@@ -207,13 +371,16 @@ namespace bs { namespace ct
 	}
 
 	void IrradianceReduceSHMat::execute(const SPtr<GpuBuffer>& source, UINT32 numCoeffSets, 
-		const SPtr<GpuBuffer>& output, UINT32 outputIdx)
+		const SPtr<Texture>& output, UINT32 outputIdx)
 	{
+		UINT32 shOrder = (UINT32)mVariation.getInt("SH_ORDER");
+
+		Vector2I outputCoords = IBLUtility::getSHCoeffXYFromIdx(outputIdx, shOrder);
+		gIrradianceReduceSHParamDef.gOutputIdx.set(mParamBuffer, outputCoords);
 		gIrradianceReduceSHParamDef.gNumEntries.set(mParamBuffer, numCoeffSets);
-		gIrradianceReduceSHParamDef.gOutputIdx.set(mParamBuffer, outputIdx);
 
 		mInputBuffer.set(source);
-		mOutputBuffer.set(output);
+		mOutputTexture.set(output);
 
 		RenderAPI& rapi = RenderAPI::instance();
 
@@ -222,20 +389,18 @@ namespace bs { namespace ct
 		rapi.dispatchCompute(1);
 	}
 
-	SPtr<GpuBuffer> IrradianceReduceSHMat::createOutputBuffer(UINT32 numEntries)
+	SPtr<Texture> IrradianceReduceSHMat::createOutputTexture(UINT32 numCoeffSets)
 	{
-		GPU_BUFFER_DESC bufferDesc;
-		bufferDesc.type = GBT_STRUCTURED;
-		bufferDesc.elementCount = numEntries;
-		bufferDesc.format = BF_UNKNOWN;
-		bufferDesc.randomGpuWrite = true;
+		UINT32 shOrder = (UINT32)mVariation.getInt("SH_ORDER");
+		Vector2I size = IBLUtility::getSHCoeffTextureSize(numCoeffSets, shOrder);
 
-		if(mVariation.getInt("SH_ORDER") == 3)
-			bufferDesc.elementSize = sizeof(SHVector3RGB);
-		else
-			bufferDesc.elementSize = sizeof(SHVector5RGB);
+		TEXTURE_DESC textureDesc;
+		textureDesc.width = (UINT32)size.x;
+		textureDesc.height = (UINT32)size.y;
+		textureDesc.format = PF_RGBA32F;
+		textureDesc.usage = TU_STATIC | TU_LOADSTORE;
 
-		return GpuBuffer::create(bufferDesc);
+		return Texture::create(textureDesc);
 	}
 
 	IrradianceReduceSHMat* IrradianceReduceSHMat::getVariation(int order)
@@ -252,10 +417,9 @@ namespace bs { namespace ct
 	{
 		mParamBuffer = gIrradianceProjectSHParamDef.createBuffer();
 
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer);
-
 		SPtr<GpuParams> params = mParamsSet->getGpuParams();
-		params->getBufferParam(GPT_FRAGMENT_PROGRAM, "gSHCoeffs", mInputBuffer);
+		params->setParamBlockBuffer("Params", mParamBuffer);
+		params->getTextureParam(GPT_FRAGMENT_PROGRAM, "gSHCoeffs", mInputTexture);
 	}
 
 	void IrradianceProjectSHMat::_initVariations(ShaderVariations& variations)
@@ -263,11 +427,11 @@ namespace bs { namespace ct
 		// Do nothing
 	}
 
-	void IrradianceProjectSHMat::execute(const SPtr<GpuBuffer>& shCoeffs, UINT32 face, const SPtr<RenderTarget>& target)
+	void IrradianceProjectSHMat::execute(const SPtr<Texture>& shCoeffs, UINT32 face, const SPtr<RenderTarget>& target)
 	{
 		gIrradianceProjectSHParamDef.gCubeFace.set(mParamBuffer, face);
 
-		mInputBuffer.set(shCoeffs);
+		mInputTexture.set(shCoeffs);
 
 		RenderAPI& rapi = RenderAPI::instance();
 		rapi.setRenderTarget(target);
@@ -308,7 +472,13 @@ namespace bs { namespace ct
 
 		// Copy base mip level to scratch cubemap
 		for (UINT32 face = 0; face < 6; face++)
-			cubemap->copy(scratchCubemap, face, 0, face, 0);
+		{
+			TEXTURE_COPY_DESC copyDesc;
+			copyDesc.srcFace = face;
+			copyDesc.dstFace = face;
+
+			cubemap->copy(scratchCubemap, copyDesc);
+		}
 
 		// Fill out remaining scratch mip levels by downsampling
 		for (UINT32 mip = 1; mip < numMips; mip++)
@@ -339,20 +509,37 @@ namespace bs { namespace ct
 		rapi.setRenderTarget(nullptr);
 	}
 
+	bool supportsComputeSH()
+	{
+		return gRenderBeast()->getFeatureSet() == RenderBeastFeatureSet::Desktop;
+	}
+
 	void RenderBeastIBLUtility::filterCubemapForIrradiance(const SPtr<Texture>& cubemap, const SPtr<Texture>& output) const
 	{
-		IrradianceComputeSHMat* shCompute = IrradianceComputeSHMat::getVariation(5);
-		IrradianceReduceSHMat* shReduce = IrradianceReduceSHMat::getVariation(5);
+		SPtr<Texture> coeffTexture;
+		if(supportsComputeSH())
+		{
+			IrradianceComputeSHMat* shCompute = IrradianceComputeSHMat::getVariation(5);
+			IrradianceReduceSHMat* shReduce = IrradianceReduceSHMat::getVariation(5);
+
+			UINT32 numCoeffSets;
+			SPtr<GpuBuffer> coeffSetBuffer = shCompute->createOutputBuffer(cubemap, numCoeffSets);
+			for (UINT32 face = 0; face < 6; face++)
+				shCompute->execute(cubemap, face, coeffSetBuffer);
+
+			coeffTexture = shReduce->createOutputTexture(1);
+			shReduce->execute(coeffSetBuffer, numCoeffSets, coeffTexture, 0);
+		}
+		else
+		{
+			GpuResourcePool& resPool = GpuResourcePool::instance();
+			SPtr<PooledRenderTexture> finalCoeffs = resPool.get(IrradianceAccumulateCubeSHMat::getOutputDesc());
+
+			filterCubemapForIrradianceNonCompute(cubemap, 0, finalCoeffs->renderTexture);
+			coeffTexture = finalCoeffs->texture;
+		}
+
 		IrradianceProjectSHMat* shProject = IrradianceProjectSHMat::get();
-
-		UINT32 numCoeffSets;
-		SPtr<GpuBuffer> coeffSetBuffer = shCompute->createOutputBuffer(cubemap, numCoeffSets);
-		for (UINT32 face = 0; face < 6; face++)
-			shCompute->execute(cubemap, face, coeffSetBuffer);
-
-		SPtr<GpuBuffer> coeffBuffer = shReduce->createOutputBuffer(1);
-		shReduce->execute(coeffSetBuffer, numCoeffSets, coeffBuffer, 0);
-
 		for (UINT32 face = 0; face < 6; face++)
 		{
 			RENDER_TEXTURE_DESC cubeFaceRTDesc;
@@ -362,22 +549,33 @@ namespace bs { namespace ct
 			cubeFaceRTDesc.colorSurfaces[0].mipLevel = 0;
 
 			SPtr<RenderTarget> target = RenderTexture::create(cubeFaceRTDesc);
-			shProject->execute(coeffBuffer, face, target);
+			shProject->execute(coeffTexture, face, target);
 		}
 	}
-
-	void RenderBeastIBLUtility::filterCubemapForIrradiance(const SPtr<Texture>& cubemap, const SPtr<GpuBuffer>& output, 
+	
+	void RenderBeastIBLUtility::filterCubemapForIrradiance(const SPtr<Texture>& cubemap, const SPtr<Texture>& output, 
 		UINT32 outputIdx) const
 	{
-		IrradianceComputeSHMat* shCompute = IrradianceComputeSHMat::getVariation(3);
-		IrradianceReduceSHMat* shReduce = IrradianceReduceSHMat::getVariation(3);
+		if(supportsComputeSH())
+		{
+			IrradianceComputeSHMat* shCompute = IrradianceComputeSHMat::getVariation(3);
+			IrradianceReduceSHMat* shReduce = IrradianceReduceSHMat::getVariation(3);
 
-		UINT32 numCoeffSets;
-		SPtr<GpuBuffer> coeffSetBuffer = shCompute->createOutputBuffer(cubemap, numCoeffSets);
-		for (UINT32 face = 0; face < 6; face++)
-			shCompute->execute(cubemap, face, coeffSetBuffer);
+			UINT32 numCoeffSets;
+			SPtr<GpuBuffer> coeffSetBuffer = shCompute->createOutputBuffer(cubemap, numCoeffSets);
+			for (UINT32 face = 0; face < 6; face++)
+				shCompute->execute(cubemap, face, coeffSetBuffer);
 
-		shReduce->execute(coeffSetBuffer, numCoeffSets, output, outputIdx);
+			shReduce->execute(coeffSetBuffer, numCoeffSets, output, outputIdx);
+		}
+		else
+		{
+			RENDER_TEXTURE_DESC rtDesc;
+			rtDesc.colorSurfaces[0].texture = output;
+
+			SPtr<RenderTexture> target = RenderTexture::create(rtDesc);
+			filterCubemapForIrradianceNonCompute(cubemap, outputIdx, target);
+		}
 	}
 
 	void RenderBeastIBLUtility::scaleCubemap(const SPtr<Texture>& src, UINT32 srcMip, const SPtr<Texture>& dst, 
@@ -420,7 +618,15 @@ namespace bs { namespace ct
 		if(sizeSrcLog2 == sizeDstLog2)
 		{
 			for (UINT32 face = 0; face < 6; face++)
-				src->copy(dst, face, srcMip, face, dstMip);
+			{
+				TEXTURE_COPY_DESC copyDesc;
+				copyDesc.srcFace = face;
+				copyDesc.srcMip = srcMip;
+				copyDesc.dstFace = face;
+				copyDesc.dstMip = dstMip;
+
+				src->copy(dst, copyDesc);
+			}
 		}
 		else
 			downsampleCubemap(scratchTex, srcMip, dst, dstMip);
@@ -439,9 +645,68 @@ namespace bs { namespace ct
 
 			SPtr<RenderTarget> target = RenderTexture::create(cubeFaceRTDesc);
 
-			TextureSurface sourceSurface(srcMip, 1, 0, 6);
 			ReflectionCubeDownsampleMat* material = ReflectionCubeDownsampleMat::get();
-			material->execute(src, face, sourceSurface, target);
+			material->execute(src, face, srcMip, target);
+		}
+	}
+
+	void RenderBeastIBLUtility::filterCubemapForIrradianceNonCompute(const SPtr<Texture>& cubemap, UINT32 outputIdx,
+		const SPtr<RenderTexture>& output)
+	{
+		static const UINT32 NUM_COEFFS = 9;
+
+		GpuResourcePool& resPool = GpuResourcePool::instance();
+		IrradianceComputeSHFragMat* shCompute = IrradianceComputeSHFragMat::get();
+		IrradianceAccumulateSHMat* shAccum = IrradianceAccumulateSHMat::get();
+		IrradianceAccumulateCubeSHMat* shAccumCube = IrradianceAccumulateCubeSHMat::get();
+
+		for(UINT32 coeff = 0; coeff < NUM_COEFFS; ++coeff)
+		{
+			SPtr<PooledRenderTexture> coeffsTex = resPool.get(shCompute->getOutputDesc(cubemap));
+			
+			// Generate SH coefficients and weights per-texel
+			for(UINT32 face = 0; face < 6; face++)
+			{
+				RENDER_TEXTURE_DESC cubeFaceRTDesc;
+				cubeFaceRTDesc.colorSurfaces[0].texture = coeffsTex->texture;
+				cubeFaceRTDesc.colorSurfaces[0].face = face;
+				cubeFaceRTDesc.colorSurfaces[0].numFaces = 1;
+				cubeFaceRTDesc.colorSurfaces[0].mipLevel = 0;
+
+				SPtr<RenderTarget> target = RenderTexture::create(cubeFaceRTDesc);
+				shCompute->execute(cubemap, face, coeff, target);
+			}
+
+			// Downsample, summing up coefficients and weights all the way down to 1x1
+			auto& sourceProps = cubemap->getProperties();
+			UINT32 numMips = PixelUtil::getMaxMipmaps(sourceProps.getWidth(), sourceProps.getHeight(), 1, 
+				sourceProps.getFormat());
+
+			SPtr<PooledRenderTexture> downsampleInput = coeffsTex;
+			coeffsTex = nullptr;
+
+			for(UINT32 mip = 0; mip < numMips; mip++)
+			{
+				SPtr<PooledRenderTexture> accumCoeffsTex = resPool.get(shAccum->getOutputDesc(downsampleInput->texture));
+
+				for(UINT32 face = 0; face < 6; face++)
+				{
+					RENDER_TEXTURE_DESC cubeFaceRTDesc;
+					cubeFaceRTDesc.colorSurfaces[0].texture = accumCoeffsTex->texture;
+					cubeFaceRTDesc.colorSurfaces[0].face = face;
+					cubeFaceRTDesc.colorSurfaces[0].numFaces = 1;
+					cubeFaceRTDesc.colorSurfaces[0].mipLevel = 0;
+
+					SPtr<RenderTarget> target = RenderTexture::create(cubeFaceRTDesc);
+					shAccum->execute(downsampleInput->texture, face, 0, target);
+				}
+
+				downsampleInput = accumCoeffsTex;
+			}
+
+			// Sum up all the faces and write the coefficient to the final texture
+			Vector2I outputOffset = getSHCoeffXYFromIdx(outputIdx, 3);
+			shAccumCube->execute(downsampleInput->texture, 0, outputOffset, coeff, output);
 		}
 	}
 }}

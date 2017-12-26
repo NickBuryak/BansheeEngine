@@ -5,7 +5,7 @@ project (Banshee)
 set (BS_VERSION_MAJOR 0)
 set (BS_VERSION_MINOR 4)
 
-set (BS_PREBUILT_DEPENDENCIES_VERSION 14)
+set (BS_PREBUILT_DEPENDENCIES_VERSION 15)
 set (BS_SRC_DEPENDENCIES_VERSION 15)
 set (BS_BUILTIN_ASSETS_VERSION 3)
 
@@ -55,6 +55,8 @@ set(INCLUDE_ALL_IN_WORKFLOW OFF CACHE BOOL "If true, all libraries (even those n
 
 set(GENERATE_SCRIPT_BINDINGS ON CACHE BOOL "If true, script binding files will be generated. Script bindings are required for the project to build properly, however they take a while to generate. If you are sure the script bindings are up to date, you can turn off their generation (temporarily) to speed up the build.")
 
+set(BUILD_TESTS OFF CACHE BOOL "If true, build targets for running unit tests will be included in the output.")
+
 if(BUILD_SCOPE MATCHES "Runtime")
 	set(BUILD_EDITOR ON)
 else()
@@ -67,6 +69,7 @@ include(CMake/Common.cmake)
 
 # Ensure dependencies are up to date
 ## Check prebuilt dependencies that are downloaded in a .zip
+if(NOT APPLE)
 set(BUILTIN_DEP_VERSION_FILE ${PROJECT_SOURCE_DIR}/../Dependencies/.version)
 if(NOT EXISTS ${BUILTIN_DEP_VERSION_FILE})
 	message(STATUS "Binary dependencies are missing. Downloading package...")
@@ -77,6 +80,7 @@ else()
 		message(STATUS "Your precomiled dependencies package is out of date. Downloading latest package...")
 		update_binary_deps(${BS_PREBUILT_DEPENDENCIES_VERSION})
 	endif()
+endif()
 endif()
 
 ## Check dependencies built from source
@@ -144,10 +148,10 @@ if(MSVC)
 	set(CMAKE_EXE_LINKER_FLAGS_RELEASE ${BS_LINKER_FLAGS_RELEASE})
 	
 	# Compiler
-	set(BS_COMPILER_FLAGS_COMMON "/GS- /W3 /GR- /WX- /MP /nologo /bigobj /wd\"4577\" /wd\"4530\"")
+	set(BS_COMPILER_FLAGS_COMMON "/GS- /W3 /GR- /WX- /MP /permissive- /nologo /bigobj /wd\"4577\" /wd\"4530\"")
 	set(CMAKE_CXX_FLAGS "/DWIN32 /D_WINDOWS")
 	
-	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} /Od /RTC1 /MDd")
+	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} /Od /RTC1 /MDd -DDEBUG")
 	
 	if(BS_64BIT) # Debug edit and continue for 64-bit
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
@@ -155,21 +159,26 @@ if(MSVC)
 		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
 	endif()
 	
-	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} /GL /Gy /Zi /Gm /O2 /Oi /MD")
-	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} /GL /Gy /O2 /Oi /MD")
+	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} /GL /Gy /Zi /O2 /Oi /MD -DDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} /GL /Gy /O2 /Oi /MD -DNDEBUG")
 	
 	# Global defines
 	#add_definitions(-D_HAS_EXCEPTIONS=0)
 	
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
 	# Note: Optionally add -ffunction-sections, -fdata-sections, but with linker option --gc-sections
 	# TODO: Use link-time optimization -flto. Might require non-default linker.
-	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti -fno-ms-compatibility
-	-fms-extensions -Wl,-rpath=$ORIGIN")
-	
+	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti -fno-ms-compatibility")
+
+	if(LINUX)
+		set(BS_COMPILER_FLAGS_COMMON "${BS_COMPILER_FLAGS_COMMON} -Wl,-rpath=$ORIGIN")
+	elseif(APPLE)
+		set(BS_COMPILER_FLAGS_COMMON "${BS_COMPILER_FLAGS_COMMON} -fobjc-arc")
+	endif()
+
 	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0 -DDEBUG")
-	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2")
-	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2")
+	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2 -DDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2 -DNDEBUG")
 
 	set(CMAKE_SHARED_LINKER_FLAGS_RELEASE -s)
 	set(CMAKE_MODULE_LINKER_FLAGS_RELEASE -s)
@@ -178,11 +187,15 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-s -no-pie")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 	# TODO: Use link-time optimization -flto. Might require non-default linker.
-	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti -Wl,-rpath=$ORIGIN")
-	
+	set(BS_COMPILER_FLAGS_COMMON "-Wall -fPIC -fno-exceptions -fno-strict-aliasing -fno-rtti")
+
+	if(LINUX)
+		set(BS_COMPILER_FLAGS_COMMON "${BS_COMPILER_FLAGS_COMMON} -Wl,-rpath=$ORIGIN")
+	endif()
+
 	set(CMAKE_CXX_FLAGS_DEBUG "${BS_COMPILER_FLAGS_COMMON} -g -O0 -DDEBUG")
-	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2")
-	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2")
+	set(CMAKE_CXX_FLAGS_OPTIMIZEDDEBUG "${BS_COMPILER_FLAGS_COMMON} -gline-tables-only -O2 -DDEBUG")
+	set(CMAKE_CXX_FLAGS_RELEASE "${BS_COMPILER_FLAGS_COMMON} -g0 -O2 -DNDEBUG")
 
 	set(CMAKE_SHARED_LINKER_FLAGS_RELEASE -s)
 	set(CMAKE_MODULE_LINKER_FLAGS_RELEASE -s)
@@ -192,6 +205,8 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 else()
 # TODO_OTHER_COMPILERS_GO_HERE
 endif()
+
+set(CMAKE_XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES")
 
 # Output
 if(BS_64BIT)
@@ -360,4 +375,21 @@ if(BUILD_EDITOR)
 		add_dependencies(BansheeEditorExec BuildManaged)
 		add_dependencies(Game BuildManaged)
 	endif()
+endif()
+
+## Tests
+if(BUILD_TESTS)
+	enable_testing()
+
+	add_executable(UtilityTest 
+		BansheeUtility/UnitTests/BsUtilityTest.cpp 
+		BansheeUtility/UnitTests/BsUtilityTestSuite.cpp
+		BansheeUtility/UnitTests/BsFileSystemTestSuite.cpp)
+		
+	target_link_libraries(UtilityTest BansheeUtility)
+	target_include_directories(UtilityTest PRIVATE "BansheeUtility")
+	
+	set_property(TARGET UtilityTest PROPERTY FOLDER Tests)
+
+	add_test(NAME FrameworkTests COMMAND $<TARGET_FILE:UtilityTest>)
 endif()

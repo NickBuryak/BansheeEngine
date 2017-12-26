@@ -131,11 +131,10 @@ namespace bs { namespace ct
 	/** Common parameters used by the shadow projection materials. */
 	struct ShadowProjectParams
 	{
-		ShadowProjectParams(const Light& light, const SPtr<Texture>& shadowMap, UINT32 shadowMapFace,
+		ShadowProjectParams(const Light& light, const SPtr<Texture>& shadowMap,
 			const SPtr<GpuParamBlockBuffer>& shadowParams, const SPtr<GpuParamBlockBuffer>& perCameraParams,
 			GBufferTextures gbuffer)
-			: light(light), shadowMap(shadowMap), shadowMapFace(shadowMapFace), shadowParams(shadowParams)
-			, perCamera(perCameraParams), gbuffer(gbuffer)
+			: light(light), shadowMap(shadowMap), shadowParams(shadowParams), perCamera(perCameraParams), gbuffer(gbuffer)
 		{ }
 
 		/** Light which is casting the shadow. */
@@ -143,9 +142,6 @@ namespace bs { namespace ct
 
 		/** Texture containing the shadow map. */
 		const SPtr<Texture>& shadowMap;
-
-		/** Face of the shadow map to bind, if it has multiple faces. */
-		UINT32 shadowMapFace;
 
 		/** Parameter block containing parameters specific for shadow projection. */
 		const SPtr<GpuParamBlockBuffer> shadowParams;
@@ -165,6 +161,7 @@ namespace bs { namespace ct
 		BS_PARAM_BLOCK_ENTRY(float, gFadePercent)
 		BS_PARAM_BLOCK_ENTRY(float, gFadePlaneDepth)
 		BS_PARAM_BLOCK_ENTRY(float, gInvFadePlaneRange)
+		BS_PARAM_BLOCK_ENTRY(float, gFace)
 	BS_PARAM_BLOCK_END
 
 	extern ShadowProjectParamsDef gShadowProjectParamsDef;
@@ -295,7 +292,7 @@ namespace bs { namespace ct
 		Sphere subjectBounds;
 
 		/** Determines the fade amount of the shadow, for each view in the scene. */
-		SmallVector<float, 4> fadePerView;
+		SmallVector<float, 6> fadePerView;
 	};
 
 	/** 
@@ -470,7 +467,7 @@ namespace bs { namespace ct
 		 * @param[out]	maxFadePercent	Maximum value in the @p fadePercents array.
 		 */
 		void calcShadowMapProperties(const RendererLight& light, const RendererViewGroup& viewGroup, UINT32 border, 
-			UINT32& size, SmallVector<float, 4>& fadePercents, float& maxFadePercent) const;
+			UINT32& size, SmallVector<float, 6>& fadePercents, float& maxFadePercent) const;
 
 		/**
 		 * Draws a mesh representing near and far planes at the provided coordinates. The mesh is constructed using

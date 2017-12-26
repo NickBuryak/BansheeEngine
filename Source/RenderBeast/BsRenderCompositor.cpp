@@ -269,8 +269,13 @@ namespace bs { namespace ct
 
 			for (auto& element : inputs.scene.renderables[i]->elements)
 			{
-				if (element.perCameraBindingIdx != (UINT32)-1)
-					element.params->setParamBlockBuffer(element.perCameraBindingIdx, inputs.view.getPerViewBuffer(), true);
+				SPtr<GpuParams> gpuParams = element.params->getGpuParams();
+				for(UINT32 j = 0; j < GPT_COUNT; j++)
+				{
+					const GpuParamBinding& binding = element.perCameraBindings[j];
+					if(binding.slot != (UINT32)-1)
+						gpuParams->setParamBlockBuffer(binding.set, binding.slot, inputs.view.getPerViewBuffer());
+				}
 			}
 		}
 
@@ -688,7 +693,7 @@ namespace bs { namespace ct
 		FlatFramebufferToTextureMat* material = FlatFramebufferToTextureMat::get();
 
 		RenderAPI& rapi = RenderAPI::instance();
-		rapi.setRenderTarget(lightAccumNode->renderTarget, FBT_DEPTH | FBT_STENCIL, RT_COLOR0 | RT_DEPTH_STENCIL);
+		rapi.setRenderTarget(lightAccumNode->renderTarget, FBT_DEPTH | FBT_STENCIL, RT_DEPTH_STENCIL);
 		material->execute(lightAccumNode->flattenedLightAccumBuffer->buffer, lightAccumNode->lightAccumulationTex->texture);
 	}
 
@@ -890,7 +895,7 @@ namespace bs { namespace ct
 		int readOnlyFlags = FBT_DEPTH | FBT_STENCIL;
 
 		RenderAPI& rapi = RenderAPI::instance();
-		rapi.setRenderTarget(sceneColorNode->renderTarget, readOnlyFlags, RT_COLOR0 | RT_DEPTH_STENCIL);
+		rapi.setRenderTarget(sceneColorNode->renderTarget, readOnlyFlags, RT_DEPTH_STENCIL);
 
 		Rect2 area(0.0f, 0.0f, 1.0f, 1.0f);
 		rapi.setViewport(area);
@@ -961,10 +966,14 @@ namespace bs { namespace ct
 					continue;
 
 				// Note: It would be nice to be able to set this once and keep it, only updating if the buffers actually
-				// change (e.g. when growing). Although technically the internal systems should be smart enough to
-				// avoid updates unless objects actually changed.
-				if (element.gridParamsBindingIdx != (UINT32)-1)
-					element.params->setParamBlockBuffer(element.gridParamsBindingIdx, gridParams, true);
+				// change (e.g. when growing). 
+				SPtr<GpuParams> gpuParams = element.params->getGpuParams();
+				for(UINT32 j = 0; j < GPT_COUNT; j++)
+				{
+					const GpuParamBinding& binding = element.gridParamsBindings[j];
+					if (binding.slot != (UINT32)-1)
+						gpuParams->setParamBlockBuffer(binding.set, binding.slot, gridParams);
+				}
 
 				element.gridLightOffsetsAndSizeParam.set(gridLightOffsetsAndSize);
 				element.gridLightIndicesParam.set(gridLightIndices);
@@ -1252,37 +1261,91 @@ namespace bs { namespace ct
 
 			downsampleMat->execute(sceneColor, downsampledScene->renderTexture);
 
-			// Generate histogram
-			SPtr<PooledRenderTexture> eyeAdaptHistogram = resPool.get(
-				EyeAdaptHistogramMat::getOutputDesc(downsampledScene->texture));
-			EyeAdaptHistogramMat* eyeAdaptHistogramMat = EyeAdaptHistogramMat::get();
-			eyeAdaptHistogramMat->execute(downsampledScene->texture, eyeAdaptHistogram->texture, settings.autoExposure);
+			if(useHistogramEyeAdapatation(inputs))
+			{
+				// Generate histogram
+				SPtr<PooledRenderTexture> eyeAdaptHistogram =
+					resPool.get(EyeAdaptHistogramMat::getOutputDesc(downsampledScene->texture));
+				EyeAdaptHistogramMat* eyeAdaptHistogramMat = EyeAdaptHistogramMat::get();
+				eyeAdaptHistogramMat->execute(downsampledScene->texture, eyeAdaptHistogram->texture, settings.autoExposure);
 
-			// Reduce histogram
-			SPtr<PooledRenderTexture> reducedHistogram = resPool.get(EyeAdaptHistogramReduceMat::getOutputDesc());
+				// Reduce histogram
+				SPtr<PooledRenderTexture> reducedHistogram = resPool.get(EyeAdaptHistogramReduceMat::getOutputDesc());
 
-			SPtr<Texture> prevFrameEyeAdaptation;
-			if (prevEyeAdaptation != nullptr)
-				prevFrameEyeAdaptation = prevEyeAdaptation->texture;
+				SPtr<Texture> prevFrameEyeAdaptation;
+				if (prevEyeAdaptation != nullptr)
+					prevFrameEyeAdaptation = prevEyeAdaptation->texture;
 
-			EyeAdaptHistogramReduceMat* eyeAdaptHistogramReduce = EyeAdaptHistogramReduceMat::get();
-			eyeAdaptHistogramReduce->execute(downsampledScene->texture, eyeAdaptHistogram->texture, 
-				prevFrameEyeAdaptation, reducedHistogram->renderTexture);
+				EyeAdaptHistogramReduceMat* eyeAdaptHistogramReduce = EyeAdaptHistogramReduceMat::get();
+				eyeAdaptHistogramReduce->execute(
+					downsampledScene->texture,
+					eyeAdaptHistogram->texture,
+					prevFrameEyeAdaptation,
+					reducedHistogram->renderTexture);
 
-			resPool.release(downsampledScene);
-			downsampledScene = nullptr;
+				resPool.release(downsampledScene);
+				downsampledScene = nullptr;
 
-			resPool.release(eyeAdaptHistogram);
-			eyeAdaptHistogram = nullptr;
+				resPool.release(eyeAdaptHistogram);
+				eyeAdaptHistogram = nullptr;
 
-			// Generate eye adaptation value
-			eyeAdaptation = resPool.get(EyeAdaptationMat::getOutputDesc());
-			EyeAdaptationMat* eyeAdaptationMat = EyeAdaptationMat::get();
-			eyeAdaptationMat->execute(reducedHistogram->texture, eyeAdaptation->renderTexture, inputs.frameInfo.timeDelta,
-				settings.autoExposure, settings.exposureScale);
+				// Generate eye adaptation value
+				eyeAdaptation = resPool.get(EyeAdaptationMat::getOutputDesc());
+				EyeAdaptationMat* eyeAdaptationMat = EyeAdaptationMat::get();
+				eyeAdaptationMat->execute(
+					reducedHistogram->texture,
+					eyeAdaptation->renderTexture,
+					inputs.frameInfo.timeDelta,
+					settings.autoExposure,
+					settings.exposureScale);
 
-			resPool.release(reducedHistogram);
-			reducedHistogram = nullptr;
+				resPool.release(reducedHistogram);
+				reducedHistogram = nullptr;
+			}
+			else
+			{
+				// Populate alpha values of the downsampled texture with luminance
+				SPtr<PooledRenderTexture> luminanceTex = 
+					resPool.get(EyeAdaptationBasicSetupMat::getOutputDesc(downsampledScene->texture));
+
+				EyeAdaptationBasicSetupMat* setupMat = EyeAdaptationBasicSetupMat::get();
+				setupMat->execute(
+					downsampledScene->texture,
+					luminanceTex->renderTexture,
+					inputs.frameInfo.timeDelta,
+					settings.autoExposure,
+					settings.exposureScale);
+
+				SPtr<Texture> downsampleInput = luminanceTex->texture;
+				luminanceTex = nullptr;
+
+				// Downsample some more
+				for(UINT32 i = 0; i < 5; i++)
+				{
+					downsampleMat = DownsampleMat::getVariation(1, false);
+					SPtr<PooledRenderTexture> downsampledLuminance = 
+						resPool.get(DownsampleMat::getOutputDesc(downsampleInput));
+
+					downsampleMat->execute(downsampleInput, downsampledLuminance->renderTexture);
+					downsampleInput = downsampledLuminance->texture;
+				}
+
+				// Generate eye adaptation value
+				EyeAdaptationBasicMat* eyeAdaptationMat = EyeAdaptationBasicMat::get();
+
+				SPtr<Texture> prevFrameEyeAdaptation;
+				if (prevEyeAdaptation != nullptr)
+					prevFrameEyeAdaptation = prevEyeAdaptation->texture;
+
+				eyeAdaptation = resPool.get(EyeAdaptationBasicMat::getOutputDesc());
+				eyeAdaptationMat->execute(
+					downsampleInput,
+					prevFrameEyeAdaptation,
+					eyeAdaptation->renderTexture,
+					inputs.frameInfo.timeDelta,
+					settings.autoExposure,
+					settings.exposureScale);
+			}
 		}
 		else
 		{
@@ -1293,6 +1356,7 @@ namespace bs { namespace ct
 			eyeAdaptation = nullptr;
 		}
 
+		bool volumeLUT = inputs.featureSet == RenderBeastFeatureSet::Desktop;
 		bool gammaOnly;
 		bool autoExposure;
 		if (hdr)
@@ -1304,11 +1368,14 @@ namespace bs { namespace ct
 
 				if (tonemapLUTDirty) // Rebuild LUT if PP settings changed
 				{
+					CreateTonemapLUTMat* createLUT = CreateTonemapLUTMat::getVariation(volumeLUT);
 					if(mTonemapLUT == nullptr)
-						mTonemapLUT = resPool.get(CreateTonemapLUTMat::getOutputDesc());
+						mTonemapLUT = resPool.get(createLUT->getOutputDesc());
 
-					CreateTonemapLUTMat* createLUT = CreateTonemapLUTMat::get();
-					createLUT->execute(mTonemapLUT->texture, settings);
+					if(volumeLUT)
+						createLUT->execute3D(mTonemapLUT->texture, settings);
+					else
+						createLUT->execute2D(mTonemapLUT->renderTexture, settings);
 
 					mTonemapLastUpdateHash = latestHash;
 				}
@@ -1335,7 +1402,7 @@ namespace bs { namespace ct
 			}
 		}
 
-		TonemappingMat* tonemapping = TonemappingMat::getVariation(gammaOnly, autoExposure, msaa);
+		TonemappingMat* tonemapping = TonemappingMat::getVariation(volumeLUT, gammaOnly, autoExposure, msaa);
 
 		SPtr<RenderTexture> ppOutput;
 		SPtr<Texture> ppLastFrame;
@@ -1361,6 +1428,11 @@ namespace bs { namespace ct
 			resPool.release(prevEyeAdaptation);
 
 		std::swap(eyeAdaptation, prevEyeAdaptation);
+	}
+	
+	bool RCNodeTonemapping::useHistogramEyeAdapatation(const RenderCompositorNodeInputs& inputs)
+	{
+		return inputs.featureSet == RenderBeastFeatureSet::Desktop;
 	}
 
 	SmallVector<StringID, 4> RCNodeTonemapping::getDependencies(const RendererView& view)
@@ -1866,7 +1938,7 @@ namespace bs { namespace ct
 			SPtr<RenderTexture> traceRt = RenderTexture::create(traceRtDesc);
 
 			rapi.setRenderTarget(traceRt, FBT_DEPTH | FBT_STENCIL, RT_DEPTH_STENCIL);
-			rapi.clearRenderTarget(FBT_COLOR);
+			rapi.clearRenderTarget(FBT_COLOR, Color::ZERO);
 
 			SSRTraceMat* traceMat = SSRTraceMat::getVariation(settings.quality, viewProps.numSamples > 1, true);
 			traceMat->execute(inputs.view, gbuffer, sceneColor, hiZ, settings, traceRt);

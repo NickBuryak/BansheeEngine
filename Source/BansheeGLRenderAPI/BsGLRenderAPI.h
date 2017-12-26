@@ -195,6 +195,13 @@ namespace bs { namespace ct
 		void setTextureMipmapBias(UINT16 unit, float bias);
 
 		/**
+		 * Sets a valid range for mipmaps (LOD) for a given texture unit. @p min limits the selection of the highest
+		 * resolution mipmap (lowest level), and @p max limits the selection of the lowest resolution mipmap (highest
+		 * level).
+		 */
+		void setTextureMipmapRange(UINT16 unit, float min, float max);
+
+		/**
 		 * Allows you to specify how is the texture bound to the specified texture unit filtered. Different filter types are
 		 * used for different situations like magnifying or minifying a texture.
 		 */
@@ -360,9 +367,6 @@ namespace bs { namespace ct
 		 */
 		GLint convertStencilOp(StencilOperation op, bool invert = false) const;
 
-		/**	Checks if there are any OpenGL errors and prints them to the log. */
-		bool checkForErrors() const;
-
 	private:
 		/** Information about a currently bound texture. */
 		struct TextureInfo
@@ -419,7 +423,7 @@ namespace bs { namespace ct
 		bool mDrawCallInProgress;
 
 		UINT16 mActiveTextureUnit;
-    };
+	};
 
 	/** @} */
 }}

@@ -12,11 +12,11 @@
 
 namespace bs { namespace ct
 {
-	VULKAN_IMAGE_DESC createDesc(VkImage image, VkDeviceMemory memory, VkImageLayout layout, const TextureProperties& props)
+	VULKAN_IMAGE_DESC createDesc(VkImage image, VmaAllocation allocation, VkImageLayout layout, const TextureProperties& props)
 	{
 		VULKAN_IMAGE_DESC desc;
 		desc.image = image;
-		desc.memory = memory;
+		desc.allocation = allocation;
 		desc.type = props.getTextureType();
 		desc.format = VulkanUtility::getPixelFormat(props.getFormat(), props.isHardwareGammaEnabled());
 		desc.numFaces = props.getNumFaces();
@@ -27,14 +27,15 @@ namespace bs { namespace ct
 		return desc;
 	}
 
-	VulkanImage::VulkanImage(VulkanResourceManager* owner, VkImage image, VkDeviceMemory memory, VkImageLayout layout,
+	VulkanImage::VulkanImage(VulkanResourceManager* owner, VkImage image, VmaAllocation allocation, VkImageLayout layout,
 							 const TextureProperties& props, bool ownsImage)
-		: VulkanImage(owner, createDesc(image, memory, layout, props), ownsImage)
+		: VulkanImage(owner, createDesc(image, allocation, layout, props), ownsImage)
 	{ }
 
 	VulkanImage::VulkanImage(VulkanResourceManager* owner, const VULKAN_IMAGE_DESC& desc, bool ownsImage)
-		: VulkanResource(owner, false), mImage(desc.image), mMemory(desc.memory), mFramebufferMainView(VK_NULL_HANDLE)
-		, mUsage(desc.usage), mOwnsImage(ownsImage), mNumFaces(desc.numFaces), mNumMipLevels(desc.numMipLevels)
+		: VulkanResource(owner, false), mImage(desc.image), mAllocation(desc.allocation)
+		, mFramebufferMainView(VK_NULL_HANDLE), mUsage(desc.usage), mOwnsImage(ownsImage), mNumFaces(desc.numFaces)
+		, mNumMipLevels(desc.numMipLevels)
 	{
 		mImageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		mImageViewCI.pNext = nullptr;
@@ -116,7 +117,7 @@ namespace bs { namespace ct
 		if (mOwnsImage)
 		{
 			vkDestroyImage(vkDevice, mImage, gVulkanAllocator);
-			device.freeMemory(mMemory);
+			device.freeMemory(mAllocation);
 		}
 	}
 
@@ -295,8 +296,12 @@ namespace bs { namespace ct
 		output.setRowPitch((UINT32)layout.rowPitch);
 		output.setSlicePitch((UINT32)layout.depthPitch);
 
+		VkDeviceMemory memory;
+		VkDeviceSize memoryOffset;
+		device.getAllocationInfo(mAllocation, memory, memoryOffset);
+
 		UINT8* data;
-		VkResult result = vkMapMemory(device.getLogical(), mMemory, layout.offset, layout.size, 0, (void**)&data);
+		VkResult result = vkMapMemory(device.getLogical(), memory, memoryOffset + layout.offset, layout.size, 0, (void**)&data);
 		assert(result == VK_SUCCESS);
 
 		output.setExternalBuffer(data);
@@ -306,8 +311,12 @@ namespace bs { namespace ct
 	{
 		VulkanDevice& device = mOwner->getDevice();
 
+		VkDeviceMemory memory;
+		VkDeviceSize memoryOffset;
+		device.getAllocationInfo(mAllocation, memory, memoryOffset);
+
 		UINT8* data;
-		VkResult result = vkMapMemory(device.getLogical(), mMemory, offset, size, 0, (void**)&data);
+		VkResult result = vkMapMemory(device.getLogical(), memory, memoryOffset + offset, size, 0, (void**)&data);
 		assert(result == VK_SUCCESS);
 
 		return data;
@@ -317,7 +326,11 @@ namespace bs { namespace ct
 	{
 		VulkanDevice& device = mOwner->getDevice();
 
-		vkUnmapMemory(device.getLogical(), mMemory);
+		VkDeviceMemory memory;
+		VkDeviceSize memoryOffset;
+		device.getAllocationInfo(mAllocation, memory, memoryOffset);
+
+		vkUnmapMemory(device.getLogical(), memory);
 	}
 
 	void VulkanImage::copy(VulkanTransferBuffer* cb, VulkanBuffer* destination, const VkExtent3D& extent,
@@ -375,6 +388,8 @@ namespace bs { namespace ct
 			accessFlags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+		case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR:
+		case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL_KHR:
 			accessFlags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 			break;
 		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
@@ -706,14 +721,8 @@ namespace bs { namespace ct
 		VkResult result = vkCreateImage(vkDevice, &mImageCI, gVulkanAllocator, &image);
 		assert(result == VK_SUCCESS);
 
-		VkMemoryRequirements memReqs;
-		vkGetImageMemoryRequirements(vkDevice, image, &memReqs);
-
-		VkDeviceMemory memory = device.allocateMemory(memReqs, flags);
-		result = vkBindImageMemory(vkDevice, image, memory, 0);
-		assert(result == VK_SUCCESS);
-
-		return device.getResourceManager().create<VulkanImage>(image, memory, mImageCI.initialLayout, getProperties());
+		VmaAllocation allocation = device.allocateMemory(image, flags);
+		return device.getResourceManager().create<VulkanImage>(image, allocation, mImageCI.initialLayout, getProperties());
 	}
 
 	VulkanBuffer* VulkanTexture::createStaging(VulkanDevice& device, const PixelData& pixelData, bool readable)
@@ -737,18 +746,12 @@ namespace bs { namespace ct
 		VkResult result = vkCreateBuffer(vkDevice, &bufferCI, gVulkanAllocator, &buffer);
 		assert(result == VK_SUCCESS);
 
-		VkMemoryRequirements memReqs;
-		vkGetBufferMemoryRequirements(vkDevice, buffer, &memReqs);
-
 		VkMemoryPropertyFlags flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-		VkDeviceMemory memory = device.allocateMemory(memReqs, flags);
-		result = vkBindBufferMemory(vkDevice, buffer, memory, 0);
-		assert(result == VK_SUCCESS);
+		VmaAllocation allocation = device.allocateMemory(buffer, flags);
 
 		VkBufferView view = VK_NULL_HANDLE;
 
-		return device.getResourceManager().create<VulkanBuffer>(buffer, view, memory,
+		return device.getResourceManager().create<VulkanBuffer>(buffer, view, allocation,
 			pixelData.getRowPitch(), pixelData.getSlicePitch());
 	}
 
@@ -826,8 +829,8 @@ namespace bs { namespace ct
 		bs_stack_free(imageRegions);
 	}
 
-	void VulkanTexture::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-									 const SPtr<Texture>& target, const SPtr<CommandBuffer>& commandBuffer)
+	void VulkanTexture::copyImpl(const SPtr<Texture>& target, const TEXTURE_COPY_DESC& desc, 
+			const SPtr<CommandBuffer>& commandBuffer)
 	{
 		VulkanTexture* other = static_cast<VulkanTexture*>(target.get());
 
@@ -858,47 +861,67 @@ namespace bs { namespace ct
 		VkImageLayout transferDstLayout = other->mDirectlyMappable ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
 		UINT32 mipWidth, mipHeight, mipDepth;
-		PixelUtil::getSizeForMipLevel(srcProps.getWidth(), srcProps.getHeight(), srcProps.getDepth(), srcMipLevel,
-									  mipWidth, mipHeight, mipDepth);
+
+		bool copyEntireSurface = desc.srcVolume.getWidth() == 0 || 
+			desc.srcVolume.getHeight() == 0 || 
+			desc.srcVolume.getDepth() == 0;
+
+		if(copyEntireSurface)
+		{
+			PixelUtil::getSizeForMipLevel(
+				srcProps.getWidth(),
+				srcProps.getHeight(),
+				srcProps.getDepth(),
+				desc.srcMip,
+				mipWidth,
+				mipHeight,
+				mipDepth);
+		}
+		else
+		{
+			mipWidth = desc.srcVolume.getWidth();
+			mipHeight = desc.srcVolume.getHeight();
+			mipDepth = desc.srcVolume.getDepth();
+		}
 
 		VkImageResolve resolveRegion;
-		resolveRegion.srcOffset = { 0, 0, 0 };
-		resolveRegion.dstOffset = { 0, 0, 0 };
+		resolveRegion.srcOffset = { (INT32)desc.srcVolume.left, (INT32)desc.srcVolume.top, (INT32)desc.srcVolume.front };
+		resolveRegion.dstOffset = { desc.dstPosition.x, desc.dstPosition.y, desc.dstPosition.z };
 		resolveRegion.extent = { mipWidth, mipHeight, mipDepth };
-		resolveRegion.srcSubresource.baseArrayLayer = srcFace;
+		resolveRegion.srcSubresource.baseArrayLayer = desc.srcFace;
 		resolveRegion.srcSubresource.layerCount = 1;
-		resolveRegion.srcSubresource.mipLevel = srcMipLevel;
+		resolveRegion.srcSubresource.mipLevel = desc.srcMip;
 		resolveRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		resolveRegion.dstSubresource.baseArrayLayer = destFace;
+		resolveRegion.dstSubresource.baseArrayLayer = desc.dstFace;
 		resolveRegion.dstSubresource.layerCount = 1;
-		resolveRegion.dstSubresource.mipLevel = destMipLevel;
+		resolveRegion.dstSubresource.mipLevel = desc.dstMip;
 		resolveRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 		VkImageCopy imageRegion;
-		imageRegion.srcOffset = { 0, 0, 0 };
-		imageRegion.dstOffset = { 0, 0, 0 };
+		imageRegion.srcOffset = { (INT32)desc.srcVolume.left, (INT32)desc.srcVolume.top, (INT32)desc.srcVolume.front };
+		imageRegion.dstOffset = { desc.dstPosition.x, desc.dstPosition.y, desc.dstPosition.z };
 		imageRegion.extent = { mipWidth, mipHeight, mipDepth };
-		imageRegion.srcSubresource.baseArrayLayer = srcFace;
+		imageRegion.srcSubresource.baseArrayLayer = desc.srcFace;
 		imageRegion.srcSubresource.layerCount = 1;
-		imageRegion.srcSubresource.mipLevel = srcMipLevel;
+		imageRegion.srcSubresource.mipLevel = desc.srcMip;
 		imageRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		imageRegion.dstSubresource.baseArrayLayer = destFace;
+		imageRegion.dstSubresource.baseArrayLayer = desc.dstFace;
 		imageRegion.dstSubresource.layerCount = 1;
-		imageRegion.dstSubresource.mipLevel = destMipLevel;
+		imageRegion.dstSubresource.mipLevel = desc.dstMip;
 		imageRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 		VkImageSubresourceRange srcRange;
 		srcRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		srcRange.baseArrayLayer = srcFace;
+		srcRange.baseArrayLayer = desc.srcFace;
 		srcRange.layerCount = 1;
-		srcRange.baseMipLevel = srcMipLevel;
+		srcRange.baseMipLevel = desc.srcMip;
 		srcRange.levelCount = 1;
 
 		VkImageSubresourceRange dstRange;
 		dstRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		dstRange.baseArrayLayer = destFace;
+		dstRange.baseArrayLayer = desc.dstFace;
 		dstRange.layerCount = 1;
-		dstRange.baseMipLevel = destMipLevel;
+		dstRange.baseMipLevel = desc.dstMip;
 		dstRange.levelCount = 1;
 
 		VulkanRenderAPI& rapi = static_cast<VulkanRenderAPI&>(RenderAPI::instance());
@@ -949,19 +972,9 @@ namespace bs { namespace ct
 		// Transfer back to optimal layouts
 		srcLayout = srcImage->getOptimalLayout();
 
-		srcAccessMask = srcImage->getAccessFlags(srcLayout);
-		vkCB->setLayout(srcImage->getHandle(), VK_ACCESS_TRANSFER_READ_BIT, srcAccessMask, transferSrcLayout, 
-			srcLayout, srcRange);
-
-		dstLayout = dstImage->getOptimalLayout();
-
-		dstAccessMask = dstImage->getAccessFlags(dstLayout);
-		vkCB->setLayout(dstImage->getHandle(), VK_ACCESS_TRANSFER_WRITE_BIT, dstAccessMask, transferDstLayout, 
-			dstLayout, dstRange);
-
 		// Notify the command buffer that these resources are being used on it
-		vkCB->registerResource(srcImage, srcRange, VulkanUseFlag::Read, ResourceUsage::Transfer);
-		vkCB->registerResource(dstImage, dstRange, VulkanUseFlag::Write, ResourceUsage::Transfer);
+		vkCB->registerResource(srcImage, srcRange, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VulkanUseFlag::Read, ResourceUsage::Transfer);
+		vkCB->registerResource(dstImage, dstRange, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VulkanUseFlag::Write, ResourceUsage::Transfer);
 	}
 
 	PixelData VulkanTexture::lockImpl(GpuLockOptions options, UINT32 mipLevel, UINT32 face, UINT32 deviceIdx,

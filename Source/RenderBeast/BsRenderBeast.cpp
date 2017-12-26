@@ -30,6 +30,7 @@
 #include "BsRenderCompositor.h"
 #include "BsRendererTextures.h"
 #include "BsRenderBeastIBLUtility.h"
+#include "Renderer/BsRendererManager.h"
 
 using namespace std::placeholders;
 
@@ -63,6 +64,17 @@ namespace bs { namespace ct
 
 	void RenderBeast::initializeCore()
 	{
+		const RenderAPI& rapi = RenderAPI::instance();
+		const RenderAPIInfo& rapiInfo = rapi.getAPIInfo();
+
+		if(
+			!rapiInfo.isFlagSet(RenderAPIFeatureFlag::Compute) ||
+			!rapiInfo.isFlagSet(RenderAPIFeatureFlag::LoadStore) ||
+			!rapiInfo.isFlagSet(RenderAPIFeatureFlag::TextureViews))
+		{
+			mFeatureSet = RenderBeastFeatureSet::DesktopMacOS;
+		}
+
 		RendererUtility::startUp();
 		GpuResourcePool::startUp();
 		IBLUtility::startUp<RenderBeastIBLUtility>();
@@ -374,7 +386,7 @@ namespace bs { namespace ct
 
 		view.beginFrame();
 
-		RenderCompositorNodeInputs inputs(viewGroup, view, sceneInfo, *mCoreOptions, frameInfo);
+		RenderCompositorNodeInputs inputs(viewGroup, view, sceneInfo, *mCoreOptions, frameInfo, mFeatureSet);
 
 		// Register callbacks
 		if (viewProps.triggerCallbacks)
@@ -529,8 +541,18 @@ namespace bs { namespace ct
 					else
 					{
 						for(UINT32 face = 0; face < 6; face++)
+						{
 							for(UINT32 mip = 0; mip <= srcProps.getNumMipmaps(); mip++)
-								texture->copy(sceneInfo.reflProbeCubemapsTex, face, mip, probeInfo.arrayIdx * 6 + face, mip);
+							{
+								TEXTURE_COPY_DESC copyDesc;
+								copyDesc.srcFace = face;
+								copyDesc.srcMip = mip;
+								copyDesc.dstFace = probeInfo.arrayIdx * 6 + face;
+								copyDesc.dstMip = mip;
+
+								texture->copy(sceneInfo.reflProbeCubemapsTex, copyDesc);
+							}
+						}
 					}
 
 					mScene->setReflectionProbeArrayIndex(i, probeInfo.arrayIdx, true);
@@ -673,5 +695,10 @@ namespace bs { namespace ct
 
 		// Make sure the render texture is available for reads
 		RenderAPI::instance().setRenderTarget(nullptr);
+	}
+
+	SPtr<RenderBeast> gRenderBeast()
+	{
+		return std::static_pointer_cast<RenderBeast>(RendererManager::instance().getActive());
 	}
 }}

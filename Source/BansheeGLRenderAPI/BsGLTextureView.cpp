@@ -8,10 +8,8 @@ namespace bs { namespace ct {
 		:TextureView(desc), mViewID(0)
 	{
 		const TextureProperties& props = texture->getProperties();
-		GLuint originalTexture = texture->getGLID();
 
 		GLenum target;
-
 		switch (props.getTextureType())
 		{
 		case TEX_TYPE_1D:
@@ -64,15 +62,33 @@ namespace bs { namespace ct {
 		break;
 		}
 
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
+		GLuint originalTexture = texture->getGLID();
+
 		glGenTextures(1, &mViewID);
-		glTextureView(mViewID, target, originalTexture, texture->getGLFormat(), desc.mostDetailMip, desc.numMips,
-			desc.firstArraySlice, desc.numArraySlices);
+		BS_CHECK_GL_ERROR();
+
+		glTextureView(
+			mViewID, 
+			target, 
+			originalTexture, 
+			texture->getGLFormat(), 
+			desc.mostDetailMip, 
+			desc.numMips,
+			desc.firstArraySlice, 
+			desc.numArraySlices);
+		BS_CHECK_GL_ERROR();
+#endif
 
 		mTarget = GLTexture::getGLTextureTarget(props.getTextureType(), props.getNumSamples(), desc.numArraySlices);
 	}
 
 	GLTextureView::~GLTextureView()
 	{
-		glDeleteTextures(1, &mViewID);
+		if(mViewID != 0)
+		{
+			glDeleteTextures(1, &mViewID);
+			BS_CHECK_GL_ERROR();
+		}
 	}
 }}

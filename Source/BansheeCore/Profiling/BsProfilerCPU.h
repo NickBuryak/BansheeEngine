@@ -4,7 +4,6 @@
 
 #include "BsCorePrerequisites.h"
 #include "Utility/BsModule.h"
-#include "Allocators/BsFrameAlloc.h"
 
 namespace bs
 {
@@ -151,7 +150,7 @@ namespace bs
 			 */
 			void resumeLastSample();
 
-			Vector<PreciseProfileSample, StdFrameAlloc<ProfileSample>> samples;
+			Vector<PreciseProfileSample, StdFrameAlloc<PreciseProfileSample>> samples;
 			TimerPrecise timer;
 
 			UINT64 memAllocs;

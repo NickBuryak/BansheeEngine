@@ -47,7 +47,10 @@ if(GENERATE_SCRIPT_BINDINGS)
 	addForGeneration(SBansheeEngine)
 	addForGeneration(SBansheeEditor)
 
-	set(BS_SCRIPT_PARSER_INCLUDE_DIRS ${BS_SCRIPT_PARSER_INCLUDE_DIRS} "BansheeMono")
+	set(BS_SCRIPT_PARSER_INCLUDE_DIRS 
+		${BS_SCRIPT_PARSER_INCLUDE_DIRS} 
+		"BansheeMono"
+		"BansheeUtility/ThirdParty")
 
 	list(REMOVE_DUPLICATES BS_SCRIPT_PARSER_INCLUDE_DIRS)
 	list(REMOVE_DUPLICATES BS_SCRIPT_PARSER_H_FILES)
@@ -75,7 +78,14 @@ if(BansheeSBGen_FOUND)
 			-std=c++14
 			-DBS_STATIC_LIB
 			-DBS_SBGEN
-			-w)
+			-w
+			)
+
+		if(APPLE)
+			list(APPEND BS_GSB_COMMAND 
+				-isystem /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1)
+			list(APPEND BS_GSB_COMMAND -stdlib=libc++)
+		endif()
 
 		message(STATUS "Generating script bindings, please wait...")
 		execute_process(

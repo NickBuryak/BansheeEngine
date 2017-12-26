@@ -29,6 +29,7 @@ namespace bs { namespace ct
 	GLGpuBuffer::~GLGpuBuffer()
 	{
 		glDeleteTextures(1, &mTextureID);
+		BS_CHECK_GL_ERROR();
 
 		BS_INC_RENDER_STAT_CAT(ResDestroyed, RenderStatObject_GpuBuffer);
 	}
@@ -38,9 +39,13 @@ namespace bs { namespace ct
 		// Create buffer
 		if(mProperties.getType() == GBT_STRUCTURED)
 		{
+#if BS_OPENGL_4_2 || BS_OPENGLES_3_1
 			const auto& props = getProperties();
 			UINT32 size = props.getElementCount() * props.getElementSize();
 			mBuffer.initialize(GL_SHADER_STORAGE_BUFFER, size, props.getUsage());
+#else
+			LOGWRN("SSBOs are not supported on the current OpenGL version.");
+#endif
 		}
 		else
 		{
@@ -50,8 +55,13 @@ namespace bs { namespace ct
 
 			// Create texture
 			glGenTextures(1, &mTextureID);
+			BS_CHECK_GL_ERROR();
+
 			glBindTexture(GL_TEXTURE_BUFFER, mTextureID);
+			BS_CHECK_GL_ERROR();
+
 			glTexBuffer(GL_TEXTURE_BUFFER, mFormat, mBuffer.getGLBufferId());
+			BS_CHECK_GL_ERROR();
 		}
 
 		BS_INC_RENDER_STAT_CAT(ResCreated, RenderStatObject_GpuBuffer);

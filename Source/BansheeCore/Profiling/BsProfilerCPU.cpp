@@ -14,7 +14,11 @@
 #endif
 
 #if BS_COMPILER == BS_COMPILER_CLANG
-	#include "intrin.h"
+	#if BS_PLATFORM == BS_PLATFORM_WIN32
+		#include "intrin.h"
+	#else
+		#include <x86intrin.h>
+	#endif
 #endif
 
 using namespace std::chrono;
@@ -72,7 +76,7 @@ namespace bs
 
 	inline UINT64 ProfilerCPU::TimerPrecise::getNumCycles() 
 	{
-#if BS_COMPILER == BS_COMPILER_GNUC
+#if BS_COMPILER == BS_COMPILER_GNUC || BS_COMPILER == BS_COMPILER_CLANG
 		unsigned int a = 0;
 		unsigned int b[4];
 		__get_cpuid(a, &b[0], &b[1], &b[2], &b[3]);
@@ -86,11 +90,6 @@ namespace bs
 		__asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
 		return x;
 #endif
-#elif BS_COMPILER == BS_COMPILER_CLANG
-		UINT32 a = 0;
-		UINT32 b[4];
-		__get_cpuid(a, &b[0], &b[1], &b[2], &b[3]);
-		return __rdtsc();
 #elif BS_COMPILER == BS_COMPILER_MSVC
 		int a[4];
 		int b = 0;
@@ -180,7 +179,7 @@ namespace bs
 
 		activeBlock = ActiveBlock(ActiveSamplingType::Basic, rootBlock);
 		if (activeBlocks == nullptr)
-			activeBlocks = frameAlloc.alloc<Stack<ActiveBlock, StdFrameAlloc<ActiveBlock>>>
+			activeBlocks = frameAlloc.construct<Stack<ActiveBlock, StdFrameAlloc<ActiveBlock>>>
 					(StdFrameAlloc<ActiveBlock>(&frameAlloc));
 
 		activeBlocks->push(activeBlock);
@@ -220,7 +219,7 @@ namespace bs
 		isActive = false;
 		activeBlock = ActiveBlock();
 
-		frameAlloc.dealloc(activeBlocks);
+		frameAlloc.free(activeBlocks);
 		activeBlocks = nullptr;
 	}
 
@@ -238,7 +237,7 @@ namespace bs
 
 	ProfilerCPU::ProfiledBlock* ProfilerCPU::ThreadInfo::getBlock(const char* name)
 	{
-		ProfiledBlock* block = frameAlloc.alloc<ProfiledBlock>(&frameAlloc);
+		ProfiledBlock* block = frameAlloc.construct<ProfiledBlock>(&frameAlloc);
 		block->name = (char*)frameAlloc.alloc(((UINT32)strlen(name) + 1) * sizeof(char));
 		strcpy(block->name, name);
 
@@ -247,8 +246,8 @@ namespace bs
 
 	void ProfilerCPU::ThreadInfo::releaseBlock(ProfiledBlock* block)
 	{
-		frameAlloc.dealloc((UINT8*)block->name);
-		frameAlloc.dealloc(block);
+		frameAlloc.free((UINT8*)block->name);
+		frameAlloc.free(block);
 	}
 
 	ProfilerCPU::ProfiledBlock::ProfiledBlock(FrameAlloc* alloc)

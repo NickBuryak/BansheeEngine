@@ -33,7 +33,7 @@ namespace bs { namespace ct
 		mParamBuffer = gSkyboxParamDef.createBuffer();
 
 		if(params->hasParamBlock(GPT_FRAGMENT_PROGRAM, "Params"))
-			mParamsSet->setParamBlockBuffer("Params", mParamBuffer, true);
+			params->setParamBlockBuffer("Params", mParamBuffer);
 	}
 
 	void SkyboxMat::_initVariations(ShaderVariations& variations)
@@ -44,14 +44,14 @@ namespace bs { namespace ct
 
 	void SkyboxMat::bind(const SPtr<GpuParamBlockBuffer>& perCamera)
 	{
-		mParamsSet->setParamBlockBuffer("PerCamera", perCamera, true);
+		mParamsSet->getGpuParams()->setParamBlockBuffer("PerCamera", perCamera);
 
 		gRendererUtility().setPass(mMaterial, 0);
 	}
 
 	void SkyboxMat::setParams(const SPtr<Texture>& texture, const Color& solidColor)
 	{
-		mSkyTextureParam.set(texture, TextureSurface(0, 1, 0, 0));
+		mSkyTextureParam.set(texture);
 
 		gSkyboxParamDef.gClearColor.set(mParamBuffer, solidColor);
 		mParamBuffer->flushToGPU();

@@ -17,14 +17,8 @@ namespace bs
 	class BS_CORE_EXPORT CAudioSourceRTTI : public RTTIType<CAudioSource, Component, CAudioSourceRTTI>
 	{
 		BS_BEGIN_RTTI_MEMBERS
-			BS_RTTI_MEMBER_REFL(mAudioClip, 0)
-			BS_RTTI_MEMBER_PLAIN(mVolume, 1)
-			BS_RTTI_MEMBER_PLAIN(mPitch, 2)
-			BS_RTTI_MEMBER_PLAIN(mLoop, 3)
-			BS_RTTI_MEMBER_PLAIN(mPriority, 4)
-			BS_RTTI_MEMBER_PLAIN(mMinDistance, 5)
-			BS_RTTI_MEMBER_PLAIN(mAttenuation, 6)
-			BS_RTTI_MEMBER_PLAIN(mPlayOnStart, 7)
+			BS_RTTI_MEMBER_REFLPTR(mInternal, 0)
+			BS_RTTI_MEMBER_PLAIN(mPlayOnStart, 1)
 		BS_END_RTTI_MEMBERS
 	public:
 		CAudioSourceRTTI()

@@ -22,9 +22,11 @@ namespace bs { namespace ct
 	{
 		GLint numAttributes = 0;
 		glGetProgramiv(glProgram, GL_ACTIVE_ATTRIBUTES, &numAttributes);
+		BS_CHECK_GL_ERROR();
 
 		GLint maxNameSize = 0;
 		glGetProgramiv(glProgram, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &maxNameSize);
+		BS_CHECK_GL_ERROR();
 
 		GLchar* attributeName = (GLchar*)bs_alloc(sizeof(GLchar)* maxNameSize);
 
@@ -34,6 +36,7 @@ namespace bs { namespace ct
 			GLint attribSize = 0;
 			GLenum attribType = 0;
 			glGetActiveAttrib(glProgram, i, maxNameSize, nullptr, &attribSize, &attribType, attributeName);
+			BS_CHECK_GL_ERROR();
 
 			VertexElementSemantic semantic = VES_POSITION;
 			UINT16 index = 0;
@@ -41,6 +44,7 @@ namespace bs { namespace ct
 			{
 				VertexElementType type = glTypeToAttributeType(attribType);
 				UINT32 slot = glGetAttribLocation(glProgram, attributeName);
+				BS_CHECK_GL_ERROR();
 
 				elementList.push_back(VertexElement(0, slot, type, semantic, index));
 			}
@@ -135,12 +139,18 @@ namespace bs { namespace ct
 		// Scan through the active uniform blocks
 		GLint maxBufferSize = 0;
 		glGetProgramiv(glProgram, GL_ACTIVE_UNIFORM_MAX_LENGTH, &maxBufferSize);
+		BS_CHECK_GL_ERROR();
 
 		GLint maxBlockNameBufferSize = 0;
 		glGetProgramiv(glProgram, GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH, &maxBlockNameBufferSize);
+		BS_CHECK_GL_ERROR();
 
 		GLint maxStorageBlockNameBufferSize = 0;
+
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
 		glGetProgramInterfaceiv(glProgram, GL_SHADER_STORAGE_BLOCK, GL_MAX_NAME_LENGTH, &maxStorageBlockNameBufferSize);
+		BS_CHECK_GL_ERROR();
+#endif
 
 		maxBufferSize = std::max(maxBufferSize, maxBlockNameBufferSize);
 		maxBufferSize = std::max(maxBufferSize, maxStorageBlockNameBufferSize);
@@ -157,15 +167,32 @@ namespace bs { namespace ct
 		returnParamDesc.paramBlocks[newGlobalBlockDesc.name] = newGlobalBlockDesc;
 		GpuParamBlockDesc& globalBlockDesc = returnParamDesc.paramBlocks[newGlobalBlockDesc.name];
 
+		// Enumerate uniform blocks
 		GLint uniformBlockCount = 0;
+
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
+		// Use program interface extension if available
 		glGetProgramInterfaceiv(glProgram, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &uniformBlockCount);
+		BS_CHECK_GL_ERROR();
+#else
+		// Fall back to old API if not available
+		glGetProgramiv(glProgram, GL_ACTIVE_UNIFORM_BLOCKS, &uniformBlockCount);
+		BS_CHECK_GL_ERROR();
+#endif
 
 		Map<UINT32, String> blockSlotToName;
 		Set<String> blockNames;
 		for (GLuint index = 0; index < (GLuint)uniformBlockCount; index++)
 		{
 			GLsizei unusedSize = 0;
+
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
 			glGetProgramResourceName(glProgram, GL_UNIFORM_BLOCK, index, maxBufferSize, &unusedSize, uniformName);
+			BS_CHECK_GL_ERROR();
+#else
+			glGetActiveUniformBlockName(glProgram, index, maxBlockNameBufferSize, &unusedSize, uniformName);
+			BS_CHECK_GL_ERROR();
+#endif
 
 			GpuParamBlockDesc newBlockDesc;
 			newBlockDesc.slot = index + 1;
@@ -179,14 +206,17 @@ namespace bs { namespace ct
 			blockNames.insert(newBlockDesc.name);
 		}
 
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
 		// Scan through the shared storage blocks
 		GLint storageBlockCount = 0;
 		glGetProgramInterfaceiv(glProgram, GL_SHADER_STORAGE_BLOCK, GL_ACTIVE_RESOURCES, &storageBlockCount);
+		BS_CHECK_GL_ERROR();
 
 		for (GLuint index = 0; index < (GLuint)storageBlockCount; index++)
 		{
 			GLsizei unusedSize = 0;
 			glGetProgramResourceName(glProgram, GL_SHADER_STORAGE_BLOCK, index, maxBufferSize, &unusedSize, uniformName);
+			BS_CHECK_GL_ERROR();
 
 			GpuParamObjectDesc bufferParam;
 			bufferParam.name = uniformName;
@@ -196,6 +226,7 @@ namespace bs { namespace ct
 
 			returnParamDesc.buffers.insert(std::make_pair(uniformName, bufferParam));
 		}
+#endif
 
 		Map<String, UINT32> foundFirstArrayIndex;
 		Map<String, GpuParamDataDesc> foundStructs;
@@ -203,6 +234,7 @@ namespace bs { namespace ct
 		// Get the number of active uniforms
 		GLint uniformCount = 0;
 		glGetProgramiv(glProgram, GL_ACTIVE_UNIFORMS, &uniformCount);
+		BS_CHECK_GL_ERROR();
 
 		// Loop over each of the active uniforms, and add them to the reference container
 		// only do this for user defined uniforms, ignore built in gl state uniforms
@@ -210,6 +242,7 @@ namespace bs { namespace ct
 		{
 			GLsizei arraySize = 0;
 			glGetActiveUniformName(glProgram, index, maxBufferSize, &arraySize, uniformName);
+			BS_CHECK_GL_ERROR();
 
 			String paramName = String(uniformName);
 
@@ -311,6 +344,7 @@ namespace bs { namespace ct
 
 			GLint uniformType;
 			glGetActiveUniformsiv(glProgram, 1, &index, GL_UNIFORM_TYPE, &uniformType);
+			BS_CHECK_GL_ERROR();
 
 			GpuParamObjectType samplerType = GPOT_UNKNOWN;
 			GpuParamObjectType textureType = GPOT_UNKNOWN;
@@ -390,6 +424,12 @@ namespace bs { namespace ct
 				textureType = GPOT_TEXTURECUBEARRAY;
 				isSampler = true;
 				break;
+			case GL_SAMPLER_BUFFER:
+			case GL_UNSIGNED_INT_SAMPLER_BUFFER:
+			case GL_INT_SAMPLER_BUFFER:
+				isBuffer = true;
+				break;
+#if BS_OPENGL_4_2 || BS_OPENGLES_3_1
 			case GL_IMAGE_1D:
 			case GL_UNSIGNED_INT_IMAGE_1D:
 			case GL_INT_IMAGE_1D:
@@ -432,16 +472,12 @@ namespace bs { namespace ct
 				textureType = GPOT_RWTEXTURE3D;
 				isImage = true;
 				break;
-			case GL_SAMPLER_BUFFER:
-			case GL_UNSIGNED_INT_SAMPLER_BUFFER:
-			case GL_INT_SAMPLER_BUFFER:
-				isBuffer = true;
-				break;
 			case GL_IMAGE_BUFFER:
 			case GL_UNSIGNED_INT_IMAGE_BUFFER:
 			case GL_INT_IMAGE_BUFFER:
 				isRWBuffer = true;
 				break;
+#endif
 			}
 
 			if (isSampler)
@@ -460,6 +496,8 @@ namespace bs { namespace ct
 
 				returnParamDesc.samplers.insert(std::make_pair(paramName, samplerParam));
 				returnParamDesc.textures.insert(std::make_pair(paramName, textureParam));
+
+				BS_CHECK_GL_ERROR();
 			}
 			else if (isImage)
 			{
@@ -470,6 +508,8 @@ namespace bs { namespace ct
 				textureParam.set = mapParameterToSet(type, ParamType::Image);
 
 				returnParamDesc.loadStoreTextures.insert(std::make_pair(paramName, textureParam));
+
+				BS_CHECK_GL_ERROR();
 			}
 			else if (isBuffer)
 			{
@@ -480,6 +520,8 @@ namespace bs { namespace ct
 				bufferParam.set = mapParameterToSet(type, ParamType::Texture);
 
 				returnParamDesc.buffers.insert(std::make_pair(paramName, bufferParam));
+
+				BS_CHECK_GL_ERROR();
 			}
 			else if(isRWBuffer)
 			{
@@ -490,6 +532,8 @@ namespace bs { namespace ct
 				bufferParam.set = mapParameterToSet(type, ParamType::Image);
 
 				returnParamDesc.buffers.insert(std::make_pair(paramName, bufferParam));
+
+				BS_CHECK_GL_ERROR();
 			}
 			else
 			{
@@ -500,6 +544,7 @@ namespace bs { namespace ct
 
 				GLint blockIndex;
 				glGetActiveUniformsiv(glProgram, 1, &index, GL_UNIFORM_BLOCK_INDEX, &blockIndex);
+				BS_CHECK_GL_ERROR();
 
 				GpuParamDataDesc gpuParam;
 
@@ -514,6 +559,7 @@ namespace bs { namespace ct
 				{
 					GLint blockOffset;
 					glGetActiveUniformsiv(glProgram, 1, &index, GL_UNIFORM_OFFSET, &blockOffset);
+
 					blockOffset = blockOffset / 4;
 
 					gpuParam.gpuMemOffset = blockOffset;
@@ -525,6 +571,8 @@ namespace bs { namespace ct
 					gpuParam.paramBlockSet = mapParameterToSet(type, ParamType::UniformBlock);
 					gpuParam.cpuMemOffset = blockOffset;
 					curBlockDesc.blockSize = std::max(curBlockDesc.blockSize, gpuParam.cpuMemOffset + gpuParam.arrayElementStride * gpuParam.arraySize);
+
+					BS_CHECK_GL_ERROR();
 				}
 				else
 				{
@@ -534,6 +582,8 @@ namespace bs { namespace ct
 					gpuParam.cpuMemOffset = globalBlockDesc.blockSize;
 
 					globalBlockDesc.blockSize = std::max(globalBlockDesc.blockSize, gpuParam.cpuMemOffset + gpuParam.arrayElementStride * gpuParam.arraySize);
+
+					BS_CHECK_GL_ERROR();
 				}
 
 				// If parameter is not a part of a struct we're done
@@ -605,6 +655,7 @@ namespace bs { namespace ct
 
 			GLint blockSize = 0;
 			glGetActiveUniformBlockiv(glProgram, blockIdx, GL_UNIFORM_BLOCK_DATA_SIZE, &blockSize);
+			BS_CHECK_GL_ERROR();
 
 			assert(blockSize % 4 == 0);
 			blockSize = blockSize / 4;
@@ -623,10 +674,12 @@ namespace bs { namespace ct
 	{
 		GLint arraySize;
 		glGetActiveUniformsiv(programHandle, 1, &uniformIndex, GL_UNIFORM_SIZE, &arraySize);
+		BS_CHECK_GL_ERROR();
 		desc.arraySize = arraySize;
 
 		GLint uniformType;
 		glGetActiveUniformsiv(programHandle, 1, &uniformIndex, GL_UNIFORM_TYPE, &uniformType);
+		BS_CHECK_GL_ERROR();
 
 		switch (uniformType)
 		{
@@ -714,6 +767,7 @@ namespace bs { namespace ct
 		{
 			GLint arrayStride;
 			glGetActiveUniformsiv(programHandle, 1, &uniformIndex, GL_UNIFORM_ARRAY_STRIDE, &arrayStride);
+			BS_CHECK_GL_ERROR();
 
 			if (arrayStride > 0)
 			{

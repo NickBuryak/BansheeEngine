@@ -21,19 +21,6 @@ set(BS_BANSHEEUTILITY_INC_PREREQUISITES
 	"Prerequisites/BsRTTIPrerequisites.h"
 )
 
-set(BS_BANSHEEUTILITY_SRC_WIN32
-	"Win32/BsWin32FileSystem.cpp"
-	"Win32/BsWin32CrashHandler.cpp"
-	"Win32/BsWin32PlatformUtility.cpp"
-	"Win32/BsWin32Window.cpp"
-)
-
-set(BS_BANSHEEUTILITY_SRC_UNIX
-	"Linux/BsUnixCrashHandler.cpp"
-	"Linux/BsUnixFileSystem.cpp"
-	"Linux/BsUnixPlatformUtility.cpp"
-)
-
 set(BS_BANSHEEUTILITY_INC_IMAGE
 	"Image/BsColor.h"
 	"Image/BsTextureAtlasLayout.h"
@@ -106,12 +93,12 @@ set(BS_BANSHEEUTILITY_INC_UTILITY
 	"Utility/BsTriangulation.h"
 	"Utility/BsNonCopyable.h"
 	"Utility/BsUUID.h"
+	"Utility/BsOctree.h"
 )
 
 set(BS_BANSHEEUTILITY_SRC_ALLOCATORS
 	"Allocators/BsFrameAlloc.cpp"
-	"Allocators/BsGlobalFrameAlloc.cpp"
-	"Allocators/BsMemStack.cpp"
+	"Allocators/BsStackAlloc.cpp"
 	"Allocators/BsMemoryAllocator.cpp"
 )
 
@@ -134,12 +121,13 @@ set(BS_BANSHEEUTILITY_INC_RTTI
 
 set(BS_BANSHEEUTILITY_INC_ALLOCATORS
 	"Allocators/BsFrameAlloc.h"
-	"Allocators/BsGlobalFrameAlloc.h"
 	"Allocators/BsMemAllocProfiler.h"
 	"Allocators/BsMemoryAllocator.h"
-	"Allocators/BsMemStack.h"
+	"Allocators/BsStackAlloc.h"
 	"Allocators/BsStaticAlloc.h"
 	"Allocators/BsGroupAlloc.h"
+	"Allocators/BsFreeAlloc.h"
+	"Allocators/BsPoolAlloc.h"
 )
 
 set(BS_BANSHEEUTILITY_INC_THIRDPARTY
@@ -180,14 +168,12 @@ set(BS_BANSHEEUTILITY_SRC_MATH
 )
 
 set(BS_BANSHEEUTILITY_INC_TESTING
-	"Testing/BsFileSystemTestSuite.h"
 	"Testing/BsTestSuite.h"
 	"Testing/BsTestOutput.h"
 	"Testing/BsConsoleTestOutput.h"
 )
 
 set(BS_BANSHEEUTILITY_SRC_TESTING
-	"Testing/BsFileSystemTestSuite.cpp"
 	"Testing/BsTestSuite.cpp"
 	"Testing/BsTestOutput.cpp"
 	"Testing/BsConsoleTestOutput.cpp"
@@ -216,7 +202,9 @@ set(BS_BANSHEEUTILITY_INC_MATH
 	"Math/BsVector2.h"
 	"Math/BsVector2I.h"
 	"Math/BsVector3.h"
+	"Math/BsVector3I.h"
 	"Math/BsVector4.h"
+	"Math/BsVector4I.h"
 	"Math/BsBounds.h"
 	"Math/BsConvexVolume.h"
 	"Math/BsTorus.h"
@@ -226,8 +214,8 @@ set(BS_BANSHEEUTILITY_INC_MATH
 	"Math/BsRect2I.h"
 	"Math/BsCapsule.h"
 	"Math/BsMatrixNxM.h"
-	"Math/BsVectorNI.h"
 	"Math/BsLine2.h"
+	"Math/BsSIMD.h"
 )
 
 set(BS_BANSHEEUTILITY_SRC_ERROR
@@ -263,6 +251,27 @@ set(BS_BANSHEEUTILITY_INC_REFLECTION
 set(BS_BANSHEEUTILITY_INC_WIN32
 	"Win32/BsWin32PlatformUtility.h"
 	"Win32/BsWin32Window.h"
+)
+
+set(BS_BANSHEEUTILITY_SRC_WIN32
+	"Win32/BsWin32FileSystem.cpp"
+	"Win32/BsWin32CrashHandler.cpp"
+	"Win32/BsWin32PlatformUtility.cpp"
+	"Win32/BsWin32Window.cpp"
+)
+
+set(BS_BANSHEEUTILITY_SRC_UNIX
+	"Unix/BsUnixFileSystem.cpp"
+)
+
+set(BS_BANSHEEUTILITY_SRC_LINUX
+	"Linux/BsLinuxCrashHandler.cpp"
+	"Linux/BsLinuxPlatformUtility.cpp"
+)
+
+set(BS_BANSHEEUTILITY_SRC_MACOS
+	"MacOS/BsMacOSCrashHandler.cpp"
+	"MacOS/BsMacOSPlatformUtility.cpp"
 )
 
 source_group("Header Files\\Threading" FILES ${BS_BANSHEEUTILITY_INC_THREADING})
@@ -330,6 +339,14 @@ set(BS_BANSHEEUTILITY_SRC
 if(WIN32)
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_WIN32})
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_INC_WIN32})
-elseif(LINUX)
+endif()
+
+if(UNIX)
 	list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_UNIX})
+
+	if(LINUX)
+		list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_LINUX})
+	elseif(APPLE)
+		list(APPEND BS_BANSHEEUTILITY_SRC ${BS_BANSHEEUTILITY_SRC_MACOS})
+	endif()
 endif()

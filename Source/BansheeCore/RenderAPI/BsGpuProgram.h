@@ -63,11 +63,11 @@ namespace bs
 
 		virtual ~GpuProgramProperties() { }
 
-        /** Source used for creating this program. */
-        const String& getSource() const { return mSource; }
-        
+		/** Source used for creating this program. */
+		const String& getSource() const { return mSource; }
+		
 		/**	Type of GPU program (for example fragment, vertex). */
-        GpuProgramType getType() const { return mType; }
+		GpuProgramType getType() const { return mType; }
 
 		/**	Name of the program entry method (for example "main"). */
 		const String& getEntryPoint() const { return mEntryPoint; }
@@ -166,7 +166,7 @@ namespace bs
 		virtual ~GpuProgram() { }
 
 		/** Returns whether this program can be supported on the current renderer and hardware. */
-        virtual bool isSupported() const;
+		virtual bool isSupported() const;
 
 		/** Returns true if program was successfully compiled. */
 		virtual bool isCompiled() const { return mIsCompiled; }
@@ -205,9 +205,6 @@ namespace bs
 
 	protected:
 		GpuProgram(const GPU_PROGRAM_DESC& desc, GpuDeviceFlags deviceMask);
-
-		/** Returns whether required capabilities for this program is supported. */
-		bool isRequiredCapabilitiesSupported() const;
 
 		bool mNeedsAdjacencyInfo;
 

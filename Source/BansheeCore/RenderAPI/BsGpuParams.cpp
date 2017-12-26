@@ -9,10 +9,10 @@
 #include "Image/BsTexture.h"
 #include "RenderAPI/BsGpuBuffer.h"
 #include "RenderAPI/BsSamplerState.h"
-#include "Allocators/BsFrameAlloc.h"
 #include "Debug/BsDebug.h"
 #include "Error/BsException.h"
-#include "Math/BsVectorNI.h"
+#include "Math/BsVector3I.h"
+#include "Math/BsVector4I.h"
 #include "Math/BsMatrixNxM.h"
 #include "Managers/BsHardwareBufferManager.h"
 
@@ -253,6 +253,23 @@ namespace bs
 		}
 
 		setParamBlockBuffer(iterFind->second.set, iterFind->second.slot, paramBlockBuffer);
+	}
+
+	template<bool Core>
+	void TGpuParams<Core>::setParamBlockBuffer(const String& name, const ParamsBufferType& paramBlockBuffer)
+	{
+		for (UINT32 i = 0; i < 6; i++)
+		{
+			const SPtr<GpuParamDesc>& paramDescs = mParamInfo->getParamDesc((GpuProgramType)i);
+			if (paramDescs == nullptr)
+				continue;
+
+			auto iterFind = paramDescs->paramBlocks.find(name);
+			if (iterFind == paramDescs->paramBlocks.end())
+				continue;
+
+			setParamBlockBuffer(iterFind->second.set, iterFind->second.slot, paramBlockBuffer);
+		}
 	}
 
 	template<bool Core>

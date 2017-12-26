@@ -27,6 +27,7 @@ namespace bs { namespace ct
 	{
 		mSurfaceList.clear();
 		glDeleteTextures(1, &mTextureID);
+		BS_CHECK_GL_ERROR();
 
 		clearBufferViews();
 
@@ -74,12 +75,15 @@ namespace bs { namespace ct
 
 		// Generate texture handle
 		glGenTextures(1, &mTextureID);
+		BS_CHECK_GL_ERROR();
 
 		// Set texture type
 		glBindTexture(getGLTextureTarget(), mTextureID);
+		BS_CHECK_GL_ERROR();
 
 		// This needs to be set otherwise the texture doesn't get rendered
 		glTexParameteri(getGLTextureTarget(), GL_TEXTURE_MAX_LEVEL, numMips - 1);
+		BS_CHECK_GL_ERROR();
 
 		// Allocate internal buffer so that glTexSubImageXD can be used
 		mGLFormat = GLPixelUtil::getGLInternalFormat(mInternalFormat, mProperties.isHardwareGammaEnabled());
@@ -88,42 +92,157 @@ namespace bs { namespace ct
 		if((usage & (TU_RENDERTARGET | TU_DEPTHSTENCIL)) != 0 && mProperties.getTextureType() == TEX_TYPE_2D && sampleCount > 1)
 		{
 			if (numFaces <= 1)
-				glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, mGLFormat, width, height, GL_FALSE);
+			{
+				// Create immutable storage if available, fallback to mutable
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_1
+				glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, mGLFormat, width, height, GL_TRUE);
+				BS_CHECK_GL_ERROR();
+#else
+				glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, sampleCount, mGLFormat, width, height, GL_TRUE);
+				BS_CHECK_GL_ERROR();
+#endif
+			}
 			else
-				glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, sampleCount, mGLFormat, width, height, numFaces, GL_FALSE);
+			{
+				// Create immutable storage if available, fallback to mutable
+#if BS_OPENGL_4_3 || BS_OPENGLES_3_2
+				glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, sampleCount, mGLFormat, width, height, numFaces, GL_TRUE);
+				BS_CHECK_GL_ERROR();
+#else
+				glTexImage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, sampleCount, mGLFormat, width, height, numFaces, GL_TRUE);
+				BS_CHECK_GL_ERROR();
+#endif
+			}
 		}
 		else
 		{
+			// Create immutable storage if available, fallback to mutable
+#if BS_OPENGL_4_2 || BS_OPENGLES_3_1
 			switch (texType)
 			{
 			case TEX_TYPE_1D:
 			{
 				if (numFaces <= 1)
+				{
 					glTexStorage1D(GL_TEXTURE_1D, numMips, mGLFormat, width);
+					BS_CHECK_GL_ERROR();
+				}
 				else
+				{
 					glTexStorage2D(GL_TEXTURE_1D_ARRAY, numMips, mGLFormat, width, numFaces);
+					BS_CHECK_GL_ERROR();
+				}
 			}
 				break;
 			case TEX_TYPE_2D:
 			{
 				if (numFaces <= 1)
+				{
 					glTexStorage2D(GL_TEXTURE_2D, numMips, mGLFormat, width, height);
+					BS_CHECK_GL_ERROR();
+				}
 				else
+				{
 					glTexStorage3D(GL_TEXTURE_2D_ARRAY, numMips, mGLFormat, width, height, numFaces);
+					BS_CHECK_GL_ERROR();
+				}
 			}
 				break;
 			case TEX_TYPE_3D:
 				glTexStorage3D(GL_TEXTURE_3D, numMips, mGLFormat, width, height, depth);
+				BS_CHECK_GL_ERROR();
 				break;
 			case TEX_TYPE_CUBE_MAP:
 			{
 				if (numFaces <= 6)
+				{
 					glTexStorage2D(GL_TEXTURE_CUBE_MAP, numMips, mGLFormat, width, height);
+					BS_CHECK_GL_ERROR();
+				}
 				else
+				{
 					glTexStorage3D(GL_TEXTURE_CUBE_MAP_ARRAY, numMips, mGLFormat, width, height, numFaces);
+					BS_CHECK_GL_ERROR();
+				}
 			}
 				break;
 			}
+#else
+			if((usage & TU_DEPTHSTENCIL) != 0 && mProperties.getTextureType() == TEX_TYPE_2D)
+			{
+				GLenum depthStencilType = GLPixelUtil::getDepthStencilTypeFromPF(mInternalFormat);
+				GLenum depthStencilFormat = GLPixelUtil::getDepthStencilFormatFromPF(mInternalFormat);
+
+				if (numFaces <= 1)
+				{
+					glTexImage2D(GL_TEXTURE_2D, 0, mGLFormat, width, height, 0,
+						depthStencilFormat, depthStencilType, nullptr);
+				}
+				else
+				{
+					glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, mGLFormat, width, height, numFaces, 0,
+						depthStencilFormat, depthStencilType, nullptr);
+				}
+			}
+			else
+			{
+				GLenum baseFormat = GLPixelUtil::getGLOriginFormat(mInternalFormat);
+				GLenum baseDataType = GLPixelUtil::getGLOriginDataType(mInternalFormat);
+
+				for (UINT32 mip = 0; mip <= numMips; mip++)
+				{
+					switch (texType)
+					{
+					case TEX_TYPE_1D:
+					{
+						if (numFaces <= 1)
+							glTexImage1D(GL_TEXTURE_1D, mip, mGLFormat, width, 0, baseFormat, baseDataType, nullptr);
+						else
+							glTexImage2D(GL_TEXTURE_1D_ARRAY, mip, mGLFormat, width, numFaces, 0, baseFormat, baseDataType, nullptr);
+					}
+					break;
+					case TEX_TYPE_2D:
+					{
+						if (numFaces <= 1)
+							glTexImage2D(GL_TEXTURE_2D, mip, mGLFormat, width, height, 0, baseFormat, baseDataType, nullptr);
+						else
+							glTexImage3D(GL_TEXTURE_2D_ARRAY, mip, mGLFormat, width, height, numFaces, 0, baseFormat, baseDataType, nullptr);
+					}
+					break;
+					case TEX_TYPE_3D:
+						glTexImage3D(GL_TEXTURE_3D, mip, mGLFormat, width, height,
+							depth, 0, baseFormat, baseDataType, nullptr);
+						break;
+					case TEX_TYPE_CUBE_MAP:
+					{
+						if (numFaces <= 6)
+						{
+							for (UINT32 face = 0; face < 6; face++)
+							{
+								glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, mip, mGLFormat,
+									width, height, 0, baseFormat, baseDataType, nullptr);
+							}
+						}
+						else
+						{
+							glTexImage3D(GL_TEXTURE_CUBE_MAP_ARRAY, mip, mGLFormat,
+								width, height, numFaces, 0, baseFormat, baseDataType, nullptr);
+						}
+					}
+					break;
+					}
+
+					if(width > 1)
+						width = width/2;
+
+					if(height > 1)
+						height = height/2;
+
+					if(depth > 1)	
+						depth = depth/2;
+				}
+			}
+#endif
 		}
 
 		createSurfaceList();
@@ -254,23 +373,40 @@ namespace bs { namespace ct
 			getBuffer(face, mipLevel)->upload(src, src.getExtents());
 	}
 
-	void GLTexture::copyImpl(UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel,
-								 const SPtr<Texture>& target, const SPtr<CommandBuffer>& commandBuffer)
+	void GLTexture::copyImpl(const SPtr<Texture>& target, const TEXTURE_COPY_DESC& desc, 
+		const SPtr<CommandBuffer>& commandBuffer)
 	{
-		auto executeRef = [this](UINT32 srcFace, UINT32 srcMipLevel, UINT32 destFace, UINT32 destMipLevel, 
-			const SPtr<Texture>& target)
+		auto executeRef = [this](const SPtr<Texture>& target, const TEXTURE_COPY_DESC& desc)
 		{
 			GLTexture* destTex = static_cast<GLTexture*>(target.get());
-			GLTextureBuffer *src = static_cast<GLTextureBuffer*>(getBuffer(srcFace, srcMipLevel).get());
+			GLTextureBuffer* dest = static_cast<GLTextureBuffer*>(destTex->getBuffer(desc.dstFace, desc.dstMip).get());
+			GLTextureBuffer* src = static_cast<GLTextureBuffer*>(getBuffer(desc.srcFace, desc.srcMip).get());
 
-			destTex->getBuffer(destFace, destMipLevel)->blitFromTexture(src);
+			bool copyEntireSurface = desc.srcVolume.getWidth() == 0 || 
+				desc.srcVolume.getHeight() == 0 || 
+				desc.srcVolume.getDepth() == 0;
+
+			if(copyEntireSurface)
+				dest->blitFromTexture(src);
+			else
+			{
+				PixelVolume dstVolume;
+				dstVolume.left = (UINT32)desc.dstPosition.x;
+				dstVolume.top = (UINT32)desc.dstPosition.y;
+				dstVolume.front = (UINT32)desc.dstPosition.z;
+				dstVolume.right = dstVolume.left + desc.srcVolume.getWidth();
+				dstVolume.bottom = dstVolume.top + desc.srcVolume.getHeight();
+				dstVolume.back = dstVolume.front + desc.srcVolume.getDepth();
+
+				dest->blitFromTexture(src, desc.srcVolume, dstVolume);
+			}
 		};
 
 		if (commandBuffer == nullptr)
-			executeRef(srcFace, srcMipLevel, destFace, destMipLevel, target);
+			executeRef(target, desc);
 		else
 		{
-			auto execute = [=]() { executeRef(srcFace, srcMipLevel, destFace, destMipLevel, target); };
+			auto execute = [=]() { executeRef(target, desc); };
 
 			SPtr<GLCommandBuffer> cb = std::static_pointer_cast<GLCommandBuffer>(commandBuffer);
 			cb->queueCommand(execute);

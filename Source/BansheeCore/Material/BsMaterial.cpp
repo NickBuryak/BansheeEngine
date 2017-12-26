@@ -8,9 +8,9 @@
 #include "RTTI/BsMaterialRTTI.h"
 #include "Material/BsMaterialManager.h"
 #include "Resources/BsResources.h"
-#include "Allocators/BsFrameAlloc.h"
 #include "Math/BsMatrixNxM.h"
-#include "Math/BsVectorNI.h"
+#include "Math/BsVector3I.h"
+#include "Math/BsVector4I.h"
 #include "Serialization/BsMemorySerializer.h"
 #include "Material/BsMaterialParams.h"
 #include "Material/BsGpuParamsSet.h"
@@ -518,7 +518,8 @@ namespace bs
 				if (mTechniques.size() == 0) // Wasn't initialized
 					return;
 
-				setParams(oldParams);
+				if(oldParams)
+					setParams(oldParams);
 			}
 		}
 		else
@@ -788,8 +789,10 @@ namespace bs
 
 		UINT32 paramsSize = 0;
 		dataPtr = rttiReadElem(paramsSize, dataPtr);
-		if (mParams != nullptr)
-			mParams->setSyncData((UINT8*)dataPtr, paramsSize);
+		if (mParams == nullptr)
+			mParams = bs_shared_ptr_new<MaterialParams>(mShader);
+
+		mParams->setSyncData((UINT8*)dataPtr, paramsSize);
 
 		dataPtr += paramsSize;
 	}

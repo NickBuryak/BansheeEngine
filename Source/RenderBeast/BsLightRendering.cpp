@@ -172,7 +172,8 @@ namespace bs { namespace ct
 		// Partition all visible lights so that unshadowed ones come first
 		auto partition = [](Vector<const RendererLight*>& entries)
 		{
-			int first = 0;
+			UINT32 numUnshadowed = 0;
+			int first = -1;
 			for (UINT32 i = 0; i < (UINT32)entries.size(); ++i)
 			{
 				if(entries[i]->internal->getCastsShadow())
@@ -180,18 +181,23 @@ namespace bs { namespace ct
 					first = i;
 					break;
 				}
+				else
+					++numUnshadowed;
 			}
 
-			for(UINT32 i = first + 1; i < (UINT32)entries.size(); ++i)
+			if(first != -1)
 			{
-				if(!entries[i]->internal->getCastsShadow())
+				for(UINT32 i = first + 1; i < (UINT32)entries.size(); ++i)
 				{
-					std::swap(entries[i], entries[first]);
-					++first;
+					if(!entries[i]->internal->getCastsShadow())
+					{
+						std::swap(entries[i], entries[first]);
+						++numUnshadowed;
+					}
 				}
 			}
 
-			return first;
+			return numUnshadowed;
 		};
 
 		for (UINT32 i = 0; i < (UINT32)LightType::Count; i++)
@@ -277,7 +283,7 @@ namespace bs { namespace ct
 			params->getTextureParam(GPT_COMPUTE_PROGRAM, "gMSAACoverage", mMSAACoverageTexParam);
 
 		mParamBuffer = gTiledLightingParamDef.createBuffer();
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer, true);
+		params->setParamBlockBuffer("Params", mParamBuffer);
 	}
 
 	void TiledDeferredLightingMat::_initVariations(ShaderVariations& variations)
@@ -349,7 +355,7 @@ namespace bs { namespace ct
 		mParamBuffer->flushToGPU();
 
 		mGBufferParams.bind(gbuffer);
-		mParamsSet->setParamBlockBuffer("PerCamera", view.getPerViewBuffer(), true);
+		mParamsSet->getGpuParams()->setParamBlockBuffer("PerCamera", view.getPerViewBuffer());
 
 		if (mSampleCount > 1)
 		{
@@ -392,7 +398,7 @@ namespace bs { namespace ct
 		params->getBufferParam(GPT_FRAGMENT_PROGRAM, "gInput", mInputParam);
 
 		mParamBuffer = gTiledLightingParamDef.createBuffer();
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer, true);
+		params->setParamBlockBuffer("Params", mParamBuffer);
 	}
 
 	void FlatFramebufferToTextureMat::_initVariations(ShaderVariations& variations)

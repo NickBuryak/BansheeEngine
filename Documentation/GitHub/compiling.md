@@ -84,10 +84,12 @@ The following dependencies will need to be installed manually. Which ones are re
   - **Mono** (Editor only)
     - Required for compilation of C# code. Optional if not building the editor.
     - Debian/Ubuntu: *apt-get install mono-complete*
+  - **Bison & Flex**
+    - Debian/Ubuntu: *apt-get install bison flex*
   - (Or equivalent packages for your distribution)
 
 **All OS**
-  - **Vulkan SDK** (Optional) 
+  - **Vulkan SDK 1.0.65.1** (Optional) 
     - Only needed if you selected the Vulkan render API during build configuration
     - https://lunarg.com/vulkan-sdk/
     - Set up VULKAN_SDK environment variable pointing to your instalation

@@ -7,7 +7,7 @@
 #include "Math/BsAABox.h"
 #include "Math/BsVector3.h"
 #include "Math/BsQuaternion.h"
-#include "Math/BsVectorNI.h"
+#include "Math/BsVector3I.h"
 #include "Scene/BsSceneActor.h"
 
 namespace bs
@@ -55,10 +55,12 @@ namespace bs
 	};
 
 	/** Information about a single probe in the light probe volume. */
-	struct LightProbeInfo
+	struct BS_SCRIPT_EXPORT(m:Rendering,pl:true) LightProbeInfo
 	{
 		UINT32 handle;
 		Vector3 position;
+
+		BS_SCRIPT_EXPORT(ex:true)
 		LightProbeSHCoefficients shCoefficients;
 	};
 
@@ -133,7 +135,7 @@ namespace bs
 		 *							corner of the volume is represented by a single probe. Higher values subdivide the
 		 *							volume in an uniform way.
 		 */
-		void resize(const AABox& volume, const Vector3I& cellCount = {1, 1, 1});
+		void resize(const AABox& volume, const Vector3I& cellCount = Vector3I(1, 1, 1));
 
 		/** Removes any probes outside of the current grid volume. */
 		void clip();
@@ -143,6 +145,12 @@ namespace bs
 		 * probes as necessary, essentially losing any custom changes to the probes.
 		 */
 		void reset();
+
+		/** Returns the volume that's used for adding probes in a uniform grid pattern. */
+		const AABox& getGridVolume() const { return mVolume; }
+
+		/** Returns the cell count that's used for determining the density of probes within a grid volume. */
+		const Vector3I& getCellCount() const { return mCellCount; }
 
 		/**	Retrieves an implementation of the object usable only from the core thread. */
 		SPtr<ct::LightProbeVolume> getCore() const;
@@ -155,7 +163,8 @@ namespace bs
 		 *							corner of the volume is represented by a single probe. Higher values subdivide the
 		 *							volume in an uniform way.
 		 */
-		static SPtr<LightProbeVolume> create(const AABox& volume = AABox::UNIT_BOX, const Vector3I& cellCount = {1, 1, 1});
+		static SPtr<LightProbeVolume> create(const AABox& volume = AABox::UNIT_BOX, 
+			const Vector3I& cellCount = Vector3I(1, 1, 1));
 	protected:
 		friend class ct::LightProbeVolume;
 
@@ -244,8 +253,8 @@ namespace bs
 		/** Populates the vector with SH coefficients for each light probe. Involves reading the GPU buffer. */
 		void getProbeCoefficients(Vector<LightProbeCoefficientInfo>& output) const;
 
-		/** Returns the GPU buffer containing SH coefficients. */
-		SPtr<GpuBuffer> getCoefficientsBuffer() const { return mCoefficients; }
+		/** Returns the texture containing SH coefficients for all probes in the volume. */
+		SPtr<Texture> getCoefficientsTexture() const { return mCoefficients; }
 	protected:
 		friend class bs::LightProbeVolume;
 
@@ -267,10 +276,10 @@ namespace bs
 		bool renderProbes(UINT32 maxProbes);
 
 		/** 
-		 * Resizes the internal GPU buffer that stores light probe SH coefficients, to the specified size (in the number
+		 * Resizes the internal texture that stores light probe SH coefficients, to the specified size (in the number
 		 * of probes). 
 		 */
-		void resizeCoefficientBuffer(UINT32 count);
+		void resizeCoefficientTexture(UINT32 count);
 
 		UINT32 mRendererId = 0;
 		UnorderedMap<UINT32, UINT32> mProbeMap; // Map from static indices to compact list of probes
@@ -280,7 +289,7 @@ namespace bs
 		Vector<LightProbeInfo> mProbeInfos;
 
 		// Contains SH coefficients for the probes
-		SPtr<GpuBuffer> mCoefficients;
+		SPtr<Texture> mCoefficients;
 		UINT32 mCoeffBufferSize = 0;
 
 		// Temporary until initialization
