@@ -209,6 +209,7 @@
 #endif
 
 #include "Localization/BsHString.h"
+#include "String/BsStringID.h"
 
 namespace bs 
 {
@@ -328,6 +329,8 @@ namespace bs
 	class CLight;
 	class CAnimation;
 	class CBone;
+	class CAudioSource;
+	class CAudioListener;
 	class GpuPipelineParamInfo;
 	class MaterialParams;
 	template <class T> class TAnimationCurve;
@@ -580,6 +583,8 @@ namespace bs
 		TID_SceneActor = 1140,
 		TID_AudioListener = 1141,
 		TID_AudioSource = 1142,
+		TID_ShaderVariationParam = 1143,
+		TID_ShaderVariation = 1144,
 
 		// Moved from Engine layer
 		TID_CCamera = 30000,
@@ -661,6 +666,8 @@ namespace bs
 	typedef GameObjectHandle<CReflectionProbe> HReflectionProbe;
 	typedef GameObjectHandle<CSkybox> HSkybox;
 	typedef GameObjectHandle<CLightProbeVolume> HLightProbeVolume;
+	typedef GameObjectHandle<CAudioSource> HAudioSource;
+	typedef GameObjectHandle<CAudioListener> HAudioListener;
 
 	/** @} */
 }

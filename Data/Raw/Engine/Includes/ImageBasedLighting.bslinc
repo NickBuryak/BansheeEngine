@@ -22,22 +22,50 @@ mixin ImageBasedLighting
 			float2 padding;
 		};
 	
+		[internal]
 		TextureCube gSkyReflectionTex;
 		SamplerState gSkyReflectionSamp;
-				
+		
+		[internal]
 		TextureCubeArray gReflProbeCubemaps;
 		SamplerState gReflProbeSamp;
 		
+		[internal]
 		Texture2D gAmbientOcclusionTex;
-		SamplerState gAmbientOcclusionSamp;
 		
+		[internal] [alias(gAmbientOcclusionTex)]
+		SamplerState gAmbientOcclusionSamp
+		{
+			Filter = MIN_MAG_MIP_POINT;
+			AddressU = CLAMP;
+			AddressV = CLAMP;
+		};
+		
+		[internal]
 		Texture2D gSSRTex;
-		SamplerState gSSRSamp;
 		
+		[internal] [alias(gSSRTex)]
+		SamplerState gSSRSamp
+		{
+			Filter = MIN_MAG_MIP_POINT;
+			AddressU = CLAMP;
+			AddressV = CLAMP;
+		};
+		
+		[internal]
 		Texture2D gPreintegratedEnvBRDF;
-		SamplerState gPreintegratedEnvBRDFSamp;
 		
-		StructuredBuffer<ReflProbeData> gReflectionProbes;	
+		[internal] [alias(gPreintegratedEnvBRDF)]
+		SamplerState gPreintegratedEnvBRDFSamp
+		{
+			Filter = MIN_MAG_MIP_LINEAR;
+			AddressU = CLAMP;
+			AddressV = CLAMP;
+		};
+		
+		#ifndef STANDARD_DEFERRED
+		StructuredBuffer<ReflProbeData> gReflectionProbes;
+		#endif
 
 		#if USE_COMPUTE_INDICES
 			groupshared uint gReflectionProbeIndices[MAX_PROBES];
@@ -46,6 +74,7 @@ mixin ImageBasedLighting
 			Buffer<uint> gReflectionProbeIndices;
 		#endif
 		
+		[internal]
 		cbuffer ReflProbeParams
 		{
 			uint gReflCubemapNumMips;
@@ -138,6 +167,43 @@ mixin ImageBasedLighting
 			return lookupDir;
 		}
 		
+		// rgb - probe color, a - probe contribution
+		float4 evaluateProbe(float3 worldPos, float3 dir, float mipLevel, ReflProbeData probeData)
+		{
+			float3 probeToPos = worldPos - probeData.position;
+			float distToProbe = length(probeToPos);
+			float normalizedDist = saturate(distToProbe / probeData.radius);
+						
+			if(distToProbe <= probeData.radius)
+			{
+				float3 correctedDir;
+				float contribution = 0;
+				if(probeData.type == 0) // Sphere
+				{
+					correctedDir = getLookupForSphereProxy(worldPos, dir, probeData.position, probeData.radius);
+					contribution = getSphereReflectionContribution(normalizedDist);
+				}
+				else if(probeData.type == 1) // Box
+				{
+					correctedDir = getLookupForBoxProxy(worldPos, dir, probeData.position, probeData.boxExtents, probeData.invBoxTransform, probeData.transitionDistance, contribution);
+				}
+				
+				float4 probeSample = gReflProbeCubemaps.SampleLevel(gReflProbeSamp, float4(correctedDir, probeData.cubemapIdx), mipLevel);
+				probeSample *= contribution;
+				
+				return float4(probeSample.rgb, (1.0f - contribution));
+			}
+			
+			return float4(0, 0, 0, 1.0f);
+		}
+		
+		float getSpecularOcclusion(float NoV, float r, float ao)
+		{
+			float r2 = r * r;
+			return saturate(pow(NoV + ao, r2) - 1.0f + ao);
+		}			
+		
+		#ifndef STANDARD_DEFERRED
 		float3 gatherReflectionRadiance(float3 worldPos, float3 dir, float roughness, float alpha, float3 specularColor, uint probeOffset, uint numProbes)
 		{
 			if(gUseReflectionMaps == 0)
@@ -154,31 +220,10 @@ mixin ImageBasedLighting
 						
 				uint probeIdx = gReflectionProbeIndices[probeOffset + i];
 				ReflProbeData probeData = gReflectionProbes[probeIdx];
+				float4 probeValue = evaluateProbe(worldPos, dir, mipLevel, probeData);
 				
-				float3 probeToPos = worldPos - probeData.position;
-				float distToProbe = length(probeToPos);
-				float normalizedDist = saturate(distToProbe / probeData.radius);
-							
-				if(distToProbe <= probeData.radius)
-				{
-					float3 correctedDir;
-					float contribution = 0;
-					if(probeData.type == 0) // Sphere
-					{
-						correctedDir = getLookupForSphereProxy(worldPos, dir, probeData.position, probeData.radius);
-						contribution = getSphereReflectionContribution(normalizedDist);
-					}
-					else if(probeData.type == 1) // Box
-					{
-						correctedDir = getLookupForBoxProxy(worldPos, dir, probeData.position, probeData.boxExtents, probeData.invBoxTransform, probeData.transitionDistance, contribution);
-					}
-					
-					float4 probeSample = gReflProbeCubemaps.SampleLevel(gReflProbeSamp, float4(correctedDir, probeData.cubemapIdx), mipLevel);
-					probeSample *= contribution;
-					
-					output += probeSample.rgb * alpha; 
-					alpha *= (1.0f - contribution);
-				}
+				output += probeValue.rgb * alpha; 
+				alpha *= probeValue.w;
 			}
 				
 			if(gSkyCubemapAvailable > 0)
@@ -192,13 +237,8 @@ mixin ImageBasedLighting
 			return output;
 		}
 		
-		float getSpecularOcclusion(float NoV, float r, float ao)
-		{
-			float r2 = r * r;
-			return saturate(pow(NoV + ao, r2) - 1.0f + ao);
-		}		
-		
-		float3 getImageBasedSpecular(float3 worldPos, float3 V, float3 R, SurfaceData surfaceData, float ao, float4 ssr, uint probeOffset, uint numProbes)
+		float3 getImageBasedSpecular(float3 worldPos, float3 V, float3 R, SurfaceData surfaceData, float ao, float4 ssr, 
+			uint probeOffset, uint numProbes)
 		{
 			// See C++ code for generation of gPreintegratedEnvBRDF to see why this code works as is
 			float3 N = surfaceData.worldNormal.xyz;
@@ -222,6 +262,7 @@ mixin ImageBasedLighting
 			
 			float2 envBRDF = gPreintegratedEnvBRDF.SampleLevel(gPreintegratedEnvBRDFSamp, float2(NoV, surfaceData.roughness), 0).rg;
 			return radiance * (specularColor * envBRDF.x + envBRDF.y);
-		}		
+		}
+		#endif		
 	};
 };

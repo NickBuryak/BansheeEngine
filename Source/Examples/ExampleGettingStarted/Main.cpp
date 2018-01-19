@@ -313,7 +313,8 @@ namespace bs
 
 		// Add a Camera component that will output whatever it sees into that window 
 		// (You could also use a render texture or another window you created).
-		sceneCamera = sceneCameraSO->addComponent<CCamera>(window);
+		sceneCamera = sceneCameraSO->addComponent<CCamera>();
+		sceneCamera->getViewport()->setTarget(window);
 
 		// Set up camera component properties
 
@@ -354,7 +355,7 @@ namespace bs
 		inputConfig->registerButton("Left", BC_A);
 		inputConfig->registerButton("Right", BC_D);
 		inputConfig->registerButton("Forward", BC_UP);
-		inputConfig->registerButton("Back", BC_BACK);
+		inputConfig->registerButton("Back", BC_DOWN);
 		inputConfig->registerButton("Left", BC_LEFT);
 		inputConfig->registerButton("Right", BC_RIGHT);
 		inputConfig->registerButton("FastMove", BC_LSHIFT);
@@ -388,7 +389,8 @@ namespace bs
 		SPtr<RenderWindow> window = gApplication().getPrimaryWindow();
 
 		// First we want another camera that is responsible for rendering GUI
-		HCamera guiCamera = guiSO->addComponent<CCamera>(window);
+		HCamera guiCamera = guiSO->addComponent<CCamera>();
+		guiCamera->getViewport()->setTarget(window);
 
 		// Notify the renderer that the camera will only be used for overlays (e.g. GUI) so it can optimize its usage
 		SPtr<RenderSettings> settings = guiCamera->getRenderSettings();

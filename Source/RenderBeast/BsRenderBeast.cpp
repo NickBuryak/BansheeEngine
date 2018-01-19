@@ -93,6 +93,7 @@ namespace bs { namespace ct
 		RenderCompositor::registerNodeType<RCNodeLightAccumulation>();
 		RenderCompositor::registerNodeType<RCNodeSceneColor>();
 		RenderCompositor::registerNodeType<RCNodeStandardDeferredLighting>();
+		RenderCompositor::registerNodeType<RCNodeStandardDeferredIBL>();
 		RenderCompositor::registerNodeType<RCNodeTiledDeferredLighting>();
 		RenderCompositor::registerNodeType<RCNodeTiledDeferredIBL>();
 		RenderCompositor::registerNodeType<RCNodeUnflattenLightAccum>();
@@ -588,7 +589,7 @@ namespace bs { namespace ct
 
 		viewDesc.triggerCallbacks = false;
 		viewDesc.runPostProcessing = false;
-		viewDesc.renderingReflections = true;
+		viewDesc.capturingReflections = true;
 		viewDesc.encodeDepth = settings.encodeDepth;
 		viewDesc.depthEncodeNear = settings.depthEncodeNear;
 		viewDesc.depthEncodeFar = settings.depthEncodeFar;

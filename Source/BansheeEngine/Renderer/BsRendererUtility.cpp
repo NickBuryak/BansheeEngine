@@ -12,6 +12,7 @@
 #include "Renderer/BsLight.h"
 #include "Material/BsShader.h"
 #include "Renderer/BsIBLUtility.h"
+#include "Math/BsAABox.h"
 
 namespace bs { namespace ct
 {
@@ -42,7 +43,27 @@ namespace bs { namespace ct
 			ShapeMeshes3D::solidSphere(localSphere, positionData, nullptr, nullptr, 0,
 				vertexDesc->getVertexStride(), indexData, 0, 3);
 
-			mPointLightStencilMesh = Mesh::create(meshData);
+			mUnitSphereStencilMesh = Mesh::create(meshData);
+		}
+
+		{
+			SPtr<VertexDataDesc> vertexDesc = bs_shared_ptr_new<VertexDataDesc>();
+			vertexDesc->addVertElem(VET_FLOAT3, VES_POSITION);
+
+			UINT32 numVertices = 0;
+			UINT32 numIndices = 0;
+
+			ShapeMeshes3D::getNumElementsAABox(numVertices, numIndices);
+			SPtr<MeshData> meshData = bs_shared_ptr_new<MeshData>(numVertices, numIndices, vertexDesc);
+
+			UINT32* indexData = meshData->getIndices32();
+			UINT8* positionData = meshData->getElementData(VES_POSITION);
+
+			AABox localBox(-Vector3::ONE, Vector3::ONE);
+			ShapeMeshes3D::solidAABox(localBox, positionData, nullptr, nullptr, 0,
+				vertexDesc->getVertexStride(), indexData, 0);
+
+			mUnitBoxStencilMesh = Mesh::create(meshData);
 		}
 
 		{
@@ -252,9 +273,7 @@ namespace bs { namespace ct
 
 		BlitMat* blitMat = BlitMat::getVariation(texProps.getNumSamples(), !isDepth);
 		blitMat->setParameters(texture);
-
-		setPass(blitMat->getMaterial());
-		setPassParams(blitMat->getParamsSet());
+		blitMat->bind();
 
 		Rect2 fArea((float)area.x, (float)area.y, (float)area.width, (float)area.height);
 		if (area.width == 0 || area.height == 0)
@@ -346,72 +365,14 @@ namespace bs { namespace ct
 		return RendererUtility::instance();
 	}
 
-	ShaderVariation BlitMat::VAR_1MSAA_Color = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 1),
-		ShaderVariation::Param("COLOR", true)
-	});
-
-	ShaderVariation BlitMat::VAR_2MSAA_Color = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("COLOR", true)
-	});
-
-	ShaderVariation BlitMat::VAR_4MSAA_Color = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 4),
-		ShaderVariation::Param("COLOR", true)
-	});
-
-	ShaderVariation BlitMat::VAR_8MSAA_Color = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 8),
-		ShaderVariation::Param("COLOR", true)
-	});
-
-	ShaderVariation BlitMat::VAR_1MSAA_Depth = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 1),
-		ShaderVariation::Param("COLOR", false),
-		ShaderVariation::Param("DEPTH", true)
-	});
-
-	ShaderVariation BlitMat::VAR_2MSAA_Depth = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("COLOR", false),
-		ShaderVariation::Param("DEPTH", true)
-	});
-
-	ShaderVariation BlitMat::VAR_4MSAA_Depth = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 4),
-		ShaderVariation::Param("COLOR", false),
-		ShaderVariation::Param("DEPTH", true)
-	});
-
-	ShaderVariation BlitMat::VAR_8MSAA_Depth = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 8),
-		ShaderVariation::Param("COLOR", false),
-		ShaderVariation::Param("DEPTH", true)
-	});
-
 	BlitMat::BlitMat()
 	{
-		mSource = mMaterial->getParamTexture("gSource");
-	}
-
-	void BlitMat::_initVariations(ShaderVariations& variations)
-	{
-		variations.add(VAR_1MSAA_Color);
-		variations.add(VAR_2MSAA_Color);
-		variations.add(VAR_4MSAA_Color);
-		variations.add(VAR_8MSAA_Color);
-
-		variations.add(VAR_1MSAA_Depth);
-		variations.add(VAR_2MSAA_Depth);
-		variations.add(VAR_4MSAA_Depth);
-		variations.add(VAR_8MSAA_Depth);
+		mParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gSource", mSource);
 	}
 
 	void BlitMat::setParameters(const SPtr<Texture>& source)
 	{
 		mSource.set(source);
-		mMaterial->updateParamsSet(mParamsSet);
 	}
 
 	BlitMat* BlitMat::getVariation(UINT32 msaaCount, bool isColor)
@@ -423,12 +384,12 @@ namespace bs { namespace ct
 				switch(msaaCount)
 				{
 				case 2:
-					return get(VAR_2MSAA_Color);
+					return get(getVariation<2, true>());
 				case 4:
-					return get(VAR_4MSAA_Color);
+					return get(getVariation<4, true>());
 				default:
 				case 8:
-					return get(VAR_8MSAA_Color);
+					return get(getVariation<8, true>());
 				}
 			}
 			else
@@ -436,17 +397,17 @@ namespace bs { namespace ct
 				switch(msaaCount)
 				{
 				case 2:
-					return get(VAR_2MSAA_Depth);
+					return get(getVariation<2, false>());
 				case 4:
-					return get(VAR_4MSAA_Depth);
+					return get(getVariation<4, false>());
 				default:
 				case 8:
-					return get(VAR_8MSAA_Depth);
+					return get(getVariation<8, false>());
 				}
 			}
 		}
 		else
-			return get(VAR_1MSAA_Color);
+			return get(getVariation<1, true>());
 	}
 
 	ClearParamDef gClearParamDef;
@@ -454,20 +415,14 @@ namespace bs { namespace ct
 	ClearMat::ClearMat()
 	{
 		mParamBuffer = gClearParamDef.createBuffer();
-		mParamsSet->setParamBlockBuffer("Params", mParamBuffer);
-	}
-
-	void ClearMat::_initVariations(ShaderVariations& variations)
-	{
-		// Do nothing
+		mParams->setParamBlockBuffer("Params", mParamBuffer);
 	}
 
 	void ClearMat::execute(UINT32 value)
 	{
 		gClearParamDef.gClearValue.set(mParamBuffer, value);
 
-		gRendererUtility().setPass(mMaterial);
-		gRendererUtility().setPassParams(mParamsSet);
+		bind();
 		gRendererUtility().drawScreenQuad();
 	}
 }}

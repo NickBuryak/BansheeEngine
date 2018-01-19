@@ -1,22 +1,34 @@
+#if MSAA
+#define MSAA_COUNT 2
+#else
+#define MSAA_COUNT 1
+#endif
+
 #include "$ENGINE$\DeferredLightCommon.bslinc"
 
 technique DeferredDirectionalLight
 {
 	mixin DeferredLightCommon;
 
+	variations
+	{
+		MSAA = { true, false };
+		MSAA_RESOLVE_0TH = { true, false };
+	};	
+	
 	depth
 	{
 		read = false;
 	};
 	
-	#ifdef MSAA
+	#if MSAA
 	stencil
 	{
 		enabled = true;
 		front = { keep, keep, keep, eq };
 		readmask = 0x80;
 		
-		#ifdef MSAA_RESOLVE_0TH
+		#if MSAA_RESOLVE_0TH
 		reference = 0;
 		#else
 		reference = 0x80;
@@ -26,10 +38,6 @@ technique DeferredDirectionalLight
 	
 	code 
 	{
-		#ifndef MSAA_RESOLVE_0TH
-			#define MSAA_RESOLVE_0TH 0
-		#endif	
-	
 		struct VStoFS
 		{
 			float4 position : SV_POSITION;
@@ -60,7 +68,7 @@ technique DeferredDirectionalLight
 			#endif
 			) : SV_Target0
 		{
-			uint2 pixelPos = (uint2)(input.uv0 * (float2)gViewportRectangle.zw - ((float2)gViewportRectangle.xy + 0.5f));
+			uint2 pixelPos = UVToScreen(input.uv0);
 			
 			#if MSAA_COUNT > 1
 				#if MSAA_RESOLVE_0TH

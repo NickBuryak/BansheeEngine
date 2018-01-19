@@ -40,6 +40,18 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("ShadowDepthNormal.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<bool skinned, bool morph>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SKINNED", skinned),
+				ShaderVariation::Param("MORPH", morph)
+			});
+
+			return variation;
+		}
+
 	public:
 		ShadowDepthNormalMat();
 
@@ -48,6 +60,14 @@ namespace bs { namespace ct
 
 		/** Sets a new buffer that determines per-object properties. */
 		void setPerObjectBuffer(const SPtr<GpuParamBlockBuffer>& perObjectParams);
+
+		/** 
+		 * Returns the material variation matching the provided parameters. 
+		 * 
+		 * @param[in]	skinned		True if the shadow caster supports bone animation.
+		 * @param[in]	morph		True if the shadow caster supports morph shape animation.
+		 */
+		static ShadowDepthNormalMat* getVariation(bool skinned, bool morph);
 	};
 
 	/** Material used for rendering a single face of a shadow map, for a directional light. */
@@ -55,6 +75,17 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("ShadowDepthDirectional.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<bool skinned, bool morph>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SKINNED", skinned),
+				ShaderVariation::Param("MORPH", morph)
+			});
+
+			return variation;
+		}
 	public:
 		ShadowDepthDirectionalMat();
 
@@ -63,6 +94,14 @@ namespace bs { namespace ct
 
 		/** Sets a new buffer that determines per-object properties. */
 		void setPerObjectBuffer(const SPtr<GpuParamBlockBuffer>& perObjectParams);
+
+		/** 
+		 * Returns the material variation matching the provided parameters. 
+		 * 
+		 * @param[in]	skinned		True if the shadow caster supports bone animation.
+		 * @param[in]	morph		True if the shadow caster supports morph shape animation.
+		 */
+		static ShadowDepthDirectionalMat* getVariation(bool skinned, bool morph);
 	};
 
 	BS_PARAM_BLOCK_BEGIN(ShadowCubeMatricesDef)
@@ -82,6 +121,17 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("ShadowDepthCube.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<bool skinned, bool morph>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SKINNED", skinned),
+				ShaderVariation::Param("MORPH", morph)
+			});
+
+			return variation;
+		}
 	public:
 		ShadowDepthCubeMat();
 
@@ -91,6 +141,14 @@ namespace bs { namespace ct
 		/** Sets a new buffer that determines per-object properties. */
 		void setPerObjectBuffer(const SPtr<GpuParamBlockBuffer>& perObjectParams, 
 			const SPtr<GpuParamBlockBuffer>& shadowCubeMasks);
+
+		/** 
+		 * Returns the material variation matching the provided parameters. 
+		 * 
+		 * @param[in]	skinned		True if the shadow caster supports bone animation.
+		 * @param[in]	morph		True if the shadow caster supports morph shape animation.
+		 */
+		static ShadowDepthCubeMat* getVariation(bool skinned, bool morph);
 	};
 
 	BS_PARAM_BLOCK_BEGIN(ShadowProjectVertParamsDef)
@@ -104,6 +162,17 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("ShadowProjectStencil.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<bool directional, bool useZFailStencil>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("NEEDS_TRANSFORM", !directional),
+				ShaderVariation::Param("USE_ZFAIL_STENCIL", useZFailStencil)
+			});
+
+			return variation;
+		};
 	public:
 		ShadowProjectStencilMat();
 
@@ -121,11 +190,6 @@ namespace bs { namespace ct
 		static ShadowProjectStencilMat* getVariation(bool directional, bool useZFailStencil);
 	private:
 		SPtr<GpuParamBlockBuffer> mVertParams;
-
-		static ShaderVariation VAR_Dir_ZFailStencil;
-		static ShaderVariation VAR_Dir_NoZFailStencil;
-		static ShaderVariation VAR_NoDir_ZFailStencil;
-		static ShaderVariation VAR_NoDir_NoZFailStencil;
 	};
 
 	/** Common parameters used by the shadow projection materials. */
@@ -171,6 +235,20 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("ShadowProject.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<UINT32 quality, bool directional, bool MSAA>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SHADOW_QUALITY", quality),
+				ShaderVariation::Param("CASCADING", directional),
+				ShaderVariation::Param("NEEDS_TRANSFORM", !directional),
+				ShaderVariation::Param("MSAA_COUNT", MSAA ? 2 : 1)
+			});
+
+			return variation;
+		};
+
 	public:
 		ShadowProjectMat();
 
@@ -192,19 +270,6 @@ namespace bs { namespace ct
 
 		GpuParamTexture mShadowMapParam;
 		GpuParamSampState mShadowSamplerParam;
-
-#define VARIATION(QUALITY)											\
-		static ShaderVariation VAR_Q##QUALITY##_Dir_MSAA;			\
-		static ShaderVariation VAR_Q##QUALITY##_Dir_NoMSAA;			\
-		static ShaderVariation VAR_Q##QUALITY##_NoDir_MSAA;			\
-		static ShaderVariation VAR_Q##QUALITY##_NoDir_NoMSAA;		\
-	
-		VARIATION(1)
-		VARIATION(2)
-		VARIATION(3)
-		VARIATION(4)
-
-#undef VARIATION 
 	};
 
 	BS_PARAM_BLOCK_BEGIN(ShadowProjectOmniParamsDef)
@@ -221,6 +286,20 @@ namespace bs { namespace ct
 	class ShadowProjectOmniMat : public RendererMaterial<ShadowProjectOmniMat>
 	{
 		RMAT_DEF("ShadowProjectOmni.bsl");
+
+		/** Helper method used for initializing variations of this material. */
+		template<UINT32 quality, bool inside, bool MSAA>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SHADOW_QUALITY", quality),
+				ShaderVariation::Param("VIEWER_INSIDE_VOLUME", inside),
+				ShaderVariation::Param("NEEDS_TRANSFORM", true),
+				ShaderVariation::Param("MSAA_COUNT", MSAA ? 2 : 1)
+			});
+
+			return variation;
+		};
 
 	public:
 		ShadowProjectOmniMat();
@@ -243,19 +322,6 @@ namespace bs { namespace ct
 
 		GpuParamTexture mShadowMapParam;
 		GpuParamSampState mShadowSamplerParam;
-
-#define VARIATION(QUALITY)											\
-		static ShaderVariation VAR_Q##QUALITY##_Inside_MSAA;		\
-		static ShaderVariation VAR_Q##QUALITY##_Inside_NoMSAA;		\
-		static ShaderVariation VAR_Q##QUALITY##_Outside_MSAA;		\
-		static ShaderVariation VAR_Q##QUALITY##_Outside_NoMSAA;		\
-	
-		VARIATION(1)
-		VARIATION(2)
-		VARIATION(3)
-		VARIATION(4)
-
-#undef VARIATION 
 	};
 
 	/** Pixel format used for rendering and storing shadow maps. */
@@ -303,7 +369,6 @@ namespace bs { namespace ct
 	{
 	public:
 		ShadowMapAtlas(UINT32 size);
-		~ShadowMapAtlas();
 
 		/** 
 		 * Registers a new map in the shadow map atlas. Returns true if the map fits in the atlas, or false otherwise.
@@ -377,7 +442,6 @@ namespace bs { namespace ct
 	{
 	public:
 		ShadowCubemap(UINT32 size);
-		~ShadowCubemap();
 
 		/** Returns a render target encompassing all six faces of the shadow cubemap. */
 		SPtr<RenderTexture> getTarget() const;
@@ -388,7 +452,6 @@ namespace bs { namespace ct
 	{
 	public:
 		ShadowCascadedMap(UINT32 size);
-		~ShadowCascadedMap();
 
 		/** Returns a render target that allows rendering into a specific cascade of the cascaded shadow map. */
 		SPtr<RenderTexture> getTarget(UINT32 cascadeIdx) const;

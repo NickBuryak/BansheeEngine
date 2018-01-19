@@ -52,7 +52,11 @@ namespace bs {	namespace ct
 		UINT32 cameraId = camera->getRendererId();
 		RendererView* view = mInfo.views[cameraId];
 
-		if((updateFlag & ((UINT32)ActorDirtyFlag::Everything | (UINT32)ActorDirtyFlag::Active)) != 0)
+		UINT32 updateEverythingFlag = (UINT32)ActorDirtyFlag::Everything 
+			| (UINT32)ActorDirtyFlag::Active 
+			| (UINT32)CameraDirtyFlag::Viewport;
+
+		if((updateFlag & updateEverythingFlag) != 0)
 		{
 			RENDERER_VIEW_DESC viewDesc = createViewDesc(camera);
 
@@ -252,16 +256,17 @@ namespace bs {	namespace ct
 
 				// If no mInfo.aterial use the default mInfo.aterial
 				if (renElement.material == nullptr)
-					renElement.material = DefaultMaterial::get()->getMaterial();
+					renElement.material = Material::create(DefaultMaterial::get()->getShader());
 
 				// Determine which technique to use
-				static StringID techniqueIDLookup[4] = { StringID::NONE, RTag_Skinned, RTag_Morph, RTag_SkinnedMorph };
+				static const ShaderVariation* variationLookup[4] = { &SVar_Static, &SVar_Skinned, &SVar_Morph, &SVar_SkinnedMorph };
 				static_assert((UINT32)RenderableAnimType::Count == 4, "RenderableAnimType is expected to have four sequential entries.");
 
 				UINT32 techniqueIdx = -1;
 				RenderableAnimType animType = renderable->getAnimType();
-				if (animType != RenderableAnimType::None)
-					techniqueIdx = renElement.material->findTechnique(techniqueIDLookup[(int)animType]);
+				renElement.vertexInputVariation = variationLookup[(int)animType];
+
+				techniqueIdx = renElement.material->findTechnique(*renElement.vertexInputVariation);
 
 				if (techniqueIdx == (UINT32)-1)
 					techniqueIdx = renElement.material->getDefaultTechnique();
@@ -454,7 +459,7 @@ namespace bs {	namespace ct
 			std::swap(mInfo.reflProbes[probeId], mInfo.reflProbes[lastProbeId]);
 			std::swap(mInfo.reflProbeWorldBounds[probeId], mInfo.reflProbeWorldBounds[lastProbeId]);
 
-			probe->setRendererId(probeId);
+			lastProbe->setRendererId(probeId);
 		}
 
 		// Last element is the one we want to erase
@@ -549,7 +554,7 @@ namespace bs {	namespace ct
 
 		viewDesc.triggerCallbacks = true;
 		viewDesc.runPostProcessing = true;
-		viewDesc.renderingReflections = false;
+		viewDesc.capturingReflections = false;
 
 		viewDesc.cullFrustum = camera->getWorldFrustum();
 		viewDesc.visibleLayers = camera->getLayers();
@@ -613,7 +618,7 @@ namespace bs {	namespace ct
 		}
 
 		// Register in render target list
-		if (renderTarget != nullptr && (rtChanged == 0 || rtChanged == 2))
+		if (renderTarget != nullptr && !remove && (rtChanged == 0 || rtChanged == 2))
 		{
 			auto findIter = std::find_if(mInfo.renderTargets.begin(), mInfo.renderTargets.end(),
 				[&](const RendererRenderTarget& x) { return x.target == renderTarget; });

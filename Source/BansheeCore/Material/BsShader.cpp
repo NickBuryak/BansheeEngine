@@ -50,7 +50,8 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, StringID rendererSemantic)
+	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, 
+		StringID rendererSemantic)
 	{
 		UINT32 defaultValueIdx = (UINT32)-1;
 
@@ -58,7 +59,8 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, const SamplerStateType& defaultValue, StringID rendererSemantic)
+	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, 
+		const SamplerStateType& defaultValue, StringID rendererSemantic)
 	{
 		UINT32 defaultValueIdx = (UINT32)-1;
 		if (Shader::isSampler(type) && defaultValue != nullptr)
@@ -71,7 +73,8 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, const TextureType& defaultValue, StringID rendererSemantic)
+	void TSHADER_DESC<Core>::addParameter(const String& name, const String& gpuVariableName, GpuParamObjectType type, 
+		const TextureType& defaultValue, StringID rendererSemantic)
 	{
 		UINT32 defaultValueIdx = (UINT32)-1;
 		if (Shader::isTexture(type) && defaultValue != nullptr)
@@ -84,7 +87,8 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TSHADER_DESC<Core>::addParameterInternal(const String& name, const String& gpuVariableName, GpuParamObjectType type, StringID rendererSemantic, UINT32 defaultValueIdx)
+	void TSHADER_DESC<Core>::addParameterInternal(const String& name, const String& gpuVariableName, 
+		GpuParamObjectType type, StringID rendererSemantic, UINT32 defaultValueIdx)
 	{
 		Map<String, SHADER_OBJECT_PARAM_DESC>* DEST_LOOKUP[] = { &textureParams, &bufferParams, &samplerParams };
 		UINT32 destIdx = 0;
@@ -132,7 +136,8 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TSHADER_DESC<Core>::setParamBlockAttribs(const String& name, bool shared, GpuParamBlockUsage usage, StringID rendererSemantic)
+	void TSHADER_DESC<Core>::setParamBlockAttribs(const String& name, bool shared, GpuParamBlockUsage usage, 
+		StringID rendererSemantic)
 	{
 		SHADER_PARAM_BLOCK_DESC desc;
 		desc.name = name;
@@ -147,7 +152,8 @@ namespace bs
 	template struct TSHADER_DESC<true>;
 
 	template<bool Core>
-	TShader<Core>::TShader(const String& name, const TSHADER_DESC<Core>& desc, const Vector<SPtr<TechniqueType>>& techniques, UINT32 id)
+	TShader<Core>::TShader(const String& name, const TSHADER_DESC<Core>& desc, 
+		const Vector<SPtr<TechniqueType>>& techniques, UINT32 id)
 		:mName(name), mDesc(desc), mTechniques(techniques), mId(id)
 	{ }
 
@@ -316,6 +322,20 @@ namespace bs
 		return output;
 	}
 
+	template<bool Core>
+	Vector<SPtr<typename TShader<Core>::TechniqueType>> TShader<Core>::getCompatibleTechniques(
+		const ShaderVariation& variation) const
+	{
+		Vector<SPtr<TechniqueType>> output;
+		for (auto& technique : mTechniques)
+		{
+			if (technique->isSupported() && technique->getVariation() == variation)
+				output.push_back(technique);
+		}
+
+		return output;
+	}
+
 	template class TShader < false > ;
 	template class TShader < true >;
 
@@ -364,18 +384,18 @@ namespace bs
 		for (UINT32 i = 0; i < (UINT32)desc.samplerDefaultValues.size(); i++)
 		{
 			if (desc.samplerDefaultValues[i] != nullptr)
-				output.samplerDefaultValues.push_back(desc.samplerDefaultValues[i]->getCore());
+				output.samplerDefaultValues[i] = desc.samplerDefaultValues[i]->getCore();
 			else
-				output.samplerDefaultValues.push_back(nullptr);
+				output.samplerDefaultValues[i] = nullptr;
 		}
 
 		output.textureDefaultValues.resize(desc.textureDefaultValues.size());
 		for (UINT32 i = 0; i < (UINT32)desc.textureDefaultValues.size(); i++)
 		{
 			if (desc.textureDefaultValues[i].isLoaded())
-				output.textureDefaultValues.push_back(desc.textureDefaultValues[i]->getCore());
+				output.textureDefaultValues[i] = desc.textureDefaultValues[i]->getCore();
 			else
-				output.textureDefaultValues.push_back(nullptr);
+				output.textureDefaultValues[i] = nullptr;
 		}
 
 		output.queuePriority = desc.queuePriority;

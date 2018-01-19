@@ -32,16 +32,20 @@ namespace bs
 #endif
 	}
 
-	UINT64 CoreObjectManager::registerObject(CoreObject* object)
+	UINT64 CoreObjectManager::generateId()
 	{
-		assert(object != nullptr);
-
 		Lock lock(mObjectsMutex);
 
-		mObjects[mNextAvailableID] = object;
-		mDirtyObjects[mNextAvailableID] = { object, -1 };
-
 		return mNextAvailableID++;
+	}
+
+	void CoreObjectManager::registerObject(CoreObject* object)
+	{
+		Lock lock(mObjectsMutex);
+
+		UINT64 objId = object->getInternalID();
+		mObjects[objId] = object;
+		mDirtyObjects[objId] = { object, -1 };
 	}
 
 	void CoreObjectManager::unregisterObject(CoreObject* object)
@@ -311,10 +315,11 @@ namespace bs
 					for (auto& dependant : dependants)
 					{
 						if (!dependant->isCoreDirty())
-						{
-							dependant->mCoreDirtyFlags |= 0xFFFFFFFF; // To ensure the loop below doesn't skip it
 							dirtyDependants.insert(dependant);
-						}
+
+						// Note: This tells the object it was marked dirty due to a dependency, but it doesn't tell it
+						// due to which one. Eventually it might be nice to have that information as well.
+						dependant->mCoreDirtyFlags |= 0x80000000;
 					}
 				}
 			}

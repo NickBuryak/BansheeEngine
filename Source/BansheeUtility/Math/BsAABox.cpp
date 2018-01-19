@@ -173,16 +173,30 @@ namespace bs
 	{
 		BS_ASSERT(m.isAffine());
 
-		Vector3 centre = getCenter();
-		Vector3 halfSize = getHalfSize();
+		Vector3 min = m.getTranslation();
+		Vector3 max = m.getTranslation();
+		for(UINT32 i = 0; i < 3; i++)
+		{
+			for(UINT32 j = 0; j < 3; j++)
+			{
+				float e = m[i][j] * mMinimum[j];
+				float f = m[i][j] * mMaximum[j];
 
-		Vector3 newCentre = m.multiplyAffine(centre);
-		Vector3 newHalfSize(
-			Math::abs(m[0][0]) * halfSize.x + Math::abs(m[0][1]) * halfSize.y + Math::abs(m[0][2]) * halfSize.z, 
-			Math::abs(m[1][0]) * halfSize.x + Math::abs(m[1][1]) * halfSize.y + Math::abs(m[1][2]) * halfSize.z,
-			Math::abs(m[2][0]) * halfSize.x + Math::abs(m[2][1]) * halfSize.y + Math::abs(m[2][2]) * halfSize.z);
+				if(e < f)
+				{
+					min[i] += e;
+					max[i] += f;
+				}
+				else
+				{
+					min[i] += f;
+					max[i] += e;
+				}
+			}
+			
+		}
 
-		setExtents(newCentre - newHalfSize, newCentre + newHalfSize);
+		setExtents(min, max);
 	}
 
 	bool AABox::intersects(const AABox& b2) const
@@ -468,32 +482,32 @@ namespace bs
 		return diff.x * diff.y * diff.z;
 	}
 
-    bool AABox::contains(const Vector3& v) const
-    {
-        return mMinimum.x <= v.x && v.x <= mMaximum.x &&
-                mMinimum.y <= v.y && v.y <= mMaximum.y &&
-                mMinimum.z <= v.z && v.z <= mMaximum.z;
-    }
+	bool AABox::contains(const Vector3& v) const
+	{
+		return mMinimum.x <= v.x && v.x <= mMaximum.x &&
+				mMinimum.y <= v.y && v.y <= mMaximum.y &&
+				mMinimum.z <= v.z && v.z <= mMaximum.z;
+	}
 
-    bool AABox::contains(const AABox& other) const
-    {
-        return this->mMinimum.x <= other.mMinimum.x &&
-                this->mMinimum.y <= other.mMinimum.y &&
-                this->mMinimum.z <= other.mMinimum.z &&
-                other.mMaximum.x <= this->mMaximum.x &&
-                other.mMaximum.y <= this->mMaximum.y &&
-                other.mMaximum.z <= this->mMaximum.z;
-    }
+	bool AABox::contains(const AABox& other) const
+	{
+		return this->mMinimum.x <= other.mMinimum.x &&
+				this->mMinimum.y <= other.mMinimum.y &&
+				this->mMinimum.z <= other.mMinimum.z &&
+				other.mMaximum.x <= this->mMaximum.x &&
+				other.mMaximum.y <= this->mMaximum.y &&
+				other.mMaximum.z <= this->mMaximum.z;
+	}
 
-    bool AABox::operator== (const AABox& rhs) const
-    {
-        return this->mMinimum == rhs.mMinimum &&
-                this->mMaximum == rhs.mMaximum;
-    }
+	bool AABox::operator== (const AABox& rhs) const
+	{
+		return this->mMinimum == rhs.mMinimum &&
+				this->mMaximum == rhs.mMaximum;
+	}
 
-    bool AABox::operator!= (const AABox& rhs) const
-    {
-        return !(*this == rhs);
-    }
+	bool AABox::operator!= (const AABox& rhs) const
+	{
+		return !(*this == rhs);
+	}
 }
 

@@ -244,6 +244,12 @@ namespace bs { namespace ct
 		if(mProgramPipelineManager != nullptr)
 			bs_delete(mProgramPipelineManager);
 
+		if(mCurrentContext)
+			mCurrentContext->endCurrent();
+
+		mCurrentContext = nullptr;
+		mMainContext = nullptr;
+
 		if(mGLSupport)
 			bs_delete(mGLSupport);
 
@@ -716,11 +722,30 @@ namespace bs { namespace ct
 						if (texture != nullptr)
 						{
 							GLTexture* tex = static_cast<GLTexture*>(texture.get());
+							auto& texProps = tex->getProperties();
+
+							GLboolean bindAllLayers = 
+								texProps.getNumFaces() == surface.numFaces ||
+								surface.numFaces == 0;
+
+							if(!bindAllLayers && surface.numFaces > 1)
+							{
+								LOGWRN("Attempting to bind multiple faces of a load-store texture. You are allowed to bind \
+									either a single face, or all the faces of the texture. Only the first face will \
+									be bound instead.");
+							}
+
+							if(surface.numMipLevels > 1)
+							{
+								LOGWRN("Attempting to bind multiple mip levels of a load-store texture. This is not \
+									supported and only the first provided level will be bound.");
+							}
+
 							glBindImageTexture(
 								unit,
 								tex->getGLID(),
 								surface.mipLevel,
-								surface.numFaces > 1,
+								bindAllLayers,
 								surface.face,
 								GL_READ_WRITE,
 								tex->getGLFormat());
@@ -1773,16 +1798,15 @@ namespace bs { namespace ct
 		if (mActiveRenderTarget == nullptr)
 			return;
 
-		// Calculate the "lower-left" corner of the viewport
-		GLsizei x = 0, y = 0, w = 0, h = 0;
-
+		const RenderTargetProperties& rtProps = mActiveRenderTarget->getProperties();
+		GLsizei x, y, w, h;
 		if (enable)
 		{
 			glEnable(GL_SCISSOR_TEST);
 			BS_CHECK_GL_ERROR();
 
 			x = mScissorLeft;
-			y = mScissorTop;
+			y = rtProps.height - mScissorBottom;
 			w = mScissorRight - mScissorLeft;
 			h = mScissorBottom - mScissorTop;
 
@@ -1795,10 +1819,10 @@ namespace bs { namespace ct
 			BS_CHECK_GL_ERROR();
 
 			// GL requires you to reset the scissor when disabling
+			x = mViewportLeft;
+			y = rtProps.height - (mViewportTop + mViewportHeight); 
 			w = mViewportWidth;
 			h = mViewportHeight;
-			x = mViewportLeft;
-			y = mViewportTop; 
 
 			glScissor(x, y, w, h);
 			BS_CHECK_GL_ERROR();
@@ -1823,7 +1847,7 @@ namespace bs { namespace ct
 
 	void GLRenderAPI::setDepthClipEnable(bool enable)
 	{
-		if (enable)
+		if (!enable) // If clipping disabled, clamp is enabled
 		{
 			glEnable(GL_DEPTH_CLAMP);
 			BS_CHECK_GL_ERROR();
@@ -2515,7 +2539,7 @@ namespace bs { namespace ct
 		caps.setCapability(RSC_TEXTURE_COMPRESSION_BC);
 
 		// Check if geometry shaders are supported
-		if (getGLSupport()->checkExtension("GL_EXT_geometry_shader4"))
+		if (getGLSupport()->checkExtension("GL_ARB_geometry_shader4"))
 		{
 #if BS_OPENGL_4_1 || BS_OPENGLES_3_2
 			caps.setCapability(RSC_GEOMETRY_PROGRAM);

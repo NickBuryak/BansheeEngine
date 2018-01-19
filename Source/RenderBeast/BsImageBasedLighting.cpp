@@ -24,6 +24,8 @@ namespace bs { namespace ct
 
 	void VisibleReflProbeData::update(const SceneInfo& sceneInfo, const RendererViewGroup& viewGroup)
 	{
+		mReflProbeData.clear();
+
 		const VisibilityInfo& visibility = viewGroup.getVisibilityInfo();
 
 		// Generate refl. probe data for the visible ones
@@ -33,8 +35,8 @@ namespace bs { namespace ct
 			if (!visibility.reflProbes[i])
 				continue;
 
-			mReflProbeDataTemp.push_back(ReflProbeData());
-			sceneInfo.reflProbes[i].getParameters(mReflProbeDataTemp.back());
+			mReflProbeData.push_back(ReflProbeData());
+			sceneInfo.reflProbes[i].getParameters(mReflProbeData.back());
 		}
 
 		// Sort probes so bigger ones get accessed first, this way we overlay smaller ones on top of biggers ones when
@@ -44,9 +46,9 @@ namespace bs { namespace ct
 			return rhs.radius < lhs.radius;
 		};
 
-		std::sort(mReflProbeDataTemp.begin(), mReflProbeDataTemp.end(), sorter);
+		std::sort(mReflProbeData.begin(), mReflProbeData.end(), sorter);
 
-		mNumProbes = (UINT32)mReflProbeDataTemp.size();
+		mNumProbes = (UINT32)mReflProbeData.size();
 
 		// Move refl. probe data into a GPU buffer
 		UINT32 size = mNumProbes * sizeof(ReflProbeData);
@@ -72,9 +74,7 @@ namespace bs { namespace ct
 		}
 
 		if (size > 0)
-			mProbeBuffer->writeData(0, size, mReflProbeDataTemp.data(), BWT_DISCARD);
-
-		mReflProbeDataTemp.clear();
+			mProbeBuffer->writeData(0, size, mReflProbeData.data(), BWT_DISCARD);
 	}
 
 	RendererReflectionProbe::RendererReflectionProbe(ReflectionProbe* probe)
@@ -104,11 +104,9 @@ namespace bs { namespace ct
 		output.invBoxTransform.setInverseTRS(output.position, tfrm.getRotation(), output.boxExtents);
 	}
 
-	void ImageBasedLightingParams::populate(const SPtr<GpuParamsSet>& paramsSet, GpuProgramType programType, bool optional, 
-		bool gridIndices)
+	void ImageBasedLightingParams::populate(const SPtr<GpuParams>& params, GpuProgramType programType, bool optional, 
+		bool gridIndices, bool probeArray)
 	{
-		SPtr<GpuParams> params = paramsSet->getGpuParams();
-
 		// Sky
 		if (!optional || params->hasTexture(programType, "gSkyReflectionTex"))
 			params->getTextureParam(programType, "gSkyReflectionTex", skyReflectionsTexParam);
@@ -117,31 +115,21 @@ namespace bs { namespace ct
 		if (!optional || params->hasTexture(programType, "gReflProbeCubemaps"))
 		{
 			params->getTextureParam(programType, "gReflProbeCubemaps", reflectionProbeCubemapsTexParam);
-			params->getBufferParam(programType, "gReflectionProbes", reflectionProbesParam);
-			params->getTextureParam(programType, "gPreintegratedEnvBRDF", preintegratedEnvBRDFParam);
+
+			if(probeArray)
+				params->getBufferParam(programType, "gReflectionProbes", reflectionProbesParam);
 		}
+
+		if (!optional || params->hasTexture(programType, "gPreintegratedEnvBRDF"))
+			params->getTextureParam(programType, "gPreintegratedEnvBRDF", preintegratedEnvBRDFParam);
 
 		// AO
 		if (params->hasTexture(programType, "gAmbientOcclusionTex"))
-		{
 			params->getTextureParam(programType, "gAmbientOcclusionTex", ambientOcclusionTexParam);
-
-			if(params->hasParam(programType, "gAmbientOcclusionSamp"))
-				params->getSamplerStateParam(programType, "gAmbientOcclusionSamp", ambientOcclusionSampParam);
-			else
-				params->getSamplerStateParam(programType, "gAmbientOcclusionTex", ssrSampParam);
-		}
 
 		// SSR
 		if (params->hasTexture(programType, "gSSRTex"))
-		{
 			params->getTextureParam(programType, "gSSRTex", ssrTexParam);
-
-			if(params->hasParam(programType, "gSSRSamp"))
-				params->getSamplerStateParam(programType, "gSSRSamp", ssrSampParam);
-			else
-				params->getSamplerStateParam(programType, "gSSRTex", ssrSampParam);
-		}
 
 		if(gridIndices)
 		{
@@ -149,7 +137,12 @@ namespace bs { namespace ct
 				params->getBufferParam(programType, "gReflectionProbeIndices", reflectionProbeIndicesParam);
 		}
 
-		reflProbeParamsBindingIdx = paramsSet->getParamBlockBufferIndex("ReflProbeParams");
+		params->getParamInfo()->getBinding(
+			programType,
+			GpuPipelineParamInfoBase::ParamType::ParamBlock,
+			"ReflProbeParams",
+			reflProbeParamBindings
+		);
 	}
 
 	ReflProbeParamBuffer::ReflProbeParamBuffer()
@@ -157,8 +150,8 @@ namespace bs { namespace ct
 		buffer = gReflProbeParamsParamDef.createBuffer();
 	}
 
-	void ReflProbeParamBuffer::populate(const Skybox* sky, const VisibleReflProbeData& probeData, 
-		const SPtr<Texture>& reflectionCubemaps, bool capturingReflections)
+	void ReflProbeParamBuffer::populate(const Skybox* sky, UINT32 numProbes, const SPtr<Texture>& reflectionCubemaps, 
+		bool capturingReflections)
 	{
 		float brightness = 1.0f;
 		UINT32 skyReflectionsAvailable = 0;
@@ -178,7 +171,7 @@ namespace bs { namespace ct
 
 		gReflProbeParamsParamDef.gSkyCubemapNumMips.set(buffer, numSkyMips);
 		gReflProbeParamsParamDef.gSkyCubemapAvailable.set(buffer, skyReflectionsAvailable);
-		gReflProbeParamsParamDef.gNumProbes.set(buffer, probeData.getNumProbes());
+		gReflProbeParamsParamDef.gNumProbes.set(buffer, numProbes);
 
 		UINT32 numReflProbeMips = 0;
 		if (reflectionCubemaps != nullptr)
@@ -189,26 +182,6 @@ namespace bs { namespace ct
 		gReflProbeParamsParamDef.gSkyBrightness.set(buffer, brightness);
 	}
 
-	ShaderVariation TiledDeferredImageBasedLightingMat::VAR_1MSAA = ShaderVariation({
-		ShaderVariation::Param("TILE_SIZE", TILE_SIZE),
-		ShaderVariation::Param("MSAA_COUNT", 1)
-	});
-
-	ShaderVariation TiledDeferredImageBasedLightingMat::VAR_2MSAA = ShaderVariation({
-		ShaderVariation::Param("TILE_SIZE", TILE_SIZE),
-		ShaderVariation::Param("MSAA_COUNT", 2)
-	});
-
-	ShaderVariation TiledDeferredImageBasedLightingMat::VAR_4MSAA = ShaderVariation({
-		ShaderVariation::Param("TILE_SIZE", TILE_SIZE),
-		ShaderVariation::Param("MSAA_COUNT", 4)
-	});
-
-	ShaderVariation TiledDeferredImageBasedLightingMat::VAR_8MSAA = ShaderVariation({
-		ShaderVariation::Param("TILE_SIZE", TILE_SIZE),
-		ShaderVariation::Param("MSAA_COUNT", 8)
-	});
-
 	// Note: Using larger tiles than in tiled deferred lighting since we use AABB for intersections, which is more
 	// expensive to compute than frustums. This way we amortize the cost even though other parts of the shader might suffer
 	// due to increased thread group load.
@@ -218,48 +191,31 @@ namespace bs { namespace ct
 	{
 		mSampleCount = mVariation.getUInt("MSAA_COUNT");
 
-		SPtr<GpuParams> params = mParamsSet->getGpuParams();
+		mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferATex", mGBufferA);
+		mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferBTex", mGBufferB);
+		mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferCTex", mGBufferC);
+		mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gDepthBufferTex", mGBufferDepth);
 
-		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferATex", mGBufferA);
-		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferBTex", mGBufferB);
-		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gGBufferCTex", mGBufferC);
-		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gDepthBufferTex", mGBufferDepth);
-
-		params->getTextureParam(GPT_COMPUTE_PROGRAM, "gInColor", mInColorTextureParam);
+		mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gInColor", mInColorTextureParam);
 		if (mSampleCount > 1)
 		{
-			params->getTextureParam(GPT_COMPUTE_PROGRAM, "gMSAACoverage", mMSAACoverageTexParam);
-			params->getBufferParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputBufferParam);
+			mParams->getTextureParam(GPT_COMPUTE_PROGRAM, "gMSAACoverage", mMSAACoverageTexParam);
+			mParams->getBufferParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputBufferParam);
 		}
 		else
-			params->getLoadStoreTextureParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputTextureParam);
+			mParams->getLoadStoreTextureParam(GPT_COMPUTE_PROGRAM, "gOutput", mOutputTextureParam);
 
 		mParamBuffer = gTiledImageBasedLightingParamDef.createBuffer();
-		params->setParamBlockBuffer("Params", mParamBuffer);
+		mParams->setParamBlockBuffer("Params", mParamBuffer);
 
-		mImageBasedParams.populate(mParamsSet, GPT_COMPUTE_PROGRAM, false, false);
+		mImageBasedParams.populate(mParams, GPT_COMPUTE_PROGRAM, false, false, true);
 
-		SAMPLER_STATE_DESC desc;
-		desc.minFilter = FO_POINT;
-		desc.magFilter = FO_POINT;
-		desc.mipFilter = FO_POINT;
-		desc.addressMode.u = TAM_CLAMP;
-		desc.addressMode.v = TAM_CLAMP;
-		desc.addressMode.w = TAM_CLAMP;
-
-		SPtr<SamplerState> samplerState = SamplerState::create(desc);
-		mImageBasedParams.ssrSampParam.set(samplerState);
-		mImageBasedParams.ambientOcclusionSampParam.set(samplerState);
-
-		params->setParamBlockBuffer("ReflProbeParams", mReflProbeParamBuffer.buffer);
+		mParams->setParamBlockBuffer("ReflProbeParams", mReflProbeParamBuffer.buffer);
 	}
 
-	void TiledDeferredImageBasedLightingMat::_initVariations(ShaderVariations& variations)
+	void TiledDeferredImageBasedLightingMat::_initDefines(ShaderDefines& defines)
 	{
-		variations.add(VAR_1MSAA);
-		variations.add(VAR_2MSAA);
-		variations.add(VAR_4MSAA);
-		variations.add(VAR_8MSAA);
+		defines.set("TILE_SIZE", TILE_SIZE);
 	}
 
 	void TiledDeferredImageBasedLightingMat::execute(const RendererView& view, const SceneInfo& sceneInfo, 
@@ -274,8 +230,8 @@ namespace bs { namespace ct
 		framebufferSize[1] = height;
 		gTiledImageBasedLightingParamDef.gFramebufferSize.set(mParamBuffer, framebufferSize);
 
-		mReflProbeParamBuffer.populate(sceneInfo.skybox, probeData, sceneInfo.reflProbeCubemapsTex, 
-			viewProps.renderingReflections);
+		mReflProbeParamBuffer.populate(sceneInfo.skybox, probeData.getNumProbes(), sceneInfo.reflProbeCubemapsTex, 
+			viewProps.capturingReflections);
 
 		mParamBuffer->flushToGPU();
 		mReflProbeParamBuffer.buffer->flushToGPU();
@@ -296,7 +252,7 @@ namespace bs { namespace ct
 		mImageBasedParams.ambientOcclusionTexParam.set(inputs.ambientOcclusion);
 		mImageBasedParams.ssrTexParam.set(inputs.ssr);
 
-		mParamsSet->getGpuParams()->setParamBlockBuffer("PerCamera", view.getPerViewBuffer());
+		mParams->setParamBlockBuffer("PerCamera", view.getPerViewBuffer());
 
 		mInColorTextureParam.set(inputs.lightAccumulation);
 		if (mSampleCount > 1)
@@ -310,9 +266,7 @@ namespace bs { namespace ct
 		UINT32 numTilesX = (UINT32)Math::ceilToInt(width / (float)TILE_SIZE);
 		UINT32 numTilesY = (UINT32)Math::ceilToInt(height / (float)TILE_SIZE);
 
-		gRendererUtility().setComputePass(mMaterial, 0);
-		gRendererUtility().setPassParams(mParamsSet);
-
+		bind();
 		RenderAPI::instance().dispatchCompute(numTilesX, numTilesY);
 	}
 
@@ -321,14 +275,14 @@ namespace bs { namespace ct
 		switch(msaaCount)
 		{
 		case 1:
-			return get(VAR_1MSAA);
+			return get(getVariation<1>());
 		case 2:
-			return get(VAR_2MSAA);
+			return get(getVariation<2>());
 		case 4:
-			return get(VAR_4MSAA);
+			return get(getVariation<4>());
 		case 8:
 		default:
-			return get(VAR_8MSAA);
+			return get(getVariation<8>());
 		}
 	}
 }}

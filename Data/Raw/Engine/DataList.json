@@ -49,10 +49,6 @@
     ],
     "Includes": [
         {
-            "Path": "NormalVertexInput.bslinc",
-            "UUID": "967325e7-262b-49bf-8c90-032a8bbc8ce2"
-        },
-        {
             "Path": "PerCameraData.bslinc",
             "UUID": "c1e4d309-8c20-4fd4-bf14-eb129af39d4e"
         },
@@ -77,16 +73,8 @@
             "UUID": "eef92578-b8ed-45d6-8eed-d85697ade3c5"
         },
         {
-            "Path": "SkinnedVertexInput.bslinc",
-            "UUID": "d6a2ea27-5f4c-41ad-88bc-cad7dd7adc8d"
-        },
-        {
             "Path": "SpriteImage.bslinc",
             "UUID": "0114b1da-9899-45ca-8486-a9791482d3c5"
-        },
-        {
-            "Path": "Surface.bslinc",
-            "UUID": "468be285-026c-49d8-99ea-5f1709ea605a"
         },
         {
             "Path": "VolumeRenderBase.bslinc",
@@ -159,6 +147,10 @@
         {
             "Path": "PPEyeAdaptationCommon.bslinc",
             "UUID": "1a0c4fb5-49b6-7eb8-28b8-49b698a6b7fe"
+        },
+        {
+            "Path": "VertexInput.bslinc",
+            "UUID": "2d0dc7e6-46bf-03bb-f48d-46bf25dda973"
         }
     ],
     "Shaders": [
@@ -397,6 +389,22 @@
         {
             "Path": "PPEyeAdaptationBasicSetup.bsl",
             "UUID": "86cda288-4fd5-4d0f-a5a2-4fd56d3b92ea"
+        },
+        {
+            "Path": "DeferredIBLFinalize.bsl",
+            "UUID": "5973a208-4956-8ea4-85af-495668744158"
+        },
+        {
+            "Path": "DeferredIBLProbe.bsl",
+            "UUID": "76dd3c87-4cea-7066-9182-4ceade228448"
+        },
+        {
+            "Path": "DeferredIBLSetup.bsl",
+            "UUID": "115c9291-4260-606d-1098-426042ea073a"
+        },
+        {
+            "Path": "DeferredIBLSky.bsl",
+            "UUID": "e3c4e19e-4d65-dd20-bca1-4d65a0b9980b"
         }
     ],
     "Skin": [

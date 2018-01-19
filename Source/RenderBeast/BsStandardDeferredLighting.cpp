@@ -5,161 +5,261 @@
 #include "BsRendererView.h"
 #include "Material/BsGpuParamsSet.h"
 #include "Mesh/BsMesh.h"
+#include "Renderer/BsSkybox.h"
+#include "BsRendererScene.h"
+#include "Renderer/BsReflectionProbe.h"
 
 namespace bs { namespace ct {
 	PerLightParamDef gPerLightParamDef;
 
-	ShaderVariation DirectionalLightMat::VAR_FullMSAA = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true)
-	});
-
-	ShaderVariation DirectionalLightMat::VAR_SingleMSAA = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true),
-		ShaderVariation::Param("MSAA_RESOLVE_0TH", true)
-	});
-
-	ShaderVariation DirectionalLightMat::VAR_NoMSAA = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 1)
-	});
-
-	DirectionalLightMat::DirectionalLightMat()
-		:mGBufferParams(mMaterial, mParamsSet)
+	DeferredDirectionalLightMat::DeferredDirectionalLightMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
 	{
-		const GpuParams& gpuParams = *mParamsSet->getGpuParams();
-		gpuParams.getTextureParam(GPT_FRAGMENT_PROGRAM, "gLightOcclusionTex", mLightOcclusionTexParam);
+		mParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gLightOcclusionTex", mLightOcclusionTexParam);
 	}
 
-	void DirectionalLightMat::_initVariations(ShaderVariations& variations)
+	void DeferredDirectionalLightMat::bind(const GBufferTextures& gBufferInput, const SPtr<Texture>& lightOcclusion, 
+		const SPtr<GpuParamBlockBuffer>& perCamera, const SPtr<GpuParamBlockBuffer>& perLight)
 	{
-		variations.add(VAR_FullMSAA);
-		variations.add(VAR_SingleMSAA);
-		variations.add(VAR_NoMSAA);
-	}
-
-	void DirectionalLightMat::bind(const GBufferTextures& gBufferInput, const SPtr<Texture>& lightOcclusion, 
-		const SPtr<GpuParamBlockBuffer>& perCamera)
-	{
-		RendererUtility::instance().setPass(mMaterial, 0);
-
 		mGBufferParams.bind(gBufferInput);
 		mLightOcclusionTexParam.set(lightOcclusion);
-		mParamsSet->getGpuParams()->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("PerLight", perLight);
+
+		RendererMaterial::bind();
 	}
 
-	void DirectionalLightMat::setPerLightParams(const SPtr<GpuParamBlockBuffer>& perLight)
-	{
-		mParamsSet->getGpuParams()->setParamBlockBuffer("PerLight", perLight);
-		
-		gRendererUtility().setPassParams(mParamsSet);
-	}
-
-	DirectionalLightMat* DirectionalLightMat::getVariation(bool msaa, bool singleSampleMSAA)
+	DeferredDirectionalLightMat* DeferredDirectionalLightMat::getVariation(bool msaa, bool singleSampleMSAA)
 	{
 		if (msaa)
 		{
 			if (singleSampleMSAA)
-				return get(VAR_SingleMSAA);
+				return get(getVariation<true, true>());
 			else
-				return get(VAR_FullMSAA);
+				return get(getVariation<true, false>());
 		}
 
-		return get(VAR_NoMSAA);
+		return get(getVariation<false, false>());
 	}
 
-	ShaderVariation PointLightMat::VAR_FullMSAA_Inside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true),
-		ShaderVariation::Param("INSIDE_GEOMETRY", true)
-	});
-
-	ShaderVariation PointLightMat::VAR_SingleMSAA_Inside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true),
-		ShaderVariation::Param("INSIDE_GEOMETRY", true),
-		ShaderVariation::Param("MSAA_RESOLVE_0TH", true)
-	});
-
-	ShaderVariation PointLightMat::VAR_FullMSAA_Outside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true)
-	});
-
-	ShaderVariation PointLightMat::VAR_SingleMSAA_Outside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 2),
-		ShaderVariation::Param("MSAA", true),
-		ShaderVariation::Param("MSAA_RESOLVE_0TH", true)
-	});
-
-	ShaderVariation PointLightMat::VAR_NoMSAA_Inside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 1),
-		ShaderVariation::Param("INSIDE_GEOMETRY", true)
-	});
-
-	ShaderVariation PointLightMat::VAR_NoMSAA_Outside = ShaderVariation({
-		ShaderVariation::Param("MSAA_COUNT", 1)
-	});
-
-	PointLightMat::PointLightMat()
-		:mGBufferParams(mMaterial, mParamsSet)
+	DeferredPointLightMat::DeferredPointLightMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
 	{
-		const GpuParams& gpuParams = *mParamsSet->getGpuParams();
-		gpuParams.getTextureParam(GPT_FRAGMENT_PROGRAM, "gLightOcclusionTex", mLightOcclusionTexParam);
+		mParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gLightOcclusionTex", mLightOcclusionTexParam);
 	}
 
-	void PointLightMat::_initVariations(ShaderVariations& variations)
+	void DeferredPointLightMat::bind(const GBufferTextures& gBufferInput, const SPtr<Texture>& lightOcclusion, 
+		const SPtr<GpuParamBlockBuffer>& perCamera, const SPtr<GpuParamBlockBuffer>& perLight)
 	{
-		variations.add(VAR_FullMSAA_Inside);
-		variations.add(VAR_SingleMSAA_Inside);
-		variations.add(VAR_FullMSAA_Outside);
-		variations.add(VAR_SingleMSAA_Outside);
-		variations.add(VAR_NoMSAA_Inside);
-		variations.add(VAR_NoMSAA_Outside);
-	}
-
-	void PointLightMat::bind(const GBufferTextures& gBufferInput, const SPtr<Texture>& lightOcclusion, 
-		const SPtr<GpuParamBlockBuffer>& perCamera)
-	{
-		RendererUtility::instance().setPass(mMaterial, 0);
-
 		mGBufferParams.bind(gBufferInput);
 		mLightOcclusionTexParam.set(lightOcclusion);
-		mParamsSet->getGpuParams()->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("PerLight", perLight);
+
+		RendererMaterial::bind();
 	}
 
-	void PointLightMat::setPerLightParams(const SPtr<GpuParamBlockBuffer>& perLight)
-	{
-		mParamsSet->getGpuParams()->setParamBlockBuffer("PerLight", perLight);
-		
-		gRendererUtility().setPassParams(mParamsSet);
-	}
-
-	PointLightMat* PointLightMat::getVariation(bool inside, bool msaa, bool singleSampleMSAA)
+	DeferredPointLightMat* DeferredPointLightMat::getVariation(bool inside, bool msaa, bool singleSampleMSAA)
 	{
 		if(msaa)
 		{
 			if (inside)
 			{
 				if (singleSampleMSAA)
-					return get(VAR_SingleMSAA_Inside);
+					return get(getVariation<true, true, true>());
 
-				return get(VAR_FullMSAA_Inside);
+				return get(getVariation<true, true, false>());
 			}
 			else
 			{
 				if (singleSampleMSAA)
-					return get(VAR_SingleMSAA_Outside);
+					return get(getVariation<false, true, true>());
 
-				return get(VAR_FullMSAA_Outside);
+				return get(getVariation<false, true, false>());
 			}
 		}
 		else
 		{
 			if (inside)
-				return get(VAR_NoMSAA_Inside);
+				return get(getVariation<true, false, false>());
 			else
-				return get(VAR_NoMSAA_Outside);
+				return get(getVariation<false, false, false>());
+		}
+	}
+
+	PerProbeParamDef gPerProbeParamDef;
+
+	DeferredIBLSetupMat::DeferredIBLSetupMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
+	{
+		mIBLParams.populate(mParams, GPT_FRAGMENT_PROGRAM, true, false, false);
+	}
+
+	void DeferredIBLSetupMat::bind(const GBufferTextures& gBufferInput, const SPtr<GpuParamBlockBuffer>& perCamera, 
+		const SPtr<Texture>& ssr, const SPtr<Texture>& ao, const SPtr<GpuParamBlockBuffer>& reflProbeParams)
+	{
+		mGBufferParams.bind(gBufferInput);
+
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("ReflProbeParams", reflProbeParams);
+
+		mIBLParams.ambientOcclusionTexParam.set(ao);
+		mIBLParams.ssrTexParam.set(ssr);
+
+		RendererMaterial::bind();
+	}
+
+	DeferredIBLSetupMat* DeferredIBLSetupMat::getVariation(bool msaa, bool singleSampleMSAA)
+	{
+		if(msaa)
+		{
+			if (singleSampleMSAA)
+				return get(getVariation<true, true>());
+
+			return get(getVariation<true, false>());
+		}
+		else
+		{
+			return get(getVariation<false, false>());
+		}
+	}
+
+	DeferredIBLProbeMat::DeferredIBLProbeMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
+	{
+		mIBLParams.populate(mParams, GPT_FRAGMENT_PROGRAM, true, false, false);
+
+		mParamBuffer = gPerProbeParamDef.createBuffer();
+		mParams->setParamBlockBuffer("PerProbe", mParamBuffer);
+	}
+
+	void DeferredIBLProbeMat::bind(const GBufferTextures& gBufferInput, const SPtr<GpuParamBlockBuffer>& perCamera, 
+		const SceneInfo& sceneInfo, const ReflProbeData& probeData, const SPtr<GpuParamBlockBuffer>& reflProbeParams)
+	{
+		mGBufferParams.bind(gBufferInput);
+
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("ReflProbeParams", reflProbeParams);
+
+		gPerProbeParamDef.gPosition.set(mParamBuffer, probeData.position);
+
+		if(probeData.type == 1)
+			gPerProbeParamDef.gExtents.set(mParamBuffer, probeData.boxExtents);
+		else
+		{
+			Vector3 extents(probeData.radius, probeData.radius, probeData.radius);
+			gPerProbeParamDef.gExtents.set(mParamBuffer, extents);
+		}
+
+		gPerProbeParamDef.gTransitionDistance.set(mParamBuffer, probeData.transitionDistance);
+		gPerProbeParamDef.gInvBoxTransform.set(mParamBuffer, probeData.invBoxTransform);
+		gPerProbeParamDef.gCubemapIdx.set(mParamBuffer, probeData.cubemapIdx);
+		gPerProbeParamDef.gType.set(mParamBuffer, probeData.type);
+
+		mIBLParams.reflectionProbeCubemapsTexParam.set(sceneInfo.reflProbeCubemapsTex);
+
+		RendererMaterial::bind();
+	}
+
+	DeferredIBLProbeMat* DeferredIBLProbeMat::getVariation(bool inside, bool msaa, bool singleSampleMSAA)
+	{
+		if(msaa)
+		{
+			if (inside)
+			{
+				if (singleSampleMSAA)
+					return get(getVariation<true, true, true>());
+
+				return get(getVariation<true, true, false>());
+			}
+			else
+			{
+				if (singleSampleMSAA)
+					return get(getVariation<false, true, true>());
+
+				return get(getVariation<false, true, false>());
+			}
+		}
+		else
+		{
+			if (inside)
+				return get(getVariation<true, false, false>());
+			else
+				return get(getVariation<false, false, false>());
+		}
+	}
+
+	DeferredIBLSkyMat::DeferredIBLSkyMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
+	{
+		mIBLParams.populate(mParams, GPT_FRAGMENT_PROGRAM, true, false, false);
+	}
+
+	void DeferredIBLSkyMat::bind(const GBufferTextures& gBufferInput, const SPtr<GpuParamBlockBuffer>& perCamera, 
+		const Skybox* skybox, const SPtr<GpuParamBlockBuffer>& reflProbeParams)
+	{
+		mGBufferParams.bind(gBufferInput);
+
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("ReflProbeParams", reflProbeParams);
+
+		if(skybox != nullptr)
+			mIBLParams.skyReflectionsTexParam.set(skybox->getFilteredRadiance());
+
+		RendererMaterial::bind();
+	}
+
+	DeferredIBLSkyMat* DeferredIBLSkyMat::getVariation(bool msaa, bool singleSampleMSAA)
+	{
+		if(msaa)
+		{
+			if (singleSampleMSAA)
+				return get(getVariation<true, true>());
+
+			return get(getVariation<true, false>());
+		}
+		else
+		{
+			return get(getVariation<false, false>());
+		}
+	}
+
+	DeferredIBLFinalizeMat::DeferredIBLFinalizeMat()
+		:mGBufferParams(GPT_FRAGMENT_PROGRAM, mParams)
+	{
+		mParams->getTextureParam(GPT_FRAGMENT_PROGRAM, "gIBLRadianceTex", mIBLRadiance);
+
+		mIBLParams.populate(mParams, GPT_FRAGMENT_PROGRAM, true, false, false);
+	}
+
+	void DeferredIBLFinalizeMat::bind(const GBufferTextures& gBufferInput, const SPtr<GpuParamBlockBuffer>& perCamera, 
+		const SPtr<Texture>& iblRadiance, const SPtr<Texture>& preintegratedBrdf, 
+		const SPtr<GpuParamBlockBuffer>& reflProbeParams)
+	{
+		mGBufferParams.bind(gBufferInput);
+
+		mParams->setParamBlockBuffer("PerCamera", perCamera);
+		mParams->setParamBlockBuffer("ReflProbeParams", reflProbeParams);
+
+		mIBLParams.preintegratedEnvBRDFParam.set(preintegratedBrdf);
+
+		mIBLRadiance.set(iblRadiance);
+
+		RendererMaterial::bind();
+	}
+
+	DeferredIBLFinalizeMat* DeferredIBLFinalizeMat::getVariation(bool msaa, bool singleSampleMSAA)
+	{
+		if(msaa)
+		{
+			if (singleSampleMSAA)
+				return get(getVariation<true, true>());
+
+			return get(getVariation<true, false>());
+		}
+		else
+		{
+			return get(getVariation<false, false>());
 		}
 	}
 
@@ -180,18 +280,16 @@ namespace bs { namespace ct {
 
 		if (lightType == LightType::Directional)
 		{
-			DirectionalLightMat* material = DirectionalLightMat::getVariation(isMSAA, true);
-			material->bind(gBufferInput, lightOcclusion, perViewBuffer);
-			material->setPerLightParams(mPerLightBuffer);
+			DeferredDirectionalLightMat* material = DeferredDirectionalLightMat::getVariation(isMSAA, true);
+			material->bind(gBufferInput, lightOcclusion, perViewBuffer, mPerLightBuffer);
 
 			gRendererUtility().drawScreenQuad();
 
 			// Draw pixels requiring per-sample evaluation
 			if(isMSAA)
 			{
-				DirectionalLightMat* msaaMaterial = DirectionalLightMat::getVariation(true, false);
-				msaaMaterial->bind(gBufferInput, lightOcclusion, perViewBuffer);
-				msaaMaterial->setPerLightParams(mPerLightBuffer);
+				DeferredDirectionalLightMat* msaaMaterial = DeferredDirectionalLightMat::getVariation(true, false);
+				msaaMaterial->bind(gBufferInput, lightOcclusion, perViewBuffer, mPerLightBuffer);
 
 				gRendererUtility().drawScreenQuad();
 			}
@@ -210,13 +308,12 @@ namespace bs { namespace ct {
 
 			SPtr<Mesh> stencilMesh;
 			if(lightType == LightType::Radial)
-				stencilMesh = RendererUtility::instance().getRadialLightStencil();
+				stencilMesh = RendererUtility::instance().getSphereStencil();
 			else // Spot
 				stencilMesh = RendererUtility::instance().getSpotLightStencil();
 
-			PointLightMat* material = PointLightMat::getVariation(isInside, isMSAA, true);
-			material->bind(gBufferInput, lightOcclusion, perViewBuffer);
-			material->setPerLightParams(mPerLightBuffer);
+			DeferredPointLightMat* material = DeferredPointLightMat::getVariation(isInside, isMSAA, true);
+			material->bind(gBufferInput, lightOcclusion, perViewBuffer, mPerLightBuffer);
 
 			// Note: If MSAA is enabled this will be rendered multisampled (on polygon edges), see if this can be avoided
 			gRendererUtility().draw(stencilMesh);
@@ -224,12 +321,59 @@ namespace bs { namespace ct {
 			// Draw pixels requiring per-sample evaluation
 			if(isMSAA)
 			{
-				PointLightMat* msaaMaterial = PointLightMat::getVariation(isInside, true, false);
-				msaaMaterial->bind(gBufferInput, lightOcclusion, perViewBuffer);
-				msaaMaterial->setPerLightParams(mPerLightBuffer);
+				DeferredPointLightMat* msaaMaterial = DeferredPointLightMat::getVariation(isInside, true, false);
+				msaaMaterial->bind(gBufferInput, lightOcclusion, perViewBuffer, mPerLightBuffer);
 
 				gRendererUtility().draw(stencilMesh);
 			}
+		}
+	}
+	void StandardDeferred::renderReflProbe(const ReflProbeData& probeData, const RendererView& view,
+		const GBufferTextures& gBufferInput, const SceneInfo& sceneInfo, const SPtr<GpuParamBlockBuffer>& reflProbeParams)
+	{
+		const auto& viewProps = view.getProperties();
+		bool isMSAA = viewProps.numSamples > 1;
+
+		SPtr<GpuParamBlockBuffer> perViewBuffer = view.getPerViewBuffer();
+
+		// When checking if viewer is inside the volume extend the bounds slighty to cover the case when the viewer is
+		// outside, but the near plane is intersecting the bounds. We need to be conservative since the material for
+		// rendering outside will not properly render the inside of the volume.
+		float radiusBuffer = viewProps.nearPlane * 3.0f;
+
+		SPtr<Mesh> stencilMesh;
+		bool isInside;
+		if(probeData.type == 0) // Sphere
+		{
+			// Check if viewer is inside the light volume
+			float distSqrd = (probeData.position - viewProps.viewOrigin).squaredLength();
+			float boundRadius = probeData.radius + radiusBuffer;
+			
+			isInside = distSqrd < (boundRadius * boundRadius);
+			stencilMesh = RendererUtility::instance().getSphereStencil();
+		} 
+		else // Box
+		{
+			Vector3 extents = probeData.boxExtents + radiusBuffer;
+			AABox box(probeData.position - extents, probeData.position + extents);
+
+			isInside = box.contains(viewProps.viewOrigin);
+			stencilMesh = RendererUtility::instance().getBoxStencil();
+		}
+
+		DeferredIBLProbeMat* material = DeferredIBLProbeMat::getVariation(isInside, isMSAA, true);
+		material->bind(gBufferInput, perViewBuffer, sceneInfo, probeData, reflProbeParams);
+
+		// Note: If MSAA is enabled this will be rendered multisampled (on polygon edges), see if this can be avoided
+		gRendererUtility().draw(stencilMesh);
+
+		// Draw pixels requiring per-sample evaluation
+		if (isMSAA)
+		{
+			DeferredIBLProbeMat* msaaMaterial = DeferredIBLProbeMat::getVariation(isInside, true, false);
+			msaaMaterial->bind(gBufferInput, perViewBuffer, sceneInfo, probeData, reflProbeParams);
+
+			gRendererUtility().draw(stencilMesh);
 		}
 	}
 }}

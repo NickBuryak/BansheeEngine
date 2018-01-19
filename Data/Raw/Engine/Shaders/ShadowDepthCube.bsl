@@ -1,8 +1,10 @@
 #define USES_GS
 #include "$ENGINE$\ShadowDepthBase.bslinc"
 
-mixin ShadowDepth
+technique ShadowDepth
 { 
+	mixin ShadowDepthBase;
+	
 	code
 	{
 		struct GSToPS
@@ -50,8 +52,10 @@ mixin ShadowDepth
 						GSToPS output;
 						output.targetIdx = faceIdx;
 
+						// Note: I'm reversing the order here because otherwise the triangle order is reversed
+						// (not sure why, but GS seems like it could be the only culprit)
 						[unroll]
-						for (int vertIdx = 0; vertIdx < 3; vertIdx++)
+						for (int vertIdx = 2; vertIdx >= 0; vertIdx--)
 						{
 							output.position = clipPos[vertIdx];
 							outStream.Append(output);

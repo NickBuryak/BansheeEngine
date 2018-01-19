@@ -4,15 +4,15 @@
 #define USE_LIGHT_GRID_INDICES 1
 #include "$ENGINE$\LightingCommon.bslinc"
 #include "$ENGINE$\ImageBasedLighting.bslinc"
-#include "$ENGINE$\Surface.bslinc"
 
 options
 {
 	transparent = true;
 };
 
-mixin Surface
+technique Surface
 {
+	mixin BasePass;
 	mixin LightingCommon;
 	mixin LightGridCommon;
 	mixin ReflectionCubemapCommon;
@@ -90,7 +90,7 @@ mixin Surface
 			float3 totalLighting = directLighting.rgb;
 			totalLighting.rgb += imageBasedSpecular;
 
-			return float4(totalLighting, gOpacity);
+			return float4(totalLighting, surfaceData.albedo.a * gOpacity);
 		}	
 	};
 };

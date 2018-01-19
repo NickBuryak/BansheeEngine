@@ -55,14 +55,21 @@ namespace bs { namespace ct
 	{
 		RMAT_DEF("Skybox.bsl");
 
+		/** Helper method used for initializing variations of this material. */
+		template<bool color>
+		static const ShaderVariation& getVariation()
+		{
+			static ShaderVariation variation = ShaderVariation({
+				ShaderVariation::Param("SOLID_COLOR", color)
+			});
+
+			return variation;
+		}
 	public:
 		SkyboxMat();
 
-		/** Binds the material for rendering and sets up any global parameters. */
-		void bind(const SPtr<GpuParamBlockBuffer>& perCamera);
-
-		/** Updates the skybox texture & solid color used by the material. */
-		void setParams(const SPtr<Texture>& texture, const Color& solidColor);
+		/** Binds the material for rendering and sets up any parameters. */
+		void bind(const SPtr<GpuParamBlockBuffer>& perCamera, const SPtr<Texture>& texture, const Color& solidColor);
 
 		/** 
 		 * Returns the material variation matching the provided parameters.
@@ -74,9 +81,6 @@ namespace bs { namespace ct
 	private:
 		GpuParamTexture mSkyTextureParam;
 		SPtr<GpuParamBlockBuffer> mParamBuffer;
-
-		static ShaderVariation VAR_Texture;
-		static ShaderVariation VAR_Color;
 	};
 
 	/** Data shared between RENDERER_VIEW_DESC and RendererViewProperties */
@@ -106,7 +110,7 @@ namespace bs { namespace ct
 		 * Determines if the view is currently rendering reflection probes. This ensures the systems can disable refl.
 		 * probe reads in order to prevent incorrect rendering (since probes won't yet have any data).
 		 */
-		bool renderingReflections : 1;
+		bool capturingReflections : 1;
 
 		/** 
 		 * When enabled the alpha channel of the final render target will be populated with an encoded depth value. 

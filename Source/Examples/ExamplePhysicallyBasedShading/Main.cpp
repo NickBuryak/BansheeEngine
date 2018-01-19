@@ -317,7 +317,8 @@ namespace bs
 
 		// Add a Camera component that will output whatever it sees into that window 
 		// (You could also use a render texture or another window you created).
-		sceneCamera = sceneCameraSO->addComponent<CCamera>(window);
+		sceneCamera = sceneCameraSO->addComponent<CCamera>();
+		sceneCamera->getViewport()->setTarget(window);
 
 		// Set up camera component properties
 
@@ -357,7 +358,7 @@ namespace bs
 		inputConfig->registerButton("Left", BC_A);
 		inputConfig->registerButton("Right", BC_D);
 		inputConfig->registerButton("Forward", BC_UP);
-		inputConfig->registerButton("Back", BC_BACK);
+		inputConfig->registerButton("Back", BC_DOWN);
 		inputConfig->registerButton("Left", BC_LEFT);
 		inputConfig->registerButton("Right", BC_RIGHT);
 		inputConfig->registerButton("FastMove", BC_LSHIFT);

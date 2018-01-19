@@ -72,6 +72,19 @@ namespace bs
 	}
 
 	template<bool Core>
+	UINT32 TMaterial<Core>::findTechnique(const ShaderVariation& variation) const
+	{
+		for(UINT32 i = 0; i < (UINT32)mTechniques.size(); i++)
+		{
+			const ShaderVariation& curVariation = mTechniques[i]->getVariation();
+			if(curVariation == variation)
+				return i;
+		}
+
+		return (UINT32)-1;
+	}
+
+	template<bool Core>
 	UINT32 TMaterial<Core>::getDefaultTechnique() const
 	{
 		for (UINT32 i = 0; i < (UINT32)mTechniques.size(); i++)
@@ -151,14 +164,18 @@ namespace bs
 	}
 
 	template<bool Core>
-	void TMaterial<Core>::initializeTechniques()
+	void TMaterial<Core>::initializeTechniques(bool allVariations, const ShaderVariation& variation)
 	{
 		mTechniques.clear();
 
 		if (isShaderValid(mShader))
 		{
 			mParams = bs_shared_ptr_new<MaterialParamsType>(mShader);
-			mTechniques = mShader->getCompatibleTechniques();
+
+			if(allVariations)
+				mTechniques = mShader->getCompatibleTechniques();
+			else
+				mTechniques = mShader->getCompatibleTechniques(variation);
 
 			if (mTechniques.size() == 0)
 				return;
@@ -384,6 +401,11 @@ namespace bs
 		mShader = shader;
 		mTechniques.clear();
 		mLoadFlags = Load_None;
+
+		// Make sure to clear params, because the default behaviour is to re-apply them (which won't work due to changed
+		// shader)
+		mParams = nullptr;
+
 		_markResourcesDirty();
 
 		initializeIfLoaded();
@@ -438,18 +460,20 @@ namespace bs
 
 	CoreSyncData Material::syncToCore(FrameAlloc* allocator)
 	{
-		bool syncAllParams = getCoreDirtyFlags() == (UINT32)MaterialDirtyFlags::ResourceChanged;
+		bool syncAllParams = (getCoreDirtyFlags() & (UINT32)MaterialDirtyFlags::ResourceChanged) != 0;
 
 		UINT32 paramsSize = 0;
 		if (mParams != nullptr)
 			mParams->getSyncData(nullptr, paramsSize, syncAllParams);
 
 		UINT32 numTechniques = (UINT32)mTechniques.size();
-		UINT32 size = sizeof(UINT32) * 2 + sizeof(SPtr<ct::Shader>) + 
+		UINT32 size = sizeof(bool) + sizeof(UINT32) * 2 + sizeof(SPtr<ct::Shader>) + 
 			sizeof(SPtr<ct::Technique>) * numTechniques + paramsSize;
 
 		UINT8* buffer = allocator->alloc(size);
 		char* dataPtr = (char*)buffer;
+
+		dataPtr = rttiWriteElem(syncAllParams, dataPtr);
 		
 		SPtr<ct::Shader>* shader = new (dataPtr)SPtr<ct::Shader>();
 		if (mShader.isLoaded(false))
@@ -462,8 +486,8 @@ namespace bs
 
 		for(UINT32 i = 0; i < numTechniques; i++)
 		{
-			SPtr<ct::Technique>* technique = new (dataPtr)SPtr<ct::Technique>();
-				*technique = mTechniques[i]->getCore();
+			SPtr<ct::Technique>* technique = new (dataPtr) SPtr<ct::Technique>();
+			*technique = mTechniques[i]->getCore();
 
 			dataPtr += sizeof(SPtr<ct::Technique>);
 		}
@@ -747,6 +771,11 @@ namespace bs
 	{
 		setShader(shader);
 	}
+	
+	Material::Material(const SPtr<Shader>& shader, const ShaderVariation& variation)
+	{
+		setShader(shader, variation);
+	}
 
 	Material::Material(const SPtr<Shader>& shader, const Vector<SPtr<Technique>>& techniques,
 		const SPtr<MaterialParams>& materialParams)
@@ -761,13 +790,26 @@ namespace bs
 		mShader = shader;
 
 		initializeTechniques();
+		_markCoreDirty();
+	}
+	
+	void Material::setShader(const SPtr<Shader>& shader, const ShaderVariation& variation)
+	{
+		mShader = shader;
 
+		initializeTechniques(false, variation);
 		_markCoreDirty();
 	}
 
 	void Material::syncToCore(const CoreSyncData& data)
 	{
 		char* dataPtr = (char*)data.getBuffer();
+
+		bool syncAllParams;
+		dataPtr = rttiReadElem(syncAllParams, dataPtr);
+
+		if(syncAllParams)
+			mParams = nullptr;
 
 		SPtr<Shader>* shader = (SPtr<Shader>*)dataPtr;
 
@@ -789,10 +831,11 @@ namespace bs
 
 		UINT32 paramsSize = 0;
 		dataPtr = rttiReadElem(paramsSize, dataPtr);
-		if (mParams == nullptr)
+		if (mParams == nullptr && mShader != nullptr)
 			mParams = bs_shared_ptr_new<MaterialParams>(mShader);
 
-		mParams->setSyncData((UINT8*)dataPtr, paramsSize);
+		if(mParams != nullptr)
+			mParams->setSyncData((UINT8*)dataPtr, paramsSize);
 
 		dataPtr += paramsSize;
 	}
@@ -800,6 +843,16 @@ namespace bs
 	SPtr<Material> Material::create(const SPtr<Shader>& shader)
 	{
 		Material* material = new (bs_alloc<Material>()) Material(shader);
+		SPtr<Material> materialPtr = bs_shared_ptr<Material>(material);
+		materialPtr->_setThisPtr(materialPtr);
+		materialPtr->initialize();
+
+		return materialPtr;
+	}
+	
+	SPtr<Material> Material::create(const SPtr<Shader>& shader, const ShaderVariation& variation)
+	{
+		Material* material = new (bs_alloc<Material>()) Material(shader, variation);
 		SPtr<Material> materialPtr = bs_shared_ptr<Material>(material);
 		materialPtr->_setThisPtr(materialPtr);
 		materialPtr->initialize();
