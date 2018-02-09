@@ -42,11 +42,13 @@ namespace bs
 		/**
 		 * Attempts to find an intersection between the provided ray and the slider geometry.
 		 *
-		 * @param[in]	ray	Ray in world space to try to interect with geometry.
-		 * @param[in]	t	Position of the intersection along the ray. Only if intersection happened.
-		 * @return			Whether an intersection was detected.
+		 * @param[in]	screenPos	Position in screen space at which to look for intersection. Some sliders might ignore
+		 *							this and use the @p ray instead.
+		 * @param[in]	ray			Ray in world space to try to interect with geometry.
+		 * @param[in]	t			Position of the intersection along the ray. Only if intersection happened.
+		 * @return					Whether an intersection was detected.
 		 */
-		virtual bool intersects(const Ray& ray, float& t) const = 0;
+		virtual bool intersects(const Vector2I& screenPos, const Ray& ray, float& t) const = 0;
 
 		/**
 		 * Updates a slider that is currently active (being dragged).
@@ -84,7 +86,7 @@ namespace bs
 		/**	Sets the scale of the slider. */
 		void setScale(const Vector3& scale);
 
-		/**	Enables or disabled the slider, making it interactable or not. */
+		/**	Enables or disables the slider, making it interactable or not. */
 		void setEnabled(bool enabled);
 
 		/**	Gets the world position of the slider. */

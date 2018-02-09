@@ -10,9 +10,12 @@ technique TiledDeferredLighting
 	mixin GBufferInput;
 	mixin PerCameraData;
 	mixin LightingCommon;
+	mixin LightAccumulatorIndexed;
 	mixin ReflectionCubemapCommon;
 	mixin ImageBasedLighting;
 
+	featureset = HighEnd;
+	
 	variations
 	{
 		MSAA_COUNT = { 1, 2, 4, 8 };

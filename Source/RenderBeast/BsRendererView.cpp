@@ -9,6 +9,7 @@
 #include "BsLightRendering.h"
 #include "Material/BsGpuParamsSet.h"
 #include "BsRendererScene.h"
+#include "BsRenderBeast.h"
 
 namespace bs { namespace ct
 {
@@ -504,7 +505,7 @@ namespace bs { namespace ct
 	}
 
 	RendererViewGroup::RendererViewGroup()
-		:mShadowRenderer(1024)
+		:mShadowRenderer(2048)
 	{ }
 
 	RendererViewGroup::RendererViewGroup(RendererView** views, UINT32 numViews, UINT32 shadowMapSize)
@@ -595,12 +596,16 @@ namespace bs { namespace ct
 		mVisibleLightData.update(sceneInfo, *this);
 		mVisibleReflProbeData.update(sceneInfo, *this);
 
-		for (UINT32 i = 0; i < numViews; i++)
+		bool supportsClusteredForward = gRenderBeast()->getFeatureSet() == RenderBeastFeatureSet::Desktop;
+		if(supportsClusteredForward)
 		{
-			if (mViews[i]->getRenderSettings().overlayOnly)
-				continue;
+			for (UINT32 i = 0; i < numViews; i++)
+			{
+				if (mViews[i]->getRenderSettings().overlayOnly)
+					continue;
 
-			mViews[i]->updateLightGrid(mVisibleLightData, mVisibleReflProbeData);
+				mViews[i]->updateLightGrid(mVisibleLightData, mVisibleReflProbeData);
+			}
 		}
 	}
 }}

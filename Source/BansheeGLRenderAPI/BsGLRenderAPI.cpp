@@ -28,6 +28,7 @@
 #include "BsGLCommandBuffer.h"
 #include "BsGLCommandBufferManager.h"
 #include "BsGLTextureView.h"
+#include "GLSL/BsGLSLParamParser.h"
 
 namespace bs { namespace ct
 {
@@ -124,12 +125,6 @@ namespace bs { namespace ct
 		return strName;
 	}
 
-	const String& GLRenderAPI::getShadingLanguageName() const
-	{
-		static String strName("glsl");
-		return strName;
-	}
-
 	void GLRenderAPI::initialize()
 	{
 		THROW_IF_NOT_CORE_THREAD;
@@ -205,7 +200,9 @@ namespace bs { namespace ct
 		if (mGLSLProgramFactory)
 		{
 			// Remove from manager safely
-			GpuProgramManager::instance().removeFactory(mGLSLProgramFactory);
+			GpuProgramManager::instance().removeFactory("glsl");
+			GpuProgramManager::instance().removeFactory("glsl4_1");
+
 			bs_delete(mGLSLProgramFactory);
 			mGLSLProgramFactory = nullptr;
 		}
@@ -2021,9 +2018,9 @@ namespace bs { namespace ct
 		{
 			glStencilOpSeparate(
 				GL_BACK,
-				convertStencilOp(stencilFailOp, true),
-				convertStencilOp(depthFailOp, true),
-				convertStencilOp(passOp, true));
+				convertStencilOp(stencilFailOp),
+				convertStencilOp(depthFailOp),
+				convertStencilOp(passOp));
 			BS_CHECK_GL_ERROR();
 		}
 	}
@@ -2230,7 +2227,7 @@ namespace bs { namespace ct
 		return curAniso ? curAniso : 1;
 	}
 
-	GLint GLRenderAPI::convertStencilOp(StencilOperation op, bool invert) const
+	GLint GLRenderAPI::convertStencilOp(StencilOperation op) const
 	{
 		switch (op)
 		{
@@ -2241,17 +2238,17 @@ namespace bs { namespace ct
 		case SOP_REPLACE:
 			return GL_REPLACE;
 		case SOP_INCREMENT:
-			return invert ? GL_DECR : GL_INCR;
+			return GL_INCR;
 		case SOP_DECREMENT:
-			return invert ? GL_INCR : GL_DECR;
+			return GL_DECR;
 		case SOP_INCREMENT_WRAP:
-			return invert ? GL_DECR_WRAP_EXT : GL_INCR_WRAP_EXT;
+			return GL_INCR_WRAP_EXT;
 		case SOP_DECREMENT_WRAP:
-			return invert ? GL_INCR_WRAP_EXT : GL_DECR_WRAP_EXT;
+			return GL_DECR_WRAP_EXT;
 		case SOP_INVERT:
 			return GL_INVERT;
-		};
-		// to keep compiler happy
+		}
+
 		return SOP_KEEP;
 	}
 
@@ -2275,7 +2272,7 @@ namespace bs { namespace ct
 			return GL_GEQUAL;
 		case CMPF_GREATER:
 			return GL_GREATER;
-		};
+		}
 
 		return GL_ALWAYS;
 	}
@@ -2352,7 +2349,7 @@ namespace bs { namespace ct
 			return GL_ONE_MINUS_DST_ALPHA;
 		case BF_INV_SOURCE_ALPHA:
 			return GL_ONE_MINUS_SRC_ALPHA;
-		};
+		}
 
 		return GL_ONE;
 	}
@@ -2448,11 +2445,12 @@ namespace bs { namespace ct
 		HardwareBufferManager::startUp<GLHardwareBufferManager>();
 
 		// GPU Program Manager setup
-		if(caps->isShaderProfileSupported("glsl"))
-		{
-			mGLSLProgramFactory = bs_new<GLSLProgramFactory>();
-			GpuProgramManager::instance().addFactory(mGLSLProgramFactory);
-		}
+		mGLSLProgramFactory = bs_new<GLSLProgramFactory>();
+		if(caps->isShaderProfileSupported("glsl")) // Check for most recent GLSL support
+			GpuProgramManager::instance().addFactory("glsl", mGLSLProgramFactory);
+
+		if(caps->isShaderProfileSupported("glsl4_1")) // Check for OpenGL 4.1 compatible version
+			GpuProgramManager::instance().addFactory("glsl4_1", mGLSLProgramFactory);
 
 		GLRTTManager::startUp<GLRTTManager>();
 
@@ -2535,27 +2533,30 @@ namespace bs { namespace ct
 		else
 			caps.setVendor(GPU_UNKNOWN);
 
+#if BS_OPENGL_4_1
+		caps.addShaderProfile("glsl4_1");
+#endif
+
+#if BS_OPENGL_4_5
 		caps.addShaderProfile("glsl");
+#endif
+
 		caps.setCapability(RSC_TEXTURE_COMPRESSION_BC);
 
-		// Check if geometry shaders are supported
-		if (getGLSupport()->checkExtension("GL_ARB_geometry_shader4"))
-		{
 #if BS_OPENGL_4_1 || BS_OPENGLES_3_2
-			caps.setCapability(RSC_GEOMETRY_PROGRAM);
+		caps.setCapability(RSC_GEOMETRY_PROGRAM);
 #endif
 
-			GLint maxOutputVertices;
+		GLint maxOutputVertices;
 
 #if BS_OPENGL_4_1 || BS_OPENGLES_3_2
-			glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT,&maxOutputVertices);
-			BS_CHECK_GL_ERROR();
+		glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES_EXT, &maxOutputVertices);
+		BS_CHECK_GL_ERROR();
 #else
-			maxOutputVertices = 0;
+		maxOutputVertices = 0;
 #endif
 
-			caps.setGeometryProgramNumOutputVertices(maxOutputVertices);
-		}
+		caps.setGeometryProgramNumOutputVertices(maxOutputVertices);
 
 		// Max number of fragment shader textures
 		GLint units;
@@ -2582,7 +2583,6 @@ namespace bs { namespace ct
 
 		caps.setNumGpuParamBlockBuffers(GPT_FRAGMENT_PROGRAM, numUniformBlocks);
 
-		if (mGLSupport->checkExtension("GL_ARB_geometry_shader4"))
 		{
 			GLint geomUnits;
 
@@ -2787,35 +2787,19 @@ namespace bs { namespace ct
 
 		for (auto& param : params)
 		{
-			const GpuParamDataTypeInfo& typeInfo = bs::GpuParams::PARAM_SIZES.lookup[param.type];
-			UINT32 size = typeInfo.size / 4;
-			UINT32 alignment = typeInfo.alignment / 4;
-
-			// Fix alignment if needed
-			UINT32 alignOffset = block.blockSize % alignment;
-			if (alignOffset != 0)
+			UINT32 size;
+			
+			if(param.type == GPDT_STRUCT)
 			{
-				UINT32 padding = (alignment - alignOffset);
-				block.blockSize += padding;
+				// Structs are always aligned and rounded up to vec4
+				size = Math::divideAndRoundUp(param.elementSize, 16U) * 4;
+				block.blockSize = Math::divideAndRoundUp(block.blockSize, 4U) * 4;
 			}
+			else
+				size = GLSLParamParser::calcInterfaceBlockElementSizeAndOffset(param.type, param.arraySize, block.blockSize);
 
 			if (param.arraySize > 1)
 			{
-				// Array elements are always padded and aligned to vec4
-				alignOffset = size % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					size += padding;
-				}
-
-				alignOffset = block.blockSize % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					block.blockSize += padding;
-				}
-
 				param.elementSize = size;
 				param.arrayElementStride = size;
 				param.cpuMemOffset = block.blockSize;

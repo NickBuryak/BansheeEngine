@@ -19,6 +19,7 @@
 #include "BsVulkanGpuParamBlockBuffer.h"
 
 #include <vulkan/vulkan.h>
+#include "BsVulkanUtility.h"
 
 #if BS_PLATFORM == BS_PLATFORM_WIN32
 	#include "Win32/BsWin32VideoModeInfo.h"
@@ -97,12 +98,6 @@ namespace bs { namespace ct
 	const StringID& VulkanRenderAPI::getName() const
 	{
 		static StringID strName("VulkanRenderAPI");
-		return strName;
-	}
-
-	const String& VulkanRenderAPI::getShadingLanguageName() const
-	{
-		static String strName("vksl");
 		return strName;
 	}
 
@@ -276,7 +271,7 @@ namespace bs { namespace ct
 
 		// Create render state manager
 		RenderStateManager::startUp<VulkanRenderStateManager>();
-		GpuProgramManager::instance().addFactory(mGLSLFactory);
+		GpuProgramManager::instance().addFactory("vksl", mGLSLFactory);
 
 		initCapabilites();
 		
@@ -590,35 +585,18 @@ namespace bs { namespace ct
 
 		for (auto& param : params)
 		{
-			const GpuParamDataTypeInfo& typeInfo = bs::GpuParams::PARAM_SIZES.lookup[param.type];
-			UINT32 size = typeInfo.size / 4;
-			UINT32 alignment = typeInfo.alignment / 4;
-
-			// Fix alignment if needed
-			UINT32 alignOffset = block.blockSize % alignment;
-			if (alignOffset != 0)
+			UINT32 size;
+			if(param.type == GPDT_STRUCT)
 			{
-				UINT32 padding = (alignment - alignOffset);
-				block.blockSize += padding;
+				// Structs are always aligned and rounded up to vec4
+				size = Math::divideAndRoundUp(param.elementSize, 16U) * 4;
+				block.blockSize = Math::divideAndRoundUp(block.blockSize, 4U) * 4;
 			}
+			else
+				size = VulkanUtility::calcInterfaceBlockElementSizeAndOffset(param.type, param.arraySize, block.blockSize);
 
 			if (param.arraySize > 1)
 			{
-				// Array elements are always padded and aligned to vec4
-				alignOffset = size % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					size += padding;
-				}
-
-				alignOffset = block.blockSize % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					block.blockSize += padding;
-				}
-
 				param.elementSize = size;
 				param.arrayElementStride = size;
 				param.cpuMemOffset = block.blockSize;

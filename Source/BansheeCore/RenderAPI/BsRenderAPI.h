@@ -280,13 +280,6 @@ namespace bs
 		virtual const StringID& getName() const = 0;
 
 		/**
-		 * Gets the name of the primary shading language used by the rendering system.
-		 *
-		 * @note	Thread safe.
-		 */
-		virtual const String& getShadingLanguageName() const = 0;
-
-		/**
 		 * Applies a set of parameters that control execution of all currently bound GPU programs. These are the uniforms
 		 * like textures, samplers, or uniform buffers. Caller is expected to ensure the provided parameters actually
 		 * match the currently bound programs.
@@ -580,7 +573,8 @@ namespace bs
 		 * 			
 		 * @param[in]	name	Name to assign the parameter block.
 		 * @param[in]	params	List of parameters in the parameter block. Only name, type and array size fields need to be
-		 * 						populated, the rest will be populated when the method returns.		
+		 * 						populated, the rest will be populated when the method returns. If a parameter is a struct
+		 * 						then the elementSize field needs to be populated with the size of the struct in bytes.
 		 * @return				Descriptor for the parameter block holding the provided parameters as laid out by the 
 		 *						default render API layout.
 		 */

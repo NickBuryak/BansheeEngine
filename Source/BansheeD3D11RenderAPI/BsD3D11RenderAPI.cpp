@@ -52,12 +52,6 @@ namespace bs { namespace ct
 		return strName;
 	}
 
-	const String& D3D11RenderAPI::getShadingLanguageName() const
-	{
-		static String strName("hlsl");
-		return strName;
-	}
-
 	void D3D11RenderAPI::initialize()
 	{
 		THROW_IF_NOT_CORE_THREAD;
@@ -130,7 +124,7 @@ namespace bs { namespace ct
 		mCurrentCapabilities = bs_newN<RenderAPICapabilities>(mNumDevices);
 		initCapabilites(selectedAdapter, mCurrentCapabilities[0]);
 				
-		GpuProgramManager::instance().addFactory(mHLSLFactory);
+		GpuProgramManager::instance().addFactory("hlsl", mHLSLFactory);
 
 		mIAManager = bs_new<D3D11InputLayoutManager>();
 
@@ -1388,41 +1382,48 @@ namespace bs { namespace ct
 			if (param.arraySize > 1)
 			{
 				// Arrays perform no packing and their elements are always padded and aligned to four component vectors
-				UINT32 size = typeInfo.size / 4;
+				UINT32 size;
+				if(param.type == GPDT_STRUCT)
+					size = Math::divideAndRoundUp(param.elementSize, 16U) * 4;
+				else
+					size = Math::divideAndRoundUp(typeInfo.size, 16U) * 4;
 
-				UINT32 alignOffset = size % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					size += padding;
-				}
-
-				alignOffset = block.blockSize % typeInfo.baseTypeSize;
-				if (alignOffset != 0)
-				{
-					UINT32 padding = (typeInfo.baseTypeSize - alignOffset);
-					block.blockSize += padding;
-				}
+				block.blockSize = Math::divideAndRoundUp(block.blockSize, 4U) * 4;
 
 				param.elementSize = size;
 				param.arrayElementStride = size;
 				param.cpuMemOffset = block.blockSize;
 				param.gpuMemOffset = 0;
 
-				// Last array element isn't rounded up to four component vectors
-				block.blockSize += size * (param.arraySize - 1);
-				block.blockSize += typeInfo.size / 4;
+				// Last array element isn't rounded up to four component vectors unless it's a struct
+				if(param.type != GPDT_STRUCT)
+				{
+					block.blockSize += size * (param.arraySize - 1);
+					block.blockSize += typeInfo.size / 4;
+				}
+				else
+					block.blockSize += param.arraySize * size;
 			}
 			else
 			{
-				UINT32 size = typeInfo.baseTypeSize * (typeInfo.numRows * typeInfo.numColumns) / 4;
-
-				// Pack everything as tightly as possible as long as the data doesn't cross 16 byte boundary
-				UINT32 alignOffset = block.blockSize % 4;
-				if (alignOffset != 0 && size > (4 - alignOffset))
+				UINT32 size;
+				if(param.type == GPDT_STRUCT)
 				{
-					UINT32 padding = (4 - alignOffset);
-					block.blockSize += padding;
+					// Structs are always aligned and arounded up to 4 component vectors
+					size = Math::divideAndRoundUp(param.elementSize, 16U) * 4;
+					block.blockSize = Math::divideAndRoundUp(block.blockSize, 4U) * 4;
+				}
+				else
+				{
+					size = typeInfo.baseTypeSize * (typeInfo.numRows * typeInfo.numColumns) / 4;
+
+					// Pack everything as tightly as possible as long as the data doesn't cross 16 byte boundary
+					UINT32 alignOffset = block.blockSize % 4;
+					if (alignOffset != 0 && size > (4 - alignOffset))
+					{
+						UINT32 padding = (4 - alignOffset);
+						block.blockSize += padding;
+					}
 				}
 
 				param.elementSize = size;

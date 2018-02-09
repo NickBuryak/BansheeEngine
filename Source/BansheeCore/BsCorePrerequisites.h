@@ -213,9 +213,6 @@
 
 namespace bs 
 {
-	static const StringID RenderAPIAny = "AnyRenderAPI";
-	static const StringID RendererAny = "AnyRenderer";
-
 	class Color;
 	class GpuProgram;
 	class GpuProgramManager;
@@ -599,7 +596,8 @@ namespace bs
 		TID_ColorGradingSettings = 30019,
 		TID_DepthOfFieldSettings = 30020,
 		TID_AmbientOcclusionSettings = 30021,
-		TID_ScreenSpaceReflectionsSettings = 30022
+		TID_ScreenSpaceReflectionsSettings = 30022,
+		TID_ShadowSettings = 30023
 	};
 }
 

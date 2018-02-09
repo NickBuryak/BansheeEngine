@@ -1,7 +1,7 @@
 //********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 #include "RenderAPI/BsVertexDeclaration.h"
-#include "RTTI/BsVertexDeclarationRTTI.h"
+#include "Private/RTTI/BsVertexDeclarationRTTI.h"
 #include "Managers/BsHardwareBufferManager.h"
 #include "RenderAPI/BsRenderAPI.h"
 
@@ -136,7 +136,7 @@ namespace bs
 	bool VertexElement::operator== (const VertexElement& rhs) const
 	{
 		if (mType != rhs.mType || mIndex != rhs.mIndex || mOffset != rhs.mOffset ||
-			mSemantic != rhs.mSemantic || mSource != rhs.mSource)
+			mSemantic != rhs.mSemantic || mSource != rhs.mSource  || mInstanceStepRate != rhs.mInstanceStepRate)
 		{
 			return false;
 		}
@@ -157,6 +157,7 @@ namespace bs
 		hash_combine(hash, element.mOffset);
 		hash_combine(hash, element.mSemantic);
 		hash_combine(hash, element.mSource);
+		hash_combine(hash, element.mInstanceStepRate);
 
 		return hash;
 	}
