@@ -88,7 +88,7 @@ namespace bs
 	{ }
 
 	Skeleton::Skeleton(BONE_DESC* bones, UINT32 numBones)
-		: mNumBones(numBones), mBoneTransforms(bs_newN<Matrix4>(numBones)), mInvBindPoses(bs_newN<Matrix4>(numBones))
+		: mNumBones(numBones), mBoneTransforms(bs_newN<Transform>(numBones)), mInvBindPoses(bs_newN<Matrix4>(numBones))
 		, mBoneInfo(bs_newN<SkeletonBoneInfo>(numBones))
 	{
 		for(UINT32 i = 0; i < numBones; i++)
@@ -269,6 +269,17 @@ namespace bs
 			}
 		}
 
+		// Apply default local tranform to non-animated bones (so that any potential child bones are transformed properly)
+		for(UINT32 i = 0; i < mNumBones; i++)
+		{
+			if(hasAnimCurve[i])
+				continue;
+
+			localPose.positions[i] = mBoneTransforms[i].getPosition();
+			localPose.rotations[i] = mBoneTransforms[i].getRotation();
+			localPose.scales[i] = mBoneTransforms[i].getScale();
+		}
+
 		// Calculate local pose matrices
 		UINT32 isGlobalBytes = sizeof(bool) * mNumBones;
 		bool* isGlobal = (bool*)bs_stack_alloc(isGlobalBytes);
@@ -289,15 +300,6 @@ namespace bs
 			}
 
 			pose[i] = Matrix4::TRS(localPose.positions[i], localPose.rotations[i], localPose.scales[i]);
-		}
-
-		// Apply default local tranform to non-animated bones (so that any potential child bones are transformed properly)
-		for(UINT32 i = 0; i < mNumBones; i++)
-		{
-			if(hasAnimCurve[i])
-				continue;
-
-			pose[i] = mBoneTransforms[i] * pose[i];
 		}
 
 		// Calculate global poses

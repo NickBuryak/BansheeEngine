@@ -270,6 +270,11 @@ namespace bs
 			for (auto& fbxBone : mesh->bones)
 			{
 				UINT32 boneIdx = (UINT32)allBones.size();
+
+				auto iterFind = boneMap.find(fbxBone.node);
+				if(iterFind != boneMap.end())
+					continue; // Duplicate
+
 				boneMap[fbxBone.node] = boneIdx;
 
 				allBones.push_back(BONE_DESC());
@@ -297,7 +302,7 @@ namespace bs
 				BONE_DESC& bone = allBones.back();
 
 				bone.name = "MultiMeshRoot";
-				bone.localTfrm = Matrix4::IDENTITY;
+				bone.localTfrm = Transform();
 				bone.invBindPose = Matrix4::IDENTITY;
 				bone.parent = (UINT32)-1;
 
@@ -617,16 +622,16 @@ namespace bs
 
 		node->name = fbxNode->GetNameWithoutNameSpacePrefix().Buffer();
 		node->fbxNode = fbxNode;
-		node->localTransform = Matrix4::TRS(translation, rotation, scale);
+		node->localTransform = Transform(translation, rotation, scale);
 
 		if (parent != nullptr)
 		{
-			node->worldTransform = parent->worldTransform * node->localTransform;
+			node->worldTransform = parent->worldTransform * node->localTransform.getMatrix();
 
 			parent->children.push_back(node);
 		}
 		else
-			node->worldTransform = node->localTransform;
+			node->worldTransform = node->localTransform.getMatrix();
 
 		// Geometry transform is applied to geometry (mesh data) only, it is not inherited by children, so we store it
 		// separately
@@ -1568,21 +1573,29 @@ namespace bs
 				LOGWRN("Skinned mesh has multiple different instances. This is not supported.");
 			}
 
+			FBXImportNode* parentNode = mesh.referencedBy[0];
+
 			// Calculate bind pose
 			////  Grab the transform of the node linked to this cluster (should be equivalent to bone.node->worldTransform)
 			FbxAMatrix linkTransform;
 			cluster->GetTransformLinkMatrix(linkTransform);
+			
+			FbxAMatrix clusterTransform;
+			cluster->GetTransformMatrix(clusterTransform);
 
-			//// A reminder about the cluster transform:
-			////	Cluster transform is the global transform applied to the mesh containing the cluster. Normally we would
-			////	need to apply it before the link transform to get the bind pose, but we bake this transform directly
-			////	into mesh vertices. The cluster transform can be retrieved through cluster->GetTransformMatrix, and 
-			////	should be equivalent to mesh.referencedBy[0]->worldTransform.
+			bone.localTfrm = bone.node->localTransform;
+
+			Vector3 localTfrmPos = bone.localTfrm.getPosition();
+			localTfrmPos *= scene.scaleFactor;
+
+			bone.localTfrm.setPosition(localTfrmPos);
 
 			FbxAMatrix invLinkTransform = linkTransform.Inverse();
-			bone.localTfrm = bone.node->localTransform;
-			bone.bindPose = FBXToNativeType(invLinkTransform);
-
+			bone.bindPose = FBXToNativeType(invLinkTransform * clusterTransform);
+			
+			// Undo the transform we baked into the mesh
+			bone.bindPose = bone.bindPose * (parentNode->worldTransform * parentNode->geomTransform).inverseAffine();
+			
 			// Apply global scale to bind pose (we only apply the scale to translation portion because we scale the
 			// translation animation curves)
 			const Matrix4& nodeTfrm = iterFind->second->worldTransform;
@@ -2208,7 +2221,7 @@ namespace bs
 				}
 				else
 				{
-					setKeyframeValues(keyFrame, j, defaultValues[C], 0.0f, 0.0f);
+					setKeyframeValues(keyFrame, j, defaultValues[j], 0.0f, 0.0f);
 				}
 			}
 		}

@@ -10,11 +10,14 @@
 
 // 4.1 is the minimum supported version for OpenGL
 #define BS_OPENGL_4_1 1
-#define BS_OPENGL_4_2 1
-#define BS_OPENGL_4_3 1
-#define BS_OPENGL_4_4 1
-#define BS_OPENGL_4_5 1
-#define BS_OPENGL_4_6 0
+
+#if BS_PLATFORM != BS_PLATFORM_OSX
+	#define BS_OPENGL_4_2 1
+	#define BS_OPENGL_4_3 1
+	#define BS_OPENGL_4_4 1
+	#define BS_OPENGL_4_5 1
+	#define BS_OPENGL_4_6 0
+#endif
 
 // 3.1 is the minimum supported version for OpenGL ES
 #define BS_OPENGLES_3_1 0
@@ -36,7 +39,7 @@
 #   include <GL/glu.h>
 #   define GL_GLEXT_PROTOTYPES
 #elif BS_PLATFORM == BS_PLATFORM_OSX
-#   include <GL/glew.h>
+#	include "GL/glew.h"
 #endif
 
 #if BS_THREAD_SUPPORT == 1

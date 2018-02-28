@@ -373,7 +373,7 @@ namespace bs
 		newMapping.bone = bone;
 
 		mMappingInfos.push_back(newMapping);
-		mInternal->mapCurveToSceneObject(bone->getName(), newMapping.sceneObject);
+		mInternal->mapCurveToSceneObject(bone->getBoneName(), newMapping.sceneObject);
 	}
 
 	void CAnimation::_removeBone(const HBone& bone)
@@ -403,7 +403,7 @@ namespace bs
 			if (mMappingInfos[i].bone == bone)
 			{
 				mInternal->unmapSceneObject(mMappingInfos[i].sceneObject);
-				mInternal->mapCurveToSceneObject(bone->getName(), mMappingInfos[i].sceneObject);
+				mInternal->mapCurveToSceneObject(bone->getBoneName(), mMappingInfos[i].sceneObject);
 				break;
 			}
 		}

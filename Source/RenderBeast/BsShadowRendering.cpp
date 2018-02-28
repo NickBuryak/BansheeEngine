@@ -1278,7 +1278,6 @@ namespace bs { namespace ct
 	{
 		Light* light = rendererLight.internal;
 
-		const SceneInfo& sceneInfo = scene.getSceneInfo();
 		SPtr<GpuParamBlockBuffer> shadowParamsBuffer = gShadowParamsDef.createBuffer();
 
 		ShadowInfo mapInfo;
@@ -1375,7 +1374,6 @@ namespace bs { namespace ct
 	{
 		Light* light = rendererLight.internal;
 
-		const SceneInfo& sceneInfo = scene.getSceneInfo();
 		SPtr<GpuParamBlockBuffer> shadowParamsBuffer = gShadowParamsDef.createBuffer();
 		SPtr<GpuParamBlockBuffer> shadowCubeMatricesBuffer = gShadowCubeMatricesDef.createBuffer();
 		SPtr<GpuParamBlockBuffer> shadowCubeMasksBuffer = gShadowCubeMasksDef.createBuffer();
@@ -1659,6 +1657,10 @@ namespace bs { namespace ct
 		float splitNear = getCSMSplitDistance(view, cascade, numCascades);
 		float splitFar = getCSMSplitDistance(view, cascade + 1, numCascades);
 
+		// Increase by fade range, unless last cascade
+		if ((UINT32)(cascade + 1) < numCascades)
+				splitFar += CASCADE_FRACTION_FADE * (splitFar - splitNear);
+		
 		// Calculate the eight vertices of the split frustum
 		auto& viewProps = view.getProperties();
 
@@ -1850,6 +1852,9 @@ namespace bs { namespace ct
 		{
 		case LightType::Directional: 
 			defaultBias = DIR_DEPTH_BIAS * deviceDepthRange;
+
+			// Use larger bias for further away cascades
+			defaultBias *= depthRange * 0.01f;
 			break;
 		case LightType::Radial: 
 			defaultBias = RADIAL_LIGHT_BIAS;
@@ -1873,13 +1878,8 @@ namespace bs { namespace ct
 		// to account for radial light type.
 		if (light.getType() == LightType::Directional)
 		{
-			// Reduce the size of the transition region when shadow map resolution is higher
-			float resolutionScale = 1.0f / (float)mapSize;
-
-			// Reduce the size of the transition region when the depth range is larger
-			float rangeScale = 1.0f / depthRange;
-
-			return DIR_LIGHT_SCALE * resolutionScale * rangeScale;
+			// Just use a large value, as we want a minimal transition region
+			return DIR_LIGHT_SCALE;
 		}
 		else
 			return fabs(light.getShadowBias()) * SPOT_LIGHT_SCALE;
