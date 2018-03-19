@@ -9,10 +9,10 @@ Use the guide below to get Banshee up and running as quickly as possible. Scroll
   - See [here](#otherDeps)
 - Run the following commands in the terminal/command line:
   - `git clone https://github.com/BearishSun/BansheeEngine.git`
-  - `cd BansheeEngine`
-  - `mkdir Build`
-  - `cd Build`
-  - `cmake -G "$generator$" ../Source`
+  - `mkdir BansheeBuild`
+    - Note the build folder must be *OUTSIDE* of Banshee's root folder
+  - `cd BansheeBuild`
+  - `cmake -G "$generator$" ../BansheeEngine`
     - Where *$generator$* should be replaced with any of the supported generators. Some common ones:
 	  - `Visual Studio 14 2015 Win64` - Visual Studio 2015 (64-bit build)
 	  - `Visual Studio 15 2017 Win64` - Visual Studio 2017 (64-bit build)
@@ -21,7 +21,9 @@ Use the guide below to get Banshee up and running as quickly as possible. Scroll
 	  - `Xcode`
 	- See all valid generators: [cmake-generators](https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html)
 - Build the project using your chosen tool
-  - Build files will be placed in `BansheeEngine\Build` folder
+  - Build files will be placed in `BansheeBuild` folder (e.g. Visual Studio or XCode solution, Makefiles)
+- Run the editor
+  - Editor executable and libraries will be placed in `BansheeEngine/bin` folder
 	 
 ## Customizing the build
 
@@ -29,13 +31,7 @@ By default the process above will fetch the *master* branch. If required switch 
  - **preview** - This branch always contains latest "stable" pre-release version. This might be a few months behind master.
  - **master** - This branch contains the latest changes, might be quite unstable and might not even compile. Use this if you absolutely need the bleeding edge changes.
  
-Variety of *CMake* variables are provided that allow you to customize the build:
- 
-- By default the process above will build the complete Banshee 3D runtime. You can pick between two modes using the *BUILD_SCOPE* variable in *CMake*:
-  - **Runtime** (default) - This will compile the entire engine, scripting system and the editor. This is intended for those that plan on using the editor as their main environment for development.
-  - **Framework** - This will compile only the C++ engine framework without the editor or the scripting API. This is intended for those that prefer to develop more directly with less high level abstractions.
-- Additional variables allow you to pick between the render API (Vulkan, DirectX, OpenGL), audio module (FMOD, OpenAudio) among other options. Run *CMake* to see all options.
-- Note that non-default *CMake* options might require additional dependencies to be installed, see [here](#otherDeps).
+Variety of *CMake* variables are provided that allow you to customize the build. They allow you to pick between the render API (Vulkan, DirectX, OpenGL), audio module (FMOD, OpenAudio) among other options. Run *CMake* to see all options. Note that non-default *CMake* options might require additional dependencies to be installed, see [here](#otherDeps).
  
 You can choose to use a different *CMake* generator than those specified above, as long as the platform/compiler is supported:  
   - Supported platforms:
@@ -45,14 +41,10 @@ You can choose to use a different *CMake* generator than those specified above, 
     - MSVC++ 14.0 (Visual Studio 2015)
 	- MSVC++ 15.0 (Visual Studio 2017)
     - GCC 7.0 (or newer)
-    - Clang 4 (or newer)
+    - Clang 5.0 (or newer)
 
 ### <a name="dependencies"></a>Third party dependencies
-Banshee relies on a variety of third party dependencies. A set of pre-compiled dependencies are provided for every supported platform/compiler. These will be fetched automatically by the build process, but you may also download them manually or compile them from source:
- * [Download dependencies (VS2015/VS2017)](http://data.banshee3d.com/BansheeDependencies_VS2015_Master.zip)
- * [Compiling dependencies manually](dependencies.md)
- 
-For older versions of pre-compiled dependencies check the git release tag descriptions for links.
+Banshee relies on a variety of third party dependencies. A set of pre-compiled dependencies are provided for every supported platform/compiler. These will be fetched automatically by the build process, but you may also compile them manually - see [this guide](dependencies.md). Note that prebuilt dependencies only come as 64-bit, if you wish to build as 32-bit you will need to compile the dependencies manually.
 
 ## <a name="otherDeps"></a>Other dependencies
 The following dependencies will need to be installed manually. Which ones are required depend on the selected *CMake* options and your usage of Banshee (check text of each entry below).
