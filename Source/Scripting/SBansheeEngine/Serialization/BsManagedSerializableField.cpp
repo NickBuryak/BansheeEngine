@@ -195,7 +195,7 @@ namespace bs
 				if (value != nullptr)
 				{
 					ScriptSceneObject* scriptSceneObject = ScriptSceneObject::toNative(value);
-					fieldData->value = static_object_cast<SceneObject>(scriptSceneObject->getNativeHandle());
+					fieldData->value = scriptSceneObject->getNativeHandle();
 				}
 
 				return fieldData;
@@ -208,7 +208,7 @@ namespace bs
 				if (value != nullptr)
 				{
 					ScriptManagedComponent* scriptComponent = ScriptManagedComponent::toNative(value);
-					fieldData->value = static_object_cast<Component>(scriptComponent->getNativeHandle());
+					fieldData->value = scriptComponent->getNativeHandle();
 				}
 
 				return fieldData;
@@ -225,7 +225,7 @@ namespace bs
 				if (value != nullptr)
 				{
 					ScriptComponentBase* scriptComponent = ScriptComponent::toNative(value);
-					fieldData->value = scriptComponent->getComponent();
+					fieldData->value = static_object_cast<GameObject>(scriptComponent->getComponent());
 				}
 
 				return fieldData;
@@ -263,6 +263,18 @@ namespace bs
 			default:
 				break;
 			}
+		}
+		else if(typeInfo->getTypeId() == TID_SerializableTypeInfoRRef)
+		{
+			auto fieldData = bs_shared_ptr_new<ManagedSerializableFieldDataResourceRef>();
+
+			if(value != nullptr)
+			{
+				ScriptRRefBase* scriptRRefBase = ScriptRRefBase::toNative(value);
+				fieldData->value = scriptRRefBase->getHandle();
+			}
+
+			return fieldData;
 		}
 		else if(typeInfo->getTypeId() == TID_SerializableTypeInfoObject)
 		{
@@ -495,7 +507,7 @@ namespace bs
 	{
 		if(typeInfo->getTypeId() == TID_SerializableTypeInfoRef)
 		{
-			auto refTypeInfo = std::static_pointer_cast<ManagedSerializableTypeInfoRef>(typeInfo);
+			const auto refTypeInfo = std::static_pointer_cast<ManagedSerializableTypeInfoRef>(typeInfo);
 
 			if (!value.isLoaded())
 				return nullptr;
@@ -515,13 +527,26 @@ namespace bs
 
 				return scriptResource->getManagedInstance();
 			}
+		}
+		else if(typeInfo->getTypeId() == TID_SerializableTypeInfoRRef)
+		{
+			const auto refTypeInfo = std::static_pointer_cast<ManagedSerializableTypeInfoRRef>(typeInfo);
 
-			if (value.isLoaded())
+			::MonoClass* resourceRRefClass = nullptr;
+			if(refTypeInfo->mResourceType)
 			{
+				if (!typeInfo->isTypeLoaded())
+					return nullptr;
 
+				resourceRRefClass = typeInfo->getMonoClass();
+				if (resourceRRefClass == nullptr)
+					return nullptr;
 			}
-			else
-				return nullptr;
+
+			// Note: Each reference ref ends up creating its own object instance. Perhaps share the same instance between
+			// all references to the same resource?
+
+			return ScriptRRefBase::create(value, resourceRRefClass);
 		}
 
 		BS_EXCEPT(InvalidParametersException, "Requesting an invalid type in serializable field.");
@@ -538,7 +563,8 @@ namespace bs
 			{
 				if(value)
 				{
-					ScriptSceneObject* scriptSceneObject = ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(value);
+					ScriptSceneObject* scriptSceneObject = 
+						ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(static_object_cast<SceneObject>(value));
 					return scriptSceneObject->getManagedInstance();
 				}
 				else
@@ -549,7 +575,8 @@ namespace bs
 			{
 				if (value)
 				{
-					ScriptManagedComponent* scriptComponent = ScriptGameObjectManager::instance().getManagedScriptComponent(value);
+					ScriptManagedComponent* scriptComponent =
+						ScriptGameObjectManager::instance().getManagedScriptComponent(static_object_cast<ManagedComponent>(value));
 					assert(scriptComponent != nullptr);
 
 					return scriptComponent->getManagedInstance();
@@ -562,7 +589,8 @@ namespace bs
 			{
 				if (value)
 				{
-					ScriptComponentBase* scriptComponent = ScriptGameObjectManager::instance().getBuiltinScriptComponent(value);
+					ScriptComponentBase* scriptComponent = 
+						ScriptGameObjectManager::instance().getBuiltinScriptComponent(static_object_cast<Component>(value));
 					assert(scriptComponent != nullptr);
 
 					return scriptComponent->getManagedInstance();

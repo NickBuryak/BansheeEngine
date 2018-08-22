@@ -4,7 +4,9 @@
 #include "BsScriptResourceManager.h"
 #include "Resources/BsResource.h"
 #include "BsMonoUtil.h"
-#include <assert.h>
+#include "Serialization/BsScriptAssemblyManager.h"
+#include "BsManagedResource.h"
+#include "Reflection/BsRTTIType.h"
 
 namespace bs
 {
@@ -20,6 +22,19 @@ namespace bs
 	MonoObject* ScriptResourceBase::getManagedInstance() const
 	{
 		return MonoUtil::getObjectFromGCHandle(mGCHandle);
+	}
+
+	MonoObject* ScriptResourceBase::getRRef(const HResource& resource, UINT32 rttiId)
+	{
+		::MonoClass* rrefClass = getRRefClass(rttiId);
+		if(!rrefClass)
+			return nullptr;
+
+		ScriptRRefBase* rref = ScriptResourceManager::instance().getScriptRRef(resource, rrefClass);
+		if(!rref)
+			return nullptr;
+
+		return rref->getManagedInstance();
 	}
 
 	void ScriptResourceBase::setManagedInstance(::MonoObject* instance)
@@ -41,6 +56,32 @@ namespace bs
 	void ScriptResourceBase::destroy()
 	{
 		ScriptResourceManager::instance().destroyScriptResource(this);
+	}
+
+	::MonoClass* ScriptResourceBase::getManagedResourceClass(UINT32 rttiId)
+	{
+		if(rttiId == Resource::getRTTIStatic()->getRTTIId())
+			return ScriptResource::getMetaData()->scriptClass->_getInternalClass();
+		else if(rttiId == ManagedResource::getRTTIStatic()->getRTTIId())
+			return ScriptResource::getMetaData()->scriptClass->_getInternalClass();
+		else
+		{
+			BuiltinResourceInfo* info = ScriptAssemblyManager::instance().getBuiltinResourceInfo(rttiId);
+
+			if (info == nullptr)
+				return nullptr;
+
+			return info->monoClass->_getInternalClass();
+		}
+	}
+
+	::MonoClass* ScriptResourceBase::getRRefClass(UINT32 rttiId)
+	{
+		::MonoClass* monoClass = getManagedResourceClass(rttiId);
+		if (!monoClass)
+			return nullptr;
+
+		return ScriptRRefBase::bindGenericParam(monoClass);
 	}
 
 	void ScriptResource::initRuntimeData()

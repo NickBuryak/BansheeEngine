@@ -11,7 +11,7 @@ namespace BansheeEditor
     /// <summary>
     /// Displays GUI for a serializable property containing a <see cref="Resource"/> reference.
     /// </summary>
-    public class InspectableResourceRef : InspectableField
+    public class InspectableRRef : InspectableField
     {
         private GUIResourceField guiField;
         private InspectableState state;
@@ -26,9 +26,9 @@ namespace BansheeEditor
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the array whose contents to display.</param>
-        public InspectableResourceRef(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout,
+        public InspectableRRef(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout,
             SerializableProperty property)
-            : base(parent, title, path, SerializableProperty.FieldType.ResourceRef, depth, layout, property)
+            : base(parent, title, path, SerializableProperty.FieldType.RRef, depth, layout, property)
         {
 
         }
@@ -36,7 +36,7 @@ namespace BansheeEditor
         /// <inheritoc/>
         protected internal override void Initialize(int layoutIndex)
         {
-            if (property.Type == SerializableProperty.FieldType.ResourceRef)
+            if (property.Type == SerializableProperty.FieldType.RRef)
             {
                 guiField = new GUIResourceField(property.InternalType, new GUIContent(title));
                 guiField.OnChanged += OnFieldValueChanged;
@@ -49,7 +49,7 @@ namespace BansheeEditor
         public override InspectableState Refresh(int layoutIndex)
         {
             if (guiField != null)
-                guiField.Value = property.GetValue<Resource>();
+                guiField.ValueRef = property.GetValue<RRefBase>();
 
             InspectableState oldState = state;
             if (state.HasFlag(InspectableState.Modified))
@@ -62,11 +62,9 @@ namespace BansheeEditor
         /// Triggered when the user drops a new resource onto the field, or clears the current value.
         /// </summary>
         /// <param name="newValue">New resource to reference.</param>
-        private void OnFieldValueChanged(ResourceRef newValue)
+        private void OnFieldValueChanged(RRefBase newValue)
         {
-            Resource res = Resources.Load<Resource>(newValue);
-
-            property.SetValue(res);
+            property.SetValue(newValue);
             state = InspectableState.Modified;
         }
     }

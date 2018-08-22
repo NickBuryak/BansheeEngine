@@ -20,19 +20,8 @@ namespace BansheeEditor
     internal class AnimationWindow : EditorWindow
     {
         private const int FIELD_DISPLAY_WIDTH = 300;
-        private const int DRAG_START_DISTANCE = 3;
-        private const float DRAG_SCALE = 3.0f;
-        private const float ZOOM_SCALE = 0.1f/120.0f; // One scroll step is usually 120 units, we want 1/10 of that
 
         private SceneObject selectedSO;
-
-        /// <summary>
-        /// Scene object for which are we currently changing the animation for.
-        /// </summary>
-        internal SceneObject SelectedSO
-        {
-            get { return selectedSO; }
-        }
 
         #region Overrides
 
@@ -63,7 +52,7 @@ namespace BansheeEditor
             if (selectedSO == null)
                 return;
 
-            HandleDragAndZoomInput();
+            guiCurveEditor.HandleDragAndZoomInput();
 
             if (state == State.Playback)
             {
@@ -103,6 +92,7 @@ namespace BansheeEditor
             if (selectedSO != null)
             {
                 EditorInput.OnPointerPressed -= OnPointerPressed;
+                EditorInput.OnPointerDoubleClick -= OnPointerDoubleClicked;
                 EditorInput.OnPointerMoved -= OnPointerMoved;
                 EditorInput.OnPointerReleased -= OnPointerReleased;
                 EditorInput.OnButtonUp -= OnButtonUp;
@@ -138,13 +128,7 @@ namespace BansheeEditor
         private GUILayout buttonLayout;
 
         private int buttonLayoutHeight;
-        private int scrollBarWidth;
-        private int scrollBarHeight;
 
-        private GUIResizeableScrollBarH horzScrollBar;
-        private GUIResizeableScrollBarV vertScrollBar;
-
-        private GUIPanel editorPanel;
         private GUIAnimFieldDisplay guiFieldDisplay;
         private GUICurveEditor guiCurveEditor;
 
@@ -179,17 +163,17 @@ namespace BansheeEditor
             GUIContent recordIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.Record),
                 new LocEdString("Record"));
 
-            GUIContent prevFrameIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.FrameBack),
+            GUIContent prevFrameIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.FrameBack), 
                 new LocEdString("Previous frame"));
-            GUIContent nextFrameIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.FrameForward),
+            GUIContent nextFrameIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.FrameForward), 
                 new LocEdString("Next frame"));
 
-            GUIContent addKeyframeIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.AddKeyframe),
+            GUIContent addKeyframeIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.AddKeyframe), 
                 new LocEdString("Add keyframe"));
-            GUIContent addEventIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.AddEvent),
+            GUIContent addEventIcon = new GUIContent(EditorBuiltin.GetAnimationWindowIcon(AnimationWindowIcon.AddEvent), 
                 new LocEdString("Add event"));
 
-            GUIContent optionsIcon = new GUIContent(EditorBuiltin.GetLibraryWindowIcon(LibraryWindowIcon.Options),
+            GUIContent optionsIcon = new GUIContent(EditorBuiltin.GetLibraryWindowIcon(LibraryWindowIcon.Options), 
                 new LocEdString("Options"));
 
             playButton = new GUIToggle(playIcon, EditorStyles.Button);
@@ -423,36 +407,34 @@ namespace BansheeEditor
             bottomButtonLayout.AddElement(addPropertyBtn);
             bottomButtonLayout.AddElement(delPropertyBtn);
 
-            horzScrollBar = new GUIResizeableScrollBarH();
-            horzScrollBar.OnScrollOrResize += OnHorzScrollOrResize;
-
-            vertScrollBar = new GUIResizeableScrollBarV();
-            vertScrollBar.OnScrollOrResize += OnVertScrollOrResize;
-
             GUITexture separator = new GUITexture(null, EditorStyles.Separator, GUIOption.FixedWidth(3));
             contentLayout.AddElement(separator);
 
             GUILayout curveLayout = contentLayout.AddLayoutY();
-            GUILayout curveLayoutHorz = curveLayout.AddLayoutX();
-            GUILayout horzScrollBarLayout = curveLayout.AddLayoutX();
-            horzScrollBarLayout.AddElement(horzScrollBar);
-            horzScrollBarLayout.AddFlexibleSpace();
-
-            editorPanel = curveLayoutHorz.AddPanel();
-            curveLayoutHorz.AddElement(vertScrollBar);
-            curveLayoutHorz.AddFlexibleSpace();
-
-            scrollBarHeight = horzScrollBar.Bounds.height;
-            scrollBarWidth = vertScrollBar.Bounds.width;
 
             Vector2I curveEditorSize = GetCurveEditorSize();
-            guiCurveEditor = new GUICurveEditor(this, editorPanel, curveEditorSize.x, curveEditorSize.y);
+            guiCurveEditor = new GUICurveEditor(this, curveLayout, curveEditorSize.x, curveEditorSize.y, true);
+            guiCurveEditor.SetEventSceneObject(selectedSO);
+
             guiCurveEditor.OnFrameSelected += OnFrameSelected;
-            guiCurveEditor.OnEventAdded += OnEventsChanged;
-            guiCurveEditor.OnEventModified += EditorApplication.SetProjectDirty;
-            guiCurveEditor.OnEventDeleted += OnEventsChanged;
+            guiCurveEditor.OnEventAdded += () =>
+            {
+                OnEventsChanged();
+                RecordClipState();
+            };
+            guiCurveEditor.OnEventModified += () =>
+            {
+                EditorApplication.SetProjectDirty();
+                RecordClipState();
+            };
+            guiCurveEditor.OnEventDeleted += () =>
+            {
+                OnEventsChanged();
+                RecordClipState();
+            };
             guiCurveEditor.OnCurveModified += () =>
             {
+                RecordClipState();
                 SwitchState(State.Normal);
 
                 ApplyClipChanges();
@@ -465,12 +447,8 @@ namespace BansheeEditor
                 if(state != State.Recording)
                     SwitchState(State.Normal);
             };
+
             guiCurveEditor.Redraw();
-
-            horzScrollBar.SetWidth(curveEditorSize.x);
-            vertScrollBar.SetHeight(curveEditorSize.y);
-
-            UpdateScrollBarSize();
         }
 
         /// <summary>
@@ -485,199 +463,6 @@ namespace BansheeEditor
             Vector2I curveEditorSize = GetCurveEditorSize();
             guiCurveEditor.SetSize(curveEditorSize.x, curveEditorSize.y);
             guiCurveEditor.Redraw();
-
-            horzScrollBar.SetWidth(curveEditorSize.x);
-            vertScrollBar.SetHeight(curveEditorSize.y);
-
-            UpdateScrollBarSize();
-            UpdateScrollBarPosition();
-        }
-        #endregion
-
-        #region Scroll, drag, zoom
-        private Vector2I dragStartPos;
-        private bool isButtonHeld;
-        private bool isDragInProgress;
-
-        private float zoomAmount;
-
-        /// <summary>
-        /// Handles mouse scroll wheel and dragging events in order to zoom or drag the displayed curve editor contents.
-        /// </summary>
-        private void HandleDragAndZoomInput()
-        {
-            // Handle middle mouse dragging
-            if (isDragInProgress)
-            {
-                float lengthPerPixel = guiCurveEditor.Range.x / guiCurveEditor.Width;
-                float heightPerPixel = guiCurveEditor.Range.y / guiCurveEditor.Height;
-
-                float dragX = Input.GetAxisValue(InputAxis.MouseX) * DRAG_SCALE * lengthPerPixel;
-                float dragY = Input.GetAxisValue(InputAxis.MouseY) * DRAG_SCALE * heightPerPixel;
-
-                Vector2 offset = guiCurveEditor.Offset;
-                offset.x = Math.Max(0.0f, offset.x + dragX);
-                offset.y -= dragY;
-
-                guiCurveEditor.Offset = offset;
-                UpdateScrollBarSize();
-                UpdateScrollBarPosition();
-            }
-
-            // Handle zoom in/out
-            float scroll = Input.GetAxisValue(InputAxis.MouseZ);
-            if (scroll != 0.0f)
-            {
-                Vector2I windowPos = ScreenToWindowPos(Input.PointerPosition);
-                Vector2 curvePos;
-                if (guiCurveEditor.WindowToCurveSpace(windowPos, out curvePos))
-                {
-                    float zoom = scroll * ZOOM_SCALE;
-                    Zoom(curvePos, zoom);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Moves or resizes the vertical scroll bar under the curve editor.
-        /// </summary>
-        /// <param name="position">New position of the scrollbar, in range [0, 1].</param>
-        /// <param name="size">New size of the scrollbar handle, in range [0, 1].</param>
-        private void SetVertScrollbarProperties(float position, float size)
-        {
-            Vector2 visibleRange = guiCurveEditor.Range;
-            Vector2 totalRange = GetTotalRange();
-
-            visibleRange.y = totalRange.y*size;
-            guiCurveEditor.Range = visibleRange;
-
-            float scrollableRange = totalRange.y - visibleRange.y;
-
-            Vector2 offset = guiCurveEditor.Offset;
-            offset.y = -scrollableRange * (position * 2.0f - 1.0f);
-
-            guiCurveEditor.Offset = offset;
-        }
-
-        /// <summary>
-        /// Moves or resizes the horizontal scroll bar under the curve editor.
-        /// </summary>
-        /// <param name="position">New position of the scrollbar, in range [0, 1].</param>
-        /// <param name="size">New size of the scrollbar handle, in range [0, 1].</param>
-        private void SetHorzScrollbarProperties(float position, float size)
-        {
-            Vector2 visibleRange = guiCurveEditor.Range;
-            Vector2 totalRange = GetTotalRange();
-
-            visibleRange.x = totalRange.x * size;
-            guiCurveEditor.Range = visibleRange;
-
-            float scrollableRange = totalRange.x - visibleRange.x;
-
-            Vector2 offset = guiCurveEditor.Offset;
-            offset.x = scrollableRange * position;
-
-            guiCurveEditor.Offset = offset;
-        }
-
-        /// <summary>
-        /// Updates the size of both scrollbars depending on the currently visible curve area vs. the total curve area.
-        /// </summary>
-        private void UpdateScrollBarSize()
-        {
-            Vector2 visibleRange = guiCurveEditor.Range;
-            Vector2 totalRange = GetTotalRange();
-
-            horzScrollBar.HandleSize = visibleRange.x / totalRange.x;
-            vertScrollBar.HandleSize = visibleRange.y / totalRange.y;
-        }
-
-        /// <summary>
-        /// Updates the position of both scrollbars depending on the offset currently applied to the visible curve area.
-        /// </summary>
-        private void UpdateScrollBarPosition()
-        {
-            Vector2 visibleRange = guiCurveEditor.Range;
-            Vector2 totalRange = GetTotalRange();
-            Vector2 scrollableRange = totalRange - visibleRange;
-
-            Vector2 offset = guiCurveEditor.Offset;
-            if (scrollableRange.x > 0.0f)
-                horzScrollBar.Position = offset.x / scrollableRange.x;
-            else
-                horzScrollBar.Position = 0.0f;
-
-            if (scrollableRange.y > 0.0f)
-            {
-                float pos = offset.y/scrollableRange.y;
-                float sign = MathEx.Sign(pos);
-                pos = sign*MathEx.Clamp01(MathEx.Abs(pos));
-                pos = (1.0f - pos) /2.0f;
-
-                vertScrollBar.Position = pos;
-            }
-            else
-                vertScrollBar.Position = 0.0f;
-        }
-
-        /// <summary>
-        /// Calculates the width/height of the curve area depending on the current zoom level.
-        /// </summary>
-        /// <returns>Width/height of the curve area, in curve space (value, time).</returns>
-        private Vector2 GetZoomedRange()
-        {
-            float zoomLevel = MathEx.Pow(2, zoomAmount);
-
-            Vector2 optimalRange = GetOptimalRange();
-            return optimalRange / zoomLevel;
-        }
-
-        /// <summary>
-        /// Returns the total width/height of the contents of the curve area.
-        /// </summary>
-        /// <returns>Width/height of the curve area, in curve space (value, time).</returns>
-        private Vector2 GetTotalRange()
-        {
-            // Return optimal range (that covers the visible curve)
-            Vector2 optimalRange = GetOptimalRange();
-
-            // Increase range in case user zoomed out
-            Vector2 zoomedRange = GetZoomedRange();
-            return Vector2.Max(optimalRange, zoomedRange);
-        }
-
-        /// <summary>
-        /// Zooms in or out at the provided position in the curve display.
-        /// </summary>
-        /// <param name="curvePos">Position to zoom towards, relative to the curve display area, in curve space 
-        ///                        (value, time)</param>
-        /// <param name="amount">Amount to zoom in (positive), or out (negative).</param>
-        private void Zoom(Vector2 curvePos, float amount)
-        {
-            // Increase or decrease the visible range depending on zoom level
-            Vector2 oldZoomedRange = GetZoomedRange();
-            zoomAmount = MathEx.Clamp(zoomAmount + amount, -10.0f, 10.0f);
-            Vector2 zoomedRange = GetZoomedRange();
-
-            Vector2 zoomedDiff = zoomedRange - oldZoomedRange;
-
-            Vector2 currentRange = guiCurveEditor.Range;
-            Vector2 newRange = currentRange + zoomedDiff;
-            guiCurveEditor.Range = newRange;
-
-            // When zooming, make sure to focus on the point provided, so adjust the offset
-            Vector2 rangeScale = newRange;
-            rangeScale.x /= currentRange.x;
-            rangeScale.y /= currentRange.y;
-
-            Vector2 relativeCurvePos = curvePos - guiCurveEditor.Offset;
-            Vector2 newCurvePos = relativeCurvePos * rangeScale;
-            Vector2 diff = newCurvePos - relativeCurvePos;
-
-            guiCurveEditor.Offset -= diff;
-
-            UpdateScrollBarSize();
-            UpdateScrollBarPosition();
         }
         #endregion
 
@@ -749,6 +534,7 @@ namespace BansheeEditor
                 if (selectedSO != null && so == null)
                 {
                     EditorInput.OnPointerPressed -= OnPointerPressed;
+                    EditorInput.OnPointerDoubleClick -= OnPointerDoubleClicked;
                     EditorInput.OnPointerMoved -= OnPointerMoved;
                     EditorInput.OnPointerReleased -= OnPointerReleased;
                     EditorInput.OnButtonUp -= OnButtonUp;
@@ -756,6 +542,7 @@ namespace BansheeEditor
                 else if (selectedSO == null && so != null)
                 {
                     EditorInput.OnPointerPressed += OnPointerPressed;
+                    EditorInput.OnPointerDoubleClick += OnPointerDoubleClicked;
                     EditorInput.OnPointerMoved += OnPointerMoved;
                     EditorInput.OnPointerReleased += OnPointerReleased;
                     EditorInput.OnButtonUp += OnButtonUp;
@@ -764,7 +551,6 @@ namespace BansheeEditor
                 SwitchState(State.Empty);
 
                 selectedSO = so;
-                zoomAmount = 0.0f;
                 selectedFields.Clear();
                 clipInfo = null;
                 UndoRedo.Clear();
@@ -777,7 +563,7 @@ namespace BansheeEditor
                     Animation animation = selectedSO.GetComponent<Animation>();
                     if (animation != null)
                     {
-                        AnimationClip clip = animation.DefaultClip;
+                        AnimationClip clip = animation.DefaultClip.Value;
                         if (clip != null)
                             LoadAnimClip(clip);
                     }
@@ -804,18 +590,7 @@ namespace BansheeEditor
         }
 
         /// <summary>
-        /// Initializes the currently selected scene object. This should be called whenever the selected scene object 
-        /// changes.
-        /// </summary>
-        private void InitializeSO()
-        {
-            if (selectedSO != null)
-                soState = new SerializedSceneObject(selectedSO, true);
-        }
-
-        /// <summary>
-        /// Clears a selected scene object. This must be called on every scene object <see cref="InitializeSO"/> has been called
-        /// on, after operations on it are done.
+        /// Stops animation preview on the selected object and resets it back to its non-animated state.
         /// </summary>
         private void ClearSO()
         {
@@ -824,12 +599,9 @@ namespace BansheeEditor
                 Animation animation = selectedSO.GetComponent<Animation>();
                 if (animation != null)
                     animation.EditorStop();
-            }
 
-            if (soState != null)
-            {
-                soState.Restore();
-                soState = null;
+                // Reset generic curves to their initial values
+                UpdateGenericCurves(0.0f);
             }
         }
 
@@ -842,7 +614,7 @@ namespace BansheeEditor
         /// <summary>
         /// Records current clip state for undo/redo purposes.
         /// </summary>
-        internal void RecordClipState()
+        private void RecordClipState()
         {
             AnimationClipState clipState = CreateClipState();
 
@@ -855,7 +627,7 @@ namespace BansheeEditor
         /// <summary>
         /// Records current clip state for undo/redo purposes.
         /// </summary>
-        internal AnimationClipState CreateClipState()
+        private AnimationClipState CreateClipState()
         {
             AnimationClipState clipState = new AnimationClipState();
 
@@ -968,7 +740,6 @@ namespace BansheeEditor
         }
 
         private State state = State.Empty;
-        private SerializedSceneObject soState;
         private bool delayRecord = false;
 
         /// <summary>
@@ -1038,15 +809,12 @@ namespace BansheeEditor
                     switch (state)
                     {
                         case State.Normal:
-                            InitializeSO();
                             PreviewFrame(currentFrameIdx);
                             break;
                         case State.Playback:
-                            InitializeSO();
                             StartPlayback();
                             break;
                         case State.Recording:
-                            InitializeSO();
                             StartRecord();
                             break;
                     }
@@ -1094,13 +862,13 @@ namespace BansheeEditor
             if (selectedSO == null)
                 return;
 
+            float time = guiCurveEditor.GetTimeForFrame(frameIdx);
+
             Animation animation = selectedSO.GetComponent<Animation>();
             if (animation != null && clipInfo.clip != null)
-            {
-                float time = guiCurveEditor.GetTimeForFrame(frameIdx);
-
                 animation.EditorPlay(clipInfo.clip, time, true);
-            }
+
+            UpdateGenericCurves(time);
         }
 
         /// <summary>
@@ -1126,6 +894,35 @@ namespace BansheeEditor
             recordButton.Value = false;
         }
 
+
+        /// <summary>
+        /// Updates the states of all properties controlled by curves to the value of the curves at the provided time.
+        /// </summary>
+        /// <param name="time">Time at which to evaluate the curves controlling the properties.</param>
+        private void UpdateGenericCurves(float time)
+        {
+            foreach (var KVP in clipInfo.curves)
+            {
+                FieldAnimCurves curves;
+                if (!clipInfo.curves.TryGetValue(KVP.Key, out curves))
+                    continue;
+
+                string suffix;
+                SerializableProperty property = Animation.FindProperty(selectedSO, KVP.Key, out suffix);
+
+                if (property == null)
+                    continue;
+
+                float DoOnComponent(int index)
+                {
+                    EdAnimationCurve curve = curves.curveInfos[index].curve;
+                    return curve.Evaluate(time);
+                }
+
+                ForEachPropertyComponentSet(property, DoOnComponent);
+            }
+        }
+
         /// <summary>
         /// Iterates over all curve path fields and records their current state. If the state differs from the current
         /// curve values, new keyframes are added.
@@ -1134,156 +931,55 @@ namespace BansheeEditor
         /// <returns>True if any changes were recorded, false otherwise.</returns>
         private bool RecordState(float time)
         {
-            Action<EdAnimationCurve, float, float> addOrUpdateKeyframe = (curve, keyTime, keyValue) =>
-            {
-                KeyFrame[] keyframes = curve.KeyFrames;
-                int keyframeIdx = -1;
-                for (int i = 0; i < keyframes.Length; i++)
-                {
-                    if (MathEx.ApproxEquals(keyframes[i].time, time))
-                    {
-                        keyframeIdx = i;
-                        break;
-                    }
-                }
-
-                if (keyframeIdx != -1)
-                    curve.UpdateKeyframe(keyframeIdx, keyTime, keyValue);
-                else
-                    curve.AddKeyframe(keyTime, keyValue);
-
-                curve.Apply();
-            };
-
             bool changesMade = false;
             foreach (var KVP in clipInfo.curves)
             {
-                string suffix;
-                SerializableProperty property = Animation.FindProperty(selectedSO, KVP.Key, out suffix);
-
-                if (property == null)
-                    continue;
-
-                switch (KVP.Value.type)
-                {
-                    case SerializableProperty.FieldType.Vector2:
-                        {
-                            Vector2 value = property.GetValue<Vector2>();
-
-                            for (int i = 0; i < 2; i++)
-                            {
-                                float curveVal = KVP.Value.curveInfos[i].curve.Evaluate(time);
-                                if (!MathEx.ApproxEquals(value[i], curveVal, 0.001f))
-                                {
-                                    addOrUpdateKeyframe(KVP.Value.curveInfos[i].curve, time, value[i]);
-                                    changesMade = true;
-                                }
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Vector3:
-                        {
-                            Vector3 value = property.GetValue<Vector3>();
-
-                            for (int i = 0; i < 3; i++)
-                            {
-                                float curveVal = KVP.Value.curveInfos[i].curve.Evaluate(time);
-                                if (!MathEx.ApproxEquals(value[i], curveVal, 0.001f))
-                                { 
-                                    addOrUpdateKeyframe(KVP.Value.curveInfos[i].curve, time, value[i]);
-                                    changesMade = true;
-                                }
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Vector4:
-                        {
-                            if (property.InternalType == typeof(Vector4))
-                            {
-                                Vector4 value = property.GetValue<Vector4>();
-
-                                for (int i = 0; i < 4; i++)
-                                {
-                                    float curveVal = KVP.Value.curveInfos[i].curve.Evaluate(time);
-                                    if (!MathEx.ApproxEquals(value[i], curveVal, 0.001f))
-                                    { 
-                                        addOrUpdateKeyframe(KVP.Value.curveInfos[i].curve, time, value[i]);
-                                        changesMade = true;
-                                    }
-                                }
-                            }
-                            else if (property.InternalType == typeof(Quaternion))
-                            {
-                                Quaternion value = property.GetValue<Quaternion>();
-
-                                for (int i = 0; i < 4; i++)
-                                {
-                                    float curveVal = KVP.Value.curveInfos[i].curve.Evaluate(time);
-                                    if (!MathEx.ApproxEquals(value[i], curveVal, 0.001f))
-                                    { 
-                                        addOrUpdateKeyframe(KVP.Value.curveInfos[i].curve, time, value[i]);
-                                        changesMade = true;
-                                    }
-                                }
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Color:
-                        {
-                            Color value = property.GetValue<Color>();
-
-                            for (int i = 0; i < 4; i++)
-                            {
-                                float curveVal = KVP.Value.curveInfos[i].curve.Evaluate(time);
-                                if (!MathEx.ApproxEquals(value[i], curveVal, 0.001f))
-                                { 
-                                    addOrUpdateKeyframe(KVP.Value.curveInfos[i].curve, time, value[i]);
-                                    changesMade = true;
-                                }
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Bool:
-                        {
-                            bool value = property.GetValue<bool>();
-
-                            bool curveVal = KVP.Value.curveInfos[0].curve.Evaluate(time) > 0.0f;
-                            if (value != curveVal)
-                            { 
-                                addOrUpdateKeyframe(KVP.Value.curveInfos[0].curve, time, value ? 1.0f : -1.0f);
-                                changesMade = true;
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Int:
-                        {
-                            int value = property.GetValue<int>();
-
-                            int curveVal = (int)KVP.Value.curveInfos[0].curve.Evaluate(time);
-                            if (value != curveVal)
-                            { 
-                                addOrUpdateKeyframe(KVP.Value.curveInfos[0].curve, time, value);
-                                changesMade = true;
-                            }
-                        }
-                        break;
-                    case SerializableProperty.FieldType.Float:
-                        {
-                            float value = property.GetValue<float>();
-
-                            float curveVal = KVP.Value.curveInfos[0].curve.Evaluate(time);
-                            if (!MathEx.ApproxEquals(value, curveVal, 0.001f))
-                            { 
-                                addOrUpdateKeyframe(KVP.Value.curveInfos[0].curve, time, value);
-                                changesMade = true;
-                            }
-                        }
-                        break;
-                }
+                if (RecordState(KVP.Key, time))
+                    changesMade = true;
             }
 
             return changesMade;
         }
+
+        /// <summary>
+        /// Records the state of the provided property and adds it as a keyframe to the related animation curve (or updates
+        /// an existing keyframe if the value is different).
+        /// </summary>
+        /// <param name="path">Path to the property whose state to record.</param>
+        /// <param name="time">Time for which to record the state, in seconds.</param>
+        /// <returns>True if any changes were recorded, false otherwise.</returns>
+        private bool RecordState(string path, float time)
+        {
+            FieldAnimCurves curves;
+            if (!clipInfo.curves.TryGetValue(path, out curves))
+                return false;
+
+            string suffix;
+            SerializableProperty property = Animation.FindProperty(selectedSO, path, out suffix);
+
+            if (property == null)
+                return false;
+
+            bool changesMade = false;
+            void DoOnComponent(float value, int index)
+            {
+                EdAnimationCurve curve = curves.curveInfos[index].curve;
+
+                float curveVal = curve.Evaluate(time);
+                if (!MathEx.ApproxEquals(value, curveVal, 0.001f))
+                {
+                    curve.AddOrUpdateKeyframe(time, value);
+                    curve.Apply();
+
+                    changesMade = true;
+                }
+            }
+
+            ForEachPropertyComponentGet(property, DoOnComponent);
+
+            return changesMade;
+        }
+
         #endregion
 
         #region Curve display
@@ -1397,31 +1093,6 @@ namespace BansheeEditor
         }
 
         /// <summary>
-        /// Returns width/height required to show the entire contents of the currently displayed curves.
-        /// </summary>
-        /// <returns>Width/height of the curve area, in curve space (value, time).</returns>
-        private Vector2 GetOptimalRange()
-        {
-            CurveDrawInfo[] curvesToDisplay = GetDisplayedCurves();
-
-            float xRange;
-            float yRange;
-            CalculateRange(curvesToDisplay, out xRange, out yRange);
-
-            // Add padding to y range
-            yRange *= 1.05f;
-
-            // Don't allow zero range
-            if (xRange == 0.0f)
-                xRange = 60.0f;
-
-            if (yRange == 0.0f)
-                yRange = 10.0f;
-
-            return new Vector2(xRange, yRange);
-        }
-
-        /// <summary>
         /// Calculates an unique color for each animation curve.
         /// </summary>
         private void UpdateCurveColors()
@@ -1437,24 +1108,13 @@ namespace BansheeEditor
         /// <summary>
         /// Updates the curve display with currently selected curves.
         /// </summary>
-        /// <param name="allowReduce">Normally the curve display will expand if newly selected curves cover a larger area
-        ///                           than currently available, but the area won't be reduced if the selected curves cover
-        ///                           a smaller area. Set this to true to allow the area to be reduced.</param>
-        private void UpdateDisplayedCurves(bool allowReduce = false)
+        /// <param name="resetTime">If true the time offset/range will be recalculated, otherwise current time offset will
+        ///                         be kept as is.</param>
+        private void UpdateDisplayedCurves(bool resetTime = false)
         {
             CurveDrawInfo[] curvesToDisplay = GetDisplayedCurves();
             guiCurveEditor.SetCurves(curvesToDisplay);
-
-            Vector2 newRange = GetOptimalRange();
-            if (!allowReduce)
-            {
-                // Don't reduce visible range
-                newRange.x = Math.Max(newRange.x, guiCurveEditor.Range.x);
-                newRange.y = Math.Max(newRange.y, guiCurveEditor.Range.y);
-            }
-
-            guiCurveEditor.Range = newRange;
-            UpdateScrollBarSize();
+            guiCurveEditor.CenterAndResize(resetTime);
         }
 
         #endregion 
@@ -1469,7 +1129,6 @@ namespace BansheeEditor
         /// <param name="type">Type of the field (float, vector, etc.)</param>
         private void AddNewField(string path, SerializableProperty.FieldType type)
         {
-            bool noSelection = selectedFields.Count == 0;
             bool isPropertyCurve = !clipInfo.isImported && !EditorAnimClipInfo.IsMorphShapeCurve(path);
 
             switch (type)
@@ -1565,7 +1224,7 @@ namespace BansheeEditor
             UpdateDisplayedFields();
 
             EditorApplication.SetProjectDirty();
-            UpdateDisplayedCurves(noSelection);
+            UpdateDisplayedCurves();
         }
 
         /// <summary>
@@ -1579,7 +1238,6 @@ namespace BansheeEditor
             if (!additive)
                 selectedFields.Clear();
 
-            bool noSelection = selectedFields.Count == 0;
             if (!string.IsNullOrEmpty(path))
             {
                 selectedFields.RemoveAll(x => { return x == path || IsPathParent(x, path); });
@@ -1587,8 +1245,7 @@ namespace BansheeEditor
             }
 
             guiFieldDisplay.SetSelection(selectedFields.ToArray());
-
-            UpdateDisplayedCurves(noSelection);
+            UpdateDisplayedCurves();
         }
 
         /// <summary>
@@ -1628,35 +1285,10 @@ namespace BansheeEditor
         private Vector2I GetCurveEditorSize()
         {
             Vector2I output = new Vector2I();
-            output.x = Math.Max(0, Width - FIELD_DISPLAY_WIDTH - scrollBarWidth);
-            output.y = Math.Max(0, Height - buttonLayoutHeight - scrollBarHeight);
+            output.x = Math.Max(0, Width - FIELD_DISPLAY_WIDTH);
+            output.y = Math.Max(0, Height - buttonLayoutHeight);
 
             return output;
-        }
-
-        /// <summary>
-        /// Calculates the total range covered by a set of curves.
-        /// </summary>
-        /// <param name="curveInfos">Curves to calculate range for.</param>
-        /// <param name="xRange">Maximum time value present in the curves.</param>
-        /// <param name="yRange">Maximum absolute curve value present in the curves.</param>
-        private static void CalculateRange(CurveDrawInfo[] curveInfos, out float xRange, out float yRange)
-        {
-            // Note: This only evaluates at keyframes, we should also evaluate in-between in order to account for steep
-            // tangents
-            xRange = 0.0f;
-            yRange = 0.0f;
-
-            foreach (var curveInfo in curveInfos)
-            {
-                KeyFrame[] keyframes = curveInfo.curve.KeyFrames;
-
-                foreach (var key in keyframes)
-                {
-                    xRange = Math.Max(xRange, key.time);
-                    yRange = Math.Max(yRange, Math.Abs(key.value));
-                }
-            }
         }
 
         /// <summary>
@@ -1757,6 +1389,172 @@ namespace BansheeEditor
             return path.Substring(0, index);
         }
 
+        /// <summary>
+        /// Iterates over all components of a property and calls the provided action for every component with the current
+        /// value of the property. Only works with floating point (any dimension), integer, color and boolean property
+        /// types. Since reported values are always floating point booleans are encoded as -1.0f for false and 1.0f for
+        /// true, and integers are converted to floating point.
+        /// </summary>
+        /// <param name="property">Property whose components to iterate over.</param>
+        /// <param name="action">
+        /// Callback to trigger for each component. The callback receives the current value of the property's component
+        /// and the sequential index of the component.
+        /// </param>
+        private void ForEachPropertyComponentGet(SerializableProperty property, Action<float, int> action)
+        {
+            switch (property.Type)
+            {
+                case SerializableProperty.FieldType.Vector2:
+                    {
+                        Vector2 value = property.GetValue<Vector2>();
+
+                        for (int i = 0; i < 2; i++)
+                            action(value[i], i);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Vector3:
+                    {
+                        Vector3 value = property.GetValue<Vector3>();
+
+                        for (int i = 0; i < 3; i++)
+                            action(value[i], i);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Vector4:
+                    {
+                        if (property.InternalType == typeof(Vector4))
+                        {
+                            Vector4 value = property.GetValue<Vector4>();
+
+                            for (int i = 0; i < 4; i++)
+                                action(value[i], i);
+                        }
+                        else if (property.InternalType == typeof(Quaternion))
+                        {
+                            Quaternion value = property.GetValue<Quaternion>();
+
+                            for (int i = 0; i < 4; i++)
+                                action(value[i], i);
+                        }
+                    }
+                    break;
+                case SerializableProperty.FieldType.Color:
+                    {
+                        Color value = property.GetValue<Color>();
+
+                        for (int i = 0; i < 4; i++)
+                            action(value[i], i);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Bool:
+                    {
+                        bool value = property.GetValue<bool>();
+                        action(value ? 1.0f : -1.0f, 0);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Int:
+                    {
+                        int value = property.GetValue<int>();
+                        action(value, 0);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Float:
+                    {
+                        float value = property.GetValue<float>();
+                        action(value, 0);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Iterates over all components of a property, calls the provided action which returns a new value to be
+        /// assigned to the property component. Only works with floating point (any dimension), integer, color and boolean
+        /// property types. Since reported values are always floating point booleans are encoded as -1.0f for false and
+        /// 1.0f for true, and integers are converted to floating point.
+        /// </summary>
+        /// <param name="property">Property whose components to iterate over.</param>
+        /// <param name="action">
+        /// Callback to trigger for each component. The callback receives the current value of the property's component
+        /// and the sequential index of the component.
+        /// </param>
+        private void ForEachPropertyComponentSet(SerializableProperty property, Func<int, float> action)
+        {
+            switch (property.Type)
+            {
+                case SerializableProperty.FieldType.Vector2:
+                    {
+                        Vector2 value = new Vector2();
+
+                        for (int i = 0; i < 2; i++)
+                            value[i] = action(i);
+
+                        property.SetValue(value);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Vector3:
+                    {
+                        Vector3 value = new Vector3();
+
+                        for (int i = 0; i < 3; i++)
+                            value[i] = action(i);
+
+                        property.SetValue(value);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Vector4:
+                    {
+                        if (property.InternalType == typeof(Vector4))
+                        {
+                            Vector4 value = new Vector4();
+
+                            for (int i = 0; i < 4; i++)
+                                value[i] = action(i);
+
+                            property.SetValue(value);
+                        }
+                        else if (property.InternalType == typeof(Quaternion))
+                        {
+                            Quaternion value = new Quaternion();
+
+                            for (int i = 0; i < 4; i++)
+                                value[i] = action(i);
+
+                            property.SetValue(value);
+                        }
+                    }
+                    break;
+                case SerializableProperty.FieldType.Color:
+                    {
+                        Color value = new Color();
+
+                        for (int i = 0; i < 4; i++)
+                            value[i] = action(i);
+
+                        property.SetValue(value);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Bool:
+                    {
+                        bool value = action(0) > 0.0f ? true : false;
+                        property.SetValue(value);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Int:
+                    {
+                        int value = (int)action(0);
+                        property.SetValue(value);
+                    }
+                    break;
+                case SerializableProperty.FieldType.Float:
+                    {
+                        float value = action(0);
+                        property.SetValue(value);
+                    }
+                    break;
+            }
+        }
+
         #endregion
 
         #region Input callbacks
@@ -1768,16 +1566,15 @@ namespace BansheeEditor
         {
             guiCurveEditor.OnPointerPressed(ev);
 
-            if (ev.button == PointerButton.Middle)
-            {
-                Vector2I windowPos = ScreenToWindowPos(ev.ScreenPos);
-                Vector2 curvePos;
-                if (guiCurveEditor.WindowToCurveSpace(windowPos, out curvePos))
-                {
-                    dragStartPos = windowPos;
-                    isButtonHeld = true;
-                }
-            }
+        }
+
+        /// <summary>
+        /// Triggered when the user double clicks the left mouse button.
+        /// </summary>
+        /// <param name="ev">Information about the mouse event.</param>
+        private void OnPointerDoubleClicked(PointerEvent ev)
+        {
+            guiCurveEditor.OnPointerDoubleClicked(ev);
         }
 
         /// <summary>
@@ -1788,26 +1585,6 @@ namespace BansheeEditor
         {
             guiCurveEditor.OnPointerMoved(ev);
 
-            if (isButtonHeld)
-            {
-                Vector2I windowPos = ScreenToWindowPos(ev.ScreenPos);
-
-                int distance = Vector2I.Distance(dragStartPos, windowPos);
-                if (distance >= DRAG_START_DISTANCE)
-                {
-                    isDragInProgress = true;
-
-                    Cursor.Hide();
-
-                    Rect2I clipRect;
-                    clipRect.x = ev.ScreenPos.x - 2;
-                    clipRect.y = ev.ScreenPos.y - 2;
-                    clipRect.width = 4;
-                    clipRect.height = 4;
-
-                    Cursor.ClipToRect(clipRect);
-                }
-            }
         }
 
         /// <summary>
@@ -1816,15 +1593,6 @@ namespace BansheeEditor
         /// <param name="ev">Information about the mouse release event.</param>
         private void OnPointerReleased(PointerEvent ev)
         {
-            if (isDragInProgress)
-            {
-                Cursor.Show();
-                Cursor.ClipDisable();
-            }
-
-            isButtonHeld = false;
-            isDragInProgress = false;
-
             guiCurveEditor.OnPointerReleased(ev);
         }
 
@@ -1855,27 +1623,8 @@ namespace BansheeEditor
             pathNoRoot = pathNoRoot.Substring(separatorIdx + 1, pathNoRoot.Length - separatorIdx - 1);
 
             AddNewField(pathNoRoot, type);
+            RecordState(pathNoRoot, 0.0f);
             ApplyClipChanges();
-        }
-
-        /// <summary>
-        /// Triggered when the user moves or resizes the horizontal scrollbar.
-        /// </summary>
-        /// <param name="position">New position of the scrollbar, in range [0, 1].</param>
-        /// <param name="size">New size of the scrollbar, in range [0, 1].</param>
-        private void OnHorzScrollOrResize(float position, float size)
-        {
-            SetHorzScrollbarProperties(position, size);
-        }
-
-        /// <summary>
-        /// Triggered when the user moves or resizes the vertical scrollbar.
-        /// </summary>
-        /// <param name="position">New position of the scrollbar, in range [0, 1].</param>
-        /// <param name="size">New size of the scrollbar, in range [0, 1].</param>
-        private void OnVertScrollOrResize(float position, float size)
-        {
-            SetVertScrollbarProperties(position, size);
         }
 
         /// <summary>

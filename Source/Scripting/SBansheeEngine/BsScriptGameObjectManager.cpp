@@ -55,7 +55,7 @@ namespace bs
 
 	ScriptSceneObject* ScriptGameObjectManager::createScriptSceneObject(const HSceneObject& sceneObject)
 	{
-		MonoClass* sceneObjectClass = ScriptAssemblyManager::instance().getSceneObjectClass();
+		MonoClass* sceneObjectClass = ScriptAssemblyManager::instance().getBuiltinClasses().sceneObjectClass;
 		MonoObject* instance = sceneObjectClass->createInstance();
 
 		return createScriptSceneObject(instance, sceneObject);
@@ -94,7 +94,7 @@ namespace bs
 			return nullptr;
 
 		ScriptComponentBase* nativeInstance = info->createCallback(component);
-		nativeInstance->setNativeHandle(component);
+		nativeInstance->setNativeHandle(static_object_cast<GameObject>(component));
 
 		UINT64 instanceId = component->getInstanceId();
 		mScriptComponents[instanceId] = nativeInstance;

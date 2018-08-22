@@ -257,11 +257,11 @@ namespace bs
 		if (draggedSceneObjects->numObjects <= 0)
 			return;
 
-		MonoClass* sceneObjectClass = ScriptAssemblyManager::instance().getSceneObjectClass();
+		MonoClass* sceneObjectClass = ScriptAssemblyManager::instance().getBuiltinClasses().sceneObjectClass;
 
 		if (mType == sceneObjectClass->getFullName()) // A scene object
 		{
-			setValue(draggedSceneObjects->objects[0], true);
+			setValue(static_object_cast<GameObject>(draggedSceneObjects->objects[0]), true);
 		}
 		else // A component
 		{
@@ -280,13 +280,14 @@ namespace bs
 					{
 						HManagedComponent managedComponent = static_object_cast<ManagedComponent>(component);
 
-						MonoClass* providedClass = MonoManager::instance().findClass(managedComponent->getManagedNamespace(), managedComponent->getManagedTypeName());
+						MonoClass* providedClass = MonoManager::instance().findClass(
+							managedComponent->getManagedNamespace(), managedComponent->getManagedTypeName());
 
 						if (acceptedClass != nullptr && providedClass != nullptr)
 						{
 							if (providedClass->isSubClassOf(acceptedClass))
 							{
-								setValue(managedComponent, true);
+								setValue(static_object_cast<GameObject>(managedComponent), true);
 							}
 						}
 					}
@@ -297,7 +298,7 @@ namespace bs
 							continue;
 
 						if (info->monoClass->isSubClassOf(acceptedClass))
-							setValue(component, true);
+							setValue(static_object_cast<GameObject>(component), true);
 					}
 				}
 			}

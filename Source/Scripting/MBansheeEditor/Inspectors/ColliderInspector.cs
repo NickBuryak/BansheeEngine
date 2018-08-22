@@ -35,7 +35,7 @@ namespace BansheeEditor
         {
             isTriggerField.Value = collider.Trigger;
             massField.Value = collider.Mass;
-            materialField.Value = collider.Material;
+            materialField.ValueRef = collider.Material;
             contactOffsetField.Value = collider.ContactOffset;
             restOffsetField.Value = collider.RestOffset;
             collisionReportModeField.Value = (ulong)collider.CollisionReportMode;
@@ -64,7 +64,7 @@ namespace BansheeEditor
 
             materialField.OnChanged += x =>
             {
-                PhysicsMaterial mesh = Resources.Load<PhysicsMaterial>(x);
+                PhysicsMaterial mesh = Resources.Load<PhysicsMaterial>(x.UUID);
                 collider.Material = mesh;
 
                 MarkAsModified();

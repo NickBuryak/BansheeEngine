@@ -5,15 +5,16 @@
 #include "BsMonoClass.h"
 #include "BsMonoManager.h"
 #include "BsMonoMethod.h"
-#include "2D/BsSpriteTexture.h"
+#include "Image/BsSpriteTexture.h"
 #include "BsMonoUtil.h"
 #include "BsGUIResourceField.h"
 #include "GUI/BsGUIOptions.h"
 #include "GUI/BsGUIContent.h"
-#include "Wrappers/GUI/BsScriptGUIContent.h"
 #include "Wrappers/BsScriptResource.h"
 #include "BsScriptResourceManager.h"
-#include "Wrappers/BsScriptResourceRef.h"
+#include "Resources/BsResources.h"
+
+#include "Generated/BsScriptGUIContent.generated.h"
 
 using namespace std::placeholders;
 
@@ -39,8 +40,8 @@ namespace bs
 		onChangedThunk = (OnChangedThunkDef)metaData.scriptClass->getMethod("DoOnChanged", 1)->getThunk();
 	}
 
-	void ScriptGUIResourceField::internal_createInstance(MonoObject* instance, MonoReflectionType* type, MonoObject* title, UINT32 titleWidth,
-		MonoString* style, MonoArray* guiOptions, bool withTitle)
+	void ScriptGUIResourceField::internal_createInstance(MonoObject* instance, MonoReflectionType* type, 
+		__GUIContentInterop* title, UINT32 titleWidth, MonoString* style, MonoArray* guiOptions, bool withTitle)
 	{
 		GUIOptions options;
 
@@ -59,7 +60,7 @@ namespace bs
 		GUIResourceField* guiResourceField = nullptr;
 		if (withTitle)
 		{
-			GUIContent nativeContent(ScriptGUIContent::getText(title), ScriptGUIContent::getImage(title), ScriptGUIContent::getTooltip(title));
+			GUIContent nativeContent = ScriptGUIContent::fromInterop(*title);
 			guiResourceField = GUIResourceField::create(typeNamespace, typeName, nativeContent, titleWidth, options, styleName);
 		}
 		else
@@ -77,6 +78,13 @@ namespace bs
 		GUIResourceField* resourceField = static_cast<GUIResourceField*>(nativeInstance->getGUIElement());
 
 		HResource resource = resourceField->getValue();
+		
+		if(resource)
+		{
+			const ResourceLoadFlags loadFlags = ResourceLoadFlag::Default | ResourceLoadFlag::KeepSourceData;
+			resource = gResources().loadFromUUID(resource.getUUID(), false, loadFlags);
+		}
+
 		MonoUtil::referenceCopy(output, nativeToManagedResource(resource));
 	}
 
@@ -97,8 +105,13 @@ namespace bs
 	{
 		GUIResourceField* resourceField = static_cast<GUIResourceField*>(nativeInstance->getGUIElement());
 
-		WeakResourceHandle<Resource> resource = resourceField->getValueWeak();
-		MonoUtil::referenceCopy(output, ScriptResourceRef::create(resource));
+		HResource resource = resourceField->getValue();
+		ScriptRRefBase* scriptRRef = ScriptResourceManager::instance().getScriptRRef(resource);
+
+		if(scriptRRef)
+			MonoUtil::referenceCopy(output, scriptRRef->getManagedInstance());
+		else
+			MonoUtil::referenceCopy(output, nullptr);
 	}
 
 	void ScriptGUIResourceField::internal_setValueRef(ScriptGUIResourceField* nativeInstance, MonoObject* value)
@@ -106,11 +119,11 @@ namespace bs
 		GUIResourceField* resourceField = static_cast<GUIResourceField*>(nativeInstance->getGUIElement());
 
 		if (value == nullptr)
-			resourceField->setValue(HTexture());
+			resourceField->setValue(HResource());
 		else
 		{
-			ScriptResourceRef* scriptTexture = ScriptResourceRef::toNative(value);
-			resourceField->setValueWeak(static_resource_cast<Texture>(scriptTexture->getHandle()));
+			ScriptRRefBase* scriptResource = ScriptRRefBase::toNative(value);
+			resourceField->setValue(scriptResource->getHandle());
 		}
 	}
 
@@ -120,9 +133,13 @@ namespace bs
 		resourceField->setTint(*color);
 	}
 
-	void ScriptGUIResourceField::onChanged(const WeakResourceHandle<Resource>& newHandle)
+	void ScriptGUIResourceField::onChanged(const HResource& newHandle)
 	{
-		MonoObject* managedObj = ScriptResourceRef::create(newHandle);
+		ScriptRRefBase* scriptRRef = ScriptResourceManager::instance().getScriptRRef(newHandle);
+		MonoObject* managedObj = nullptr;
+		if(scriptRRef)
+			managedObj = scriptRRef->getManagedInstance();
+
 		MonoUtil::invokeThunk(onChangedThunk, getManagedInstance(), managedObj);
 	}
 

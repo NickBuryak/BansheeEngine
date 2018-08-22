@@ -2,11 +2,13 @@
 #include "BsMonoMethod.h"
 #include "BsMonoClass.h"
 #include "BsMonoUtil.h"
-#include "../../../bsf/Source/Foundation/bsfEngine/2D/BsSpriteTexture.h"
+#include "../../../bsf/Source/Foundation/bsfCore/Image/BsSpriteTexture.h"
 #include "BsScriptResourceManager.h"
-#include "BsScriptTexture.generated.h"
+#include "Wrappers/BsScriptRRefBase.h"
+#include "../../../bsf/Source/Foundation/bsfCore/Image/BsTexture.h"
 #include "Wrappers/BsScriptVector.h"
-#include "BsScriptSpriteTexture.generated.h"
+#include "BsScriptSpriteSheetGridAnimation.generated.h"
+#include "../../../bsf/Source/Foundation/bsfCore/Image/BsSpriteTexture.h"
 
 namespace bs
 {
@@ -17,14 +19,19 @@ namespace bs
 
 	void ScriptSpriteTexture::initRuntimeData()
 	{
+		metaData.scriptClass->addInternalCall("Internal_GetRef", (void*)&ScriptSpriteTexture::Internal_getRef);
 		metaData.scriptClass->addInternalCall("Internal_setTexture", (void*)&ScriptSpriteTexture::Internal_setTexture);
 		metaData.scriptClass->addInternalCall("Internal_getTexture", (void*)&ScriptSpriteTexture::Internal_getTexture);
+		metaData.scriptClass->addInternalCall("Internal_getWidth", (void*)&ScriptSpriteTexture::Internal_getWidth);
+		metaData.scriptClass->addInternalCall("Internal_getHeight", (void*)&ScriptSpriteTexture::Internal_getHeight);
 		metaData.scriptClass->addInternalCall("Internal_setOffset", (void*)&ScriptSpriteTexture::Internal_setOffset);
 		metaData.scriptClass->addInternalCall("Internal_getOffset", (void*)&ScriptSpriteTexture::Internal_getOffset);
 		metaData.scriptClass->addInternalCall("Internal_setScale", (void*)&ScriptSpriteTexture::Internal_setScale);
 		metaData.scriptClass->addInternalCall("Internal_getScale", (void*)&ScriptSpriteTexture::Internal_getScale);
-		metaData.scriptClass->addInternalCall("Internal_getWidth", (void*)&ScriptSpriteTexture::Internal_getWidth);
-		metaData.scriptClass->addInternalCall("Internal_getHeight", (void*)&ScriptSpriteTexture::Internal_getHeight);
+		metaData.scriptClass->addInternalCall("Internal_setAnimation", (void*)&ScriptSpriteTexture::Internal_setAnimation);
+		metaData.scriptClass->addInternalCall("Internal_getAnimation", (void*)&ScriptSpriteTexture::Internal_getAnimation);
+		metaData.scriptClass->addInternalCall("Internal_setAnimationPlayback", (void*)&ScriptSpriteTexture::Internal_setAnimationPlayback);
+		metaData.scriptClass->addInternalCall("Internal_getAnimationPlayback", (void*)&ScriptSpriteTexture::Internal_getAnimationPlayback);
 		metaData.scriptClass->addInternalCall("Internal_create", (void*)&ScriptSpriteTexture::Internal_create);
 		metaData.scriptClass->addInternalCall("Internal_create0", (void*)&ScriptSpriteTexture::Internal_create0);
 
@@ -37,13 +44,18 @@ namespace bs
 
 		return metaData.scriptClass->createInstance("bool", ctorParams);
 	}
+	MonoObject* ScriptSpriteTexture::Internal_getRef(ScriptSpriteTexture* thisPtr)
+	{
+		return thisPtr->getRRef();
+	}
+
 	void ScriptSpriteTexture::Internal_setTexture(ScriptSpriteTexture* thisPtr, MonoObject* texture)
 	{
 		ResourceHandle<Texture> tmptexture;
-		ScriptTexture* scripttexture;
-		scripttexture = ScriptTexture::toNative(texture);
+		ScriptRRefBase* scripttexture;
+		scripttexture = ScriptRRefBase::toNative(texture);
 		if(scripttexture != nullptr)
-			tmptexture = scripttexture->getHandle();
+			tmptexture = static_resource_cast<Texture>(scripttexture->getHandle());
 		thisPtr->getHandle()->setTexture(tmptexture);
 	}
 
@@ -53,12 +65,34 @@ namespace bs
 		tmp__output = thisPtr->getHandle()->getTexture();
 
 		MonoObject* __output;
-		ScriptResourceBase* script__output;
-		script__output = ScriptResourceManager::instance().getScriptResource(tmp__output, true);
+		ScriptRRefBase* script__output;
+		script__output = ScriptResourceManager::instance().getScriptRRef(tmp__output);
 		if(script__output != nullptr)
 			__output = script__output->getManagedInstance();
 		else
 			__output = nullptr;
+
+		return __output;
+	}
+
+	uint32_t ScriptSpriteTexture::Internal_getWidth(ScriptSpriteTexture* thisPtr)
+	{
+		uint32_t tmp__output;
+		tmp__output = thisPtr->getHandle()->getWidth();
+
+		uint32_t __output;
+		__output = tmp__output;
+
+		return __output;
+	}
+
+	uint32_t ScriptSpriteTexture::Internal_getHeight(ScriptSpriteTexture* thisPtr)
+	{
+		uint32_t tmp__output;
+		tmp__output = thisPtr->getHandle()->getHeight();
+
+		uint32_t __output;
+		__output = tmp__output;
 
 		return __output;
 	}
@@ -89,23 +123,30 @@ namespace bs
 		*__output = tmp__output;
 	}
 
-	uint32_t ScriptSpriteTexture::Internal_getWidth(ScriptSpriteTexture* thisPtr)
+	void ScriptSpriteTexture::Internal_setAnimation(ScriptSpriteTexture* thisPtr, SpriteSheetGridAnimation* anim)
 	{
-		uint32_t tmp__output;
-		tmp__output = thisPtr->getHandle()->getWidth();
-
-		uint32_t __output;
-		__output = tmp__output;
-
-		return __output;
+		thisPtr->getHandle()->setAnimation(*anim);
 	}
 
-	uint32_t ScriptSpriteTexture::Internal_getHeight(ScriptSpriteTexture* thisPtr)
+	void ScriptSpriteTexture::Internal_getAnimation(ScriptSpriteTexture* thisPtr, SpriteSheetGridAnimation* __output)
 	{
-		uint32_t tmp__output;
-		tmp__output = thisPtr->getHandle()->getHeight();
+		SpriteSheetGridAnimation tmp__output;
+		tmp__output = thisPtr->getHandle()->getAnimation();
 
-		uint32_t __output;
+		*__output = tmp__output;
+	}
+
+	void ScriptSpriteTexture::Internal_setAnimationPlayback(ScriptSpriteTexture* thisPtr, SpriteAnimationPlayback playback)
+	{
+		thisPtr->getHandle()->setAnimationPlayback(playback);
+	}
+
+	SpriteAnimationPlayback ScriptSpriteTexture::Internal_getAnimationPlayback(ScriptSpriteTexture* thisPtr)
+	{
+		SpriteAnimationPlayback tmp__output;
+		tmp__output = thisPtr->getHandle()->getAnimationPlayback();
+
+		SpriteAnimationPlayback __output;
 		__output = tmp__output;
 
 		return __output;
@@ -114,10 +155,10 @@ namespace bs
 	void ScriptSpriteTexture::Internal_create(MonoObject* managedInstance, MonoObject* texture)
 	{
 		ResourceHandle<Texture> tmptexture;
-		ScriptTexture* scripttexture;
-		scripttexture = ScriptTexture::toNative(texture);
+		ScriptRRefBase* scripttexture;
+		scripttexture = ScriptRRefBase::toNative(texture);
 		if(scripttexture != nullptr)
-			tmptexture = scripttexture->getHandle();
+			tmptexture = static_resource_cast<Texture>(scripttexture->getHandle());
 		ResourceHandle<SpriteTexture> instance = SpriteTexture::create(tmptexture);
 		ScriptResourceManager::instance().createBuiltinScriptResource(instance, managedInstance);
 	}
@@ -125,10 +166,10 @@ namespace bs
 	void ScriptSpriteTexture::Internal_create0(MonoObject* managedInstance, Vector2* uvOffset, Vector2* uvScale, MonoObject* texture)
 	{
 		ResourceHandle<Texture> tmptexture;
-		ScriptTexture* scripttexture;
-		scripttexture = ScriptTexture::toNative(texture);
+		ScriptRRefBase* scripttexture;
+		scripttexture = ScriptRRefBase::toNative(texture);
 		if(scripttexture != nullptr)
-			tmptexture = scripttexture->getHandle();
+			tmptexture = static_resource_cast<Texture>(scripttexture->getHandle());
 		ResourceHandle<SpriteTexture> instance = SpriteTexture::create(*uvOffset, *uvScale, tmptexture);
 		ScriptResourceManager::instance().createBuiltinScriptResource(instance, managedInstance);
 	}

@@ -6,14 +6,15 @@
 #include "BsMonoClass.h"
 #include "BsMonoMethod.h"
 #include "BsMonoManager.h"
-#include "2D/BsSpriteTexture.h"
+#include "Image/BsSpriteTexture.h"
 #include "BsMonoUtil.h"
 #include "GUI/BsGUILayout.h"
 #include "GUI/BsGUIListBox.h"
 #include "GUI/BsGUIOptions.h"
 #include "Wrappers/GUI/BsScriptGUIElementStyle.h"
 #include "Wrappers/GUI/BsScriptGUILayout.h"
-#include "Wrappers/BsScriptHString.h"
+
+#include "Generated/BsScriptHString.generated.h"
 
 using namespace std::placeholders;
 
@@ -62,7 +63,7 @@ namespace bs
 			else
 			{
 				ScriptHString* textScript = ScriptHString::toNative(stringManaged);
-				nativeElements.push_back(textScript->getInternalValue());
+				nativeElements.push_back(*textScript->getInternal());
 			}
 		}
 
@@ -87,7 +88,7 @@ namespace bs
 			else
 			{
 				ScriptHString* textScript = ScriptHString::toNative(stringManaged);
-				nativeElements.push_back(textScript->getInternalValue());
+				nativeElements.push_back(*textScript->getInternal());
 			}
 		}
 

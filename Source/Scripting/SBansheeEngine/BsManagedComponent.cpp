@@ -310,7 +310,7 @@ namespace bs
 		MonoObject* instance;
 		if (!ScriptAssemblyManager::instance().getSerializableObjectInfo(mNamespace, mTypeName, mObjInfo))
 		{
-			instance = ScriptAssemblyManager::instance().getMissingComponentClass()->createInstance(true);
+			instance = ScriptAssemblyManager::instance().getBuiltinClasses().missingComponentClass->createInstance(true);
 			mMissingType = true;
 		}
 		else
@@ -328,7 +328,7 @@ namespace bs
 			{
 				if (component.get() == this)
 				{
-					componentHandle = component;
+					componentHandle = static_object_cast<ManagedComponent>(component);
 					break;
 				}
 			}

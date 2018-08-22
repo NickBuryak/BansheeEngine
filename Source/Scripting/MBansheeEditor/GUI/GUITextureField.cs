@@ -17,7 +17,7 @@ namespace BansheeEditor
     /// </summary>
     public sealed class GUITextureField : GUIElement
     {
-        public delegate void OnChangedDelegate(ResourceRef newValue);
+        public delegate void OnChangedDelegate(RRef<Texture> newValue);
 
         /// <summary>
         /// Triggered when the value in the field changes.
@@ -43,11 +43,11 @@ namespace BansheeEditor
         /// <summary>
         /// Reference to the <see cref="Texture"/> referenced by the field.
         /// </summary>
-        public ResourceRef ValueRef
+        public RRef<Texture> ValueRef
         {
             get
             {
-                ResourceRef value;
+                RRef<Texture> value;
                 Internal_GetValueRef(mCachedPtr, out value);
                 return value;
             }
@@ -67,7 +67,7 @@ namespace BansheeEditor
         ///                       override any similar options set by style.</param>
         public GUITextureField(GUIContent title, int titleWidth = 100, string style = "", params GUIOption[] options)
         {
-            Internal_CreateInstance(this, title, titleWidth, style, options, true);
+            Internal_CreateInstance(this, ref title, titleWidth, style, options, true);
         }
 
         /// <summary>
@@ -80,7 +80,8 @@ namespace BansheeEditor
         ///                       override any similar options set by style.</param>
         public GUITextureField(string style = "", params GUIOption[] options)
         {
-            Internal_CreateInstance(this, null, 0, style, options, false);
+            GUIContent emptyContent = new GUIContent();
+            Internal_CreateInstance(this, ref emptyContent, 0, style, options, false);
         }
 
         /// <summary>
@@ -96,14 +97,14 @@ namespace BansheeEditor
         /// Triggered by the runtime when the value of the field changes.
         /// </summary>
         /// <param name="newValue">New resource referenced by the field.</param>
-        private void Internal_DoOnChanged(ResourceRef newValue)
+        private void Internal_DoOnChanged(RRef<Texture> newValue)
         {
             if (OnChanged != null)
                 OnChanged(newValue);
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_CreateInstance(GUITextureField instance, GUIContent title, int titleWidth,
+        private static extern void Internal_CreateInstance(GUITextureField instance, ref GUIContent title, int titleWidth,
             string style, GUIOption[] options, bool withTitle);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -113,10 +114,10 @@ namespace BansheeEditor
         private static extern void Internal_SetValue(IntPtr nativeInstance, Texture value);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_GetValueRef(IntPtr nativeInstance, out ResourceRef value);
+        private static extern void Internal_GetValueRef(IntPtr nativeInstance, out RRef<Texture> value);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_SetValueRef(IntPtr nativeInstance, ResourceRef value);
+        private static extern void Internal_SetValueRef(IntPtr nativeInstance, RRef<Texture> value);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void Internal_SetTint(IntPtr nativeInstance, ref Color color);

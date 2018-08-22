@@ -4,10 +4,11 @@
 
 #include "BsScriptEnginePrerequisites.h"
 #include "Utility/BsModule.h"
+#include "Wrappers/BsScriptResource.h"
 
 namespace bs
 {
-	namespace Detail { }
+	class ScriptRRefBase;
 
 	/** @addtogroup SBansheeEngine
 	 *  @{
@@ -62,7 +63,27 @@ namespace bs
 		 * Attempts to find a resource interop object for a resource with the specified UUID. Returns null if the object
 		 * cannot be found.
 		 */
-		ScriptResourceBase* getScriptResource(const UUID& UUID);
+		ScriptResourceBase* getScriptResource(const UUID& uuid);
+
+		/**
+		 * Attempts to find an existing interop object for the specified resource reference, or creates a new object if one
+		 * cannot be found.
+		 * 
+		 * @param[in]	resource		Resource handle to create the reference wrapper object for.
+		 * @param[in]	rrefClass		Class of the managed RRef object to create.
+		 */
+		ScriptRRefBase* getScriptRRef(const HResource& resource, ::MonoClass* rrefClass);
+
+		/** 
+		 * Same as getScriptRRef(const HResource&, MonoClass*) except it automatically deduced the resource class from
+		 * the provided template parameter.
+		 */
+		template<class T>
+		ScriptRRefBase* getScriptRRef(const ResourceHandle<T>& resource)
+		{
+			::MonoClass* rrefClass = ScriptResourceBase::getRRefClass(T::getRTTIStatic()->getRTTIId());
+			return getScriptRRef(resource, rrefClass);
+		}
 
 		/**
 		 * Deletes the provided resource interop objects. All resource interop objects should be deleted using this method.
@@ -76,8 +97,17 @@ namespace bs
 		/**	Triggered when the native resource has been unloaded and therefore destroyed. */
 		void onResourceDestroyed(const UUID& UUID);
 
+		/** 
+		 * Clears all cached RRefs. Should be called before assembly refresh since the refs will no longer be valid
+		 * after.
+		 */
+		void clearRRefs();
+
 		UnorderedMap<UUID, ScriptResourceBase*> mScriptResources;
+		UnorderedMap<::MonoClass*, UnorderedMap<UUID, ScriptRRefBase*>> mScriptRRefsPerType;
+
 		HEvent mResourceDestroyedConn;
+		HEvent mDomainUnloadedConn;
 	};
 
 	/** @} */

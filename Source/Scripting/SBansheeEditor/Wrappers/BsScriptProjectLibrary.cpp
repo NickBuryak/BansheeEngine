@@ -14,6 +14,9 @@
 #include "BsEditorApplication.h"
 #include "Serialization/BsManagedSerializableObject.h"
 #include "Reflection/BsRTTIType.h"
+#include "BsManagedResourceMetaData.h"
+
+#include "BsScriptProjectResourceIcons.generated.h"
 
 using namespace std::placeholders;
 
@@ -34,6 +37,7 @@ namespace bs
 	void ScriptProjectLibrary::initRuntimeData()
 	{
 		metaData.scriptClass->addInternalCall("Internal_Refresh", (void*)&ScriptProjectLibrary::internal_Refresh);
+		metaData.scriptClass->addInternalCall("Internal_FinalizeImports", (void*)&ScriptProjectLibrary::internal_FinalizeImports);
 		metaData.scriptClass->addInternalCall("Internal_Create", (void*)&ScriptProjectLibrary::internal_Create);
 		metaData.scriptClass->addInternalCall("Internal_Load", (void*)&ScriptProjectLibrary::internal_Load);
 		metaData.scriptClass->addInternalCall("Internal_Save", (void*)&ScriptProjectLibrary::internal_Save);
@@ -53,29 +57,36 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_GetResourceFolder", (void*)&ScriptProjectLibrary::internal_GetResourceFolder);
 		metaData.scriptClass->addInternalCall("Internal_SetIncludeInBuild", (void*)&ScriptProjectLibrary::internal_SetIncludeInBuild);
 		metaData.scriptClass->addInternalCall("Internal_SetEditorData", (void*)&ScriptProjectLibrary::internal_SetEditorData);
+		metaData.scriptClass->addInternalCall("Internal_GetInProgressImportCount", (void*)&ScriptProjectLibrary::internal_GetInProgressImportCount);
 
 		OnEntryAddedThunk = (OnEntryChangedThunkDef)metaData.scriptClass->getMethod("Internal_DoOnEntryAdded", 1)->getThunk();
 		OnEntryRemovedThunk = (OnEntryChangedThunkDef)metaData.scriptClass->getMethod("Internal_DoOnEntryRemoved", 1)->getThunk();
 		OnEntryImportedThunk = (OnEntryChangedThunkDef)metaData.scriptClass->getMethod("Internal_DoOnEntryImported", 1)->getThunk();
 	}
 
-	MonoArray* ScriptProjectLibrary::internal_Refresh(MonoString* path, bool import)
+	UINT32 ScriptProjectLibrary::internal_Refresh(MonoString* path, bool synchronous)
 	{
 		Path nativePath = MonoUtil::monoToString(path);
 
 		if (!nativePath.isAbsolute())
 			nativePath.makeAbsolute(gProjectLibrary().getResourcesFolder());
 
-		Vector<Path> dirtyResources;
-		gProjectLibrary().checkForModifications(nativePath, import, dirtyResources);
+		const UINT32 importCount = gProjectLibrary().checkForModifications(nativePath);
 
-		ScriptArray output = ScriptArray::create<String>((UINT32)dirtyResources.size());
-		for (UINT32 i = 0; i < (UINT32)dirtyResources.size(); i++)
-		{
-			output.set(i, dirtyResources[i].toString());
-		}
+		if(synchronous)
+			gProjectLibrary()._finishQueuedImports(true);
 
-		return output.getInternal();
+		return importCount;
+	}
+
+	void ScriptProjectLibrary::internal_FinalizeImports()
+	{
+		gProjectLibrary()._finishQueuedImports();
+	}
+		
+	UINT32 ScriptProjectLibrary::internal_GetInProgressImportCount()
+	{
+		return gProjectLibrary().getInProgressImportCount();		
 	}
 
 	void ScriptProjectLibrary::internal_Create(MonoObject* resource, MonoString* path)
@@ -513,8 +524,9 @@ namespace bs
 	{
 		metaData.scriptClass->addInternalCall("Internal_GetUUID", (void*)&ScriptResourceMeta::internal_GetUUID);
 		metaData.scriptClass->addInternalCall("Internal_GetSubresourceName", (void*)&ScriptResourceMeta::internal_GetSubresourceName);
-		metaData.scriptClass->addInternalCall("Internal_GetIcon", (void*)&ScriptResourceMeta::internal_GetIcon);
+		metaData.scriptClass->addInternalCall("Internal_GetPreviewIcons", (void*)&ScriptResourceMeta::internal_GetPreviewIcons);
 		metaData.scriptClass->addInternalCall("Internal_GetResourceType", (void*)&ScriptResourceMeta::internal_GetResourceType);
+		metaData.scriptClass->addInternalCall("Internal_GetType", (void*)&ScriptResourceMeta::internal_GetType);
 		metaData.scriptClass->addInternalCall("Internal_GetEditorData", (void*)&ScriptResourceMeta::internal_GetEditorData);
 	}
 
@@ -528,10 +540,9 @@ namespace bs
 		return MonoUtil::stringToMono(thisPtr->mMeta->getUniqueName());
 	}
 
-	MonoObject* ScriptResourceMeta::internal_GetIcon(ScriptResourceMeta* thisPtr)
+	void ScriptResourceMeta::internal_GetPreviewIcons(ScriptResourceMeta* thisPtr, __ProjectResourceIconsInterop* output)
 	{
-		// TODO - Icons not supported yet
-		return nullptr;
+		*output = ScriptProjectResourceIcons::toInterop(thisPtr->mMeta->getPreviewIcons());
 	}
 
 	ScriptResourceType ScriptResourceMeta::internal_GetResourceType(ScriptResourceMeta* thisPtr)
@@ -541,6 +552,32 @@ namespace bs
 			return ScriptResourceType::Undefined;
 
 		return resInfo->resType;
+	}
+
+	MonoReflectionType* ScriptResourceMeta::internal_GetType(ScriptResourceMeta* thisPtr)
+	{
+		const UINT32 typeId = thisPtr->mMeta->getTypeID();
+		if(typeId == TID_ManagedResource)
+		{
+			const auto metaData = std::static_pointer_cast<ManagedResourceMetaData>(thisPtr->mMeta->getResourceMetaData());
+
+			if(metaData)
+			{
+				MonoClass* providedClass = MonoManager::instance().findClass(metaData->typeNamespace, metaData->typeName);
+
+				if(providedClass)
+					return MonoUtil::getType(providedClass->_getInternalClass());
+			}
+		}
+		else
+		{
+			BuiltinResourceInfo* resInfo = ScriptAssemblyManager::instance().getBuiltinResourceInfo(thisPtr->mMeta->getTypeID());
+
+			if (resInfo)
+				return MonoUtil::getType(resInfo->metaData->scriptClass->_getInternalClass());
+		}
+
+		return nullptr;
 	}
 
 	MonoObject* ScriptResourceMeta::internal_GetEditorData(ScriptResourceMeta* thisPtr)

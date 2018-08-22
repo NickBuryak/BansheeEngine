@@ -1,7 +1,8 @@
 cmake_minimum_required (VERSION 3.9.0)
 project (Banshee3D)
 
-set (BSF_SOURCE_DIR ${PROJECT_SOURCE_DIR}/Source/bsf/Source)
+set (BSF_DIRECTORY ${PROJECT_SOURCE_DIR}/Source/bsf)
+set (BSF_SOURCE_DIR ${BSF_DIRECTORY}/Source)
 set (APP_ROOT_DIR ${PROJECT_SOURCE_DIR})
 set (BS_IS_BANSHEE3D 1)
 
@@ -27,7 +28,7 @@ add_subdirectory(${BSF_SOURCE_DIR})
 
 set (BS_PREBUILT_DEPENDENCIES_VERSION 24)
 set (BS_SRC_DEPENDENCIES_VERSION 15)
-set (BS_BUILTIN_ASSETS_VERSION 5)
+set (BS_BUILTIN_ASSETS_VERSION 9)
 
 # Options
 set(GENERATE_SCRIPT_BINDINGS OFF CACHE BOOL "If true, script binding files will be generated. Script bindings are required for the project to build properly, however they take a while to generate. If you are sure the script bindings are up to date, you can turn off their generation (temporarily) to speed up the build.")
@@ -38,7 +39,7 @@ check_and_update_binary_deps(Banshee ${PROJECT_SOURCE_DIR}/Dependencies/ ${BS_PR
 
 ## Check data dependencies
 check_and_update_builtin_assets(Banshee ${PROJECT_SOURCE_DIR}/Data ${BS_BUILTIN_ASSETS_VERSION} YES)
-	
+		
 # Generate script bindings
 include(${BSF_SOURCE_DIR}/CMake/GenerateScriptBindings.cmake)
 	

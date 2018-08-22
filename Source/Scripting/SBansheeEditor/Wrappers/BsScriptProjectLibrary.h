@@ -9,6 +9,8 @@
 
 namespace bs
 {
+	struct __ProjectResourceIconsInterop;
+
 	/** @addtogroup ScriptInteropEditor
 	 *  @{
 	 */
@@ -62,7 +64,8 @@ namespace bs
 		static OnEntryChangedThunkDef OnEntryRemovedThunk;
 		static OnEntryChangedThunkDef OnEntryImportedThunk;
 
-		static MonoArray* internal_Refresh(MonoString* path, bool import);
+		static UINT32 internal_Refresh(MonoString* path, bool synchronous);
+		static void internal_FinalizeImports();
 		static void internal_Create(MonoObject* resource, MonoString* path);
 		static MonoObject* internal_Load(MonoString* path);
 		static void internal_Save(MonoObject* resource);
@@ -82,6 +85,7 @@ namespace bs
 		static MonoString* internal_GetResourceFolder();
 		static void internal_SetIncludeInBuild(MonoString* path, bool include);
 		static void internal_SetEditorData(MonoString* path, MonoObject* userData);
+		static UINT32 internal_GetInProgressImportCount();
 	};
 
 	/**	Base class for C++/CLR interop objects used for wrapping LibraryEntry implementations. */
@@ -173,8 +177,9 @@ namespace bs
 		/************************************************************************/
 		static void internal_GetUUID(ScriptResourceMeta* thisPtr, UUID* uuid);
 		static MonoString* internal_GetSubresourceName(ScriptResourceMeta* thisPtr);
-		static MonoObject* internal_GetIcon(ScriptResourceMeta* thisPtr);
+		static void internal_GetPreviewIcons(ScriptResourceMeta* thisPtr, __ProjectResourceIconsInterop* output);
 		static ScriptResourceType internal_GetResourceType(ScriptResourceMeta* thisPtr);
+		static MonoReflectionType* internal_GetType(ScriptResourceMeta* thisPtr);
 		static MonoObject* internal_GetEditorData(ScriptResourceMeta* thisPtr);
 	};
 

@@ -17,7 +17,6 @@ set(BS_SBANSHEEENGINE_SRC_WRAPPERS_GUI
 	"Wrappers/GUI/BsScriptRange.cpp"
 	"Wrappers/GUI/BsScriptStep.cpp"
 	"Wrappers/GUI/BsScriptGUIButton.cpp"
-	"Wrappers/GUI/BsScriptGUIContent.cpp"
 	"Wrappers/GUI/BsScriptGUIElementStateStyle.cpp"
 	"Wrappers/GUI/BsScriptGUIElementStyle.cpp"
 	"Wrappers/GUI/BsScriptGUIFixedSpace.cpp"
@@ -60,8 +59,6 @@ set(BS_SBANSHEEENGINE_INC_WRAPPERS
 	"Wrappers/BsScriptCursor.h"
 	"Wrappers/BsScriptDebug.h"
 	"Wrappers/BsScriptGameObject.h"
-	"Wrappers/BsScriptGUIContentImages.h"
-	"Wrappers/BsScriptHString.h"
 	"Wrappers/BsScriptInput.h"
 	"Wrappers/BsScriptInputConfiguration.h"
 	"Wrappers/BsScriptLogEntry.h"
@@ -69,7 +66,6 @@ set(BS_SBANSHEEENGINE_INC_WRAPPERS
 	"Wrappers/BsScriptPixelUtility.h"
 	"Wrappers/BsScriptPlainText.h"
 	"Wrappers/BsScriptPrefab.h"
-	"Wrappers/BsScriptProfilerOverlayInternal.h"
 	"Wrappers/BsScriptResource.h"
 	"Wrappers/BsScriptVirtualInput.h"
 	"Wrappers/BsScriptVirtualButton.h"
@@ -88,7 +84,7 @@ set(BS_SBANSHEEENGINE_INC_WRAPPERS
 	"Wrappers/BsScriptSceneObject.h"
 	"Wrappers/BsScriptScene.h"
 	"Wrappers/BsScriptResources.h"
-	"Wrappers/BsScriptResourceRef.h"
+	"Wrappers/BsScriptRRefBase.h"
 	"Wrappers/BsScriptManagedComponent.h"
 	"Wrappers/BsScriptQuaternion.h"
 )
@@ -97,7 +93,6 @@ set(BS_SBANSHEEENGINE_INC_WRAPPERS_GUI
 	"Wrappers/GUI/BsScriptRange.h"
 	"Wrappers/GUI/BsScriptStep.h"
 	"Wrappers/GUI/BsScriptGUIButton.h"
-	"Wrappers/GUI/BsScriptGUIContent.h"
 	"Wrappers/GUI/BsScriptGUIElementStateStyle.h"
 	"Wrappers/GUI/BsScriptGUIElementStyle.h"
 	"Wrappers/GUI/BsScriptGUIFixedSpace.h"
@@ -142,8 +137,6 @@ set(BS_SBANSHEEENGINE_SRC_WRAPPERS
 	"Wrappers/BsScriptCursor.cpp"
 	"Wrappers/BsScriptDebug.cpp"
 	"Wrappers/BsScriptGameObject.cpp"
-	"Wrappers/BsScriptGUIContentImages.cpp"
-	"Wrappers/BsScriptHString.cpp"
 	"Wrappers/BsScriptInput.cpp"
 	"Wrappers/BsScriptInputConfiguration.cpp"
 	"Wrappers/BsScriptLogEntry.cpp"
@@ -151,7 +144,6 @@ set(BS_SBANSHEEENGINE_SRC_WRAPPERS
 	"Wrappers/BsScriptPixelUtility.cpp"
 	"Wrappers/BsScriptPlainText.cpp"
 	"Wrappers/BsScriptPrefab.cpp"
-	"Wrappers/BsScriptProfilerOverlayInternal.cpp"
 	"Wrappers/BsScriptVirtualInput.cpp"
 	"Wrappers/BsScriptVirtualButton.cpp"
 	"Wrappers/BsScriptVector2I.cpp"
@@ -169,7 +161,7 @@ set(BS_SBANSHEEENGINE_SRC_WRAPPERS
 	"Wrappers/BsScriptSceneObject.cpp"
 	"Wrappers/BsScriptScene.cpp"
 	"Wrappers/BsScriptResources.cpp"
-	"Wrappers/BsScriptResourceRef.cpp"
+	"Wrappers/BsScriptRRefBase.cpp"
 	"Wrappers/BsScriptResource.cpp"
 	"Wrappers/BsScriptManagedComponent.cpp"
 	"Wrappers/BsScriptQuaternion.cpp"
@@ -222,6 +214,7 @@ set(BS_SBANSHEEENGINE_INC_EXTENSIONS
 	"Extensions/BsShaderEx.h"
 	"Extensions/BsMaterialEx.h"
 	"Extensions/BsRenderTargetEx.h"
+	"Extensions/BsColorGradientEx.h"
 )
 
 set(BS_SBANSHEEENGINE_SRC_EXTENSIONS
@@ -236,6 +229,7 @@ set(BS_SBANSHEEENGINE_SRC_EXTENSIONS
 	"Extensions/BsShaderEx.cpp"
 	"Extensions/BsMaterialEx.cpp"
 	"Extensions/BsRenderTargetEx.cpp"
+	"Extensions/BsColorGradientEx.cpp"
 )
 
 source_group("Header Files" FILES ${BS_SBANSHEEENGINE_INC_NOFILTER})

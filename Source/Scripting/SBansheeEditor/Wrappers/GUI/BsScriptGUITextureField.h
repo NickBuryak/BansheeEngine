@@ -7,6 +7,8 @@
 
 namespace bs
 {
+	struct __GUIContentInterop;
+
 	/** @addtogroup ScriptInteropEditor
 	 *  @{
 	 */
@@ -23,7 +25,7 @@ namespace bs
 		 *
 		 * @param[in]	newHandle	Handle of the new texture.
 		 */
-		void onChanged(const WeakResourceHandle<Texture>& newHandle);
+		void onChanged(const HTexture& newHandle);
 
 		/** Retrieves a managed instance of the specified native texture. Will return null if one doesn't exist. */
 		static MonoObject* nativeToManagedResource(const HTexture& instance);
@@ -34,7 +36,7 @@ namespace bs
 		/* 								CLR HOOKS						   		*/
 		/************************************************************************/
 
-		static void internal_createInstance(MonoObject* instance, MonoObject* title, UINT32 titleWidth,
+		static void internal_createInstance(MonoObject* instance, __GUIContentInterop* title, UINT32 titleWidth,
 			MonoString* style, MonoArray* guiOptions, bool withTitle);
 
 		static void internal_getValue(ScriptGUITextureField* nativeInstance, MonoObject** output);

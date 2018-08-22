@@ -22,14 +22,15 @@ namespace BansheeEditor
         /// <inheritdoc/>
         protected internal override void Initialize()
         {
+            LoadResource();
+
             SpriteTexture spriteTexture = InspectedObject as SpriteTexture;
             if (spriteTexture == null)
                 return;
 
             textureField.OnChanged += (x) =>
             {
-                Texture texture = Resources.Load<Texture>(x);
-                spriteTexture.Texture = texture;
+                spriteTexture.Texture = x;
                 EditorApplication.SetDirty(spriteTexture);
             };
 
@@ -57,7 +58,7 @@ namespace BansheeEditor
             if (spriteTexture == null)
                 return InspectableState.NotModified;
 
-            textureField.Value = spriteTexture.Texture;
+            textureField.ValueRef = spriteTexture.Texture;
             offsetField.Value = spriteTexture.Offset;
             scaleField.Value = spriteTexture.Scale;
 

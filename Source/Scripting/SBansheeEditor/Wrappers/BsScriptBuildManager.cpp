@@ -197,7 +197,7 @@ namespace bs
 				{ 256, nullptr }
 			};
 
-			HTexture icon = gResources().load(winPlatformInfo->icon);
+			HTexture icon = static_resource_cast<Texture>(gResources().loadFromUUID(winPlatformInfo->icon.getUUID()));
 			if (icon.isLoaded())
 			{
 				auto& texProps = icon->getProperties();
@@ -304,7 +304,9 @@ namespace bs
 		for (auto& entry : usedResources)
 		{
 			UUID uuid;
-			BS_ASSERT(gResources().getUUIDFromFilePath(entry, uuid));
+
+			const bool found = gResources().getUUIDFromFilePath(entry, uuid);
+			BS_ASSERT(found);
 
 			Path sourcePath = gProjectLibrary().uuidToPath(uuid);
 			if (sourcePath.isEmpty()) // Resource not part of library, meaning its built-in and we don't need to copy those here
@@ -383,7 +385,7 @@ namespace bs
 		{
 			SPtr<WinPlatformInfo> winPlatformInfo = std::static_pointer_cast<WinPlatformInfo>(platformInfo);
 			
-			HTexture icon = gResources().load(winPlatformInfo->icon);
+			HTexture icon = static_resource_cast<Texture>(gResources().loadFromUUID(winPlatformInfo->icon.getUUID()));
 			if (icon != nullptr)
 				gResources().save(icon, destIconFile, true);
 		}
