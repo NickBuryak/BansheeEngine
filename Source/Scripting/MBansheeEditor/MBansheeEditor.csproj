@@ -36,6 +36,8 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GUI\GUIColorGradient.cs" />
+    <Compile Include="GUI\GUICurveField.cs" />
     <Compile Include="Inspectors\AnimationClipInspector.cs" />
     <Compile Include="Inspectors\AnimationInspector.cs" />
     <Compile Include="Inspectors\AudioClipInspector.cs" />
@@ -90,6 +92,7 @@
     <Compile Include="Inspectors\SliderJointInspector.cs" />
     <Compile Include="Inspectors\SphereColliderInspector.cs" />
     <Compile Include="Inspectors\SphericalJointInspector.cs" />
+    <Compile Include="Windows\CurveEditorWindow.cs" />
     <Compile Include="Windows\GradientPicker.cs" />
     <Compile Include="Windows\Inspector\InspectableRRef.cs" />
     <Compile Include="Windows\Inspector\Style\InspectableFieldRangeStyle.cs" />
