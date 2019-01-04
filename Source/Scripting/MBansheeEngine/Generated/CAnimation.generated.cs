@@ -14,6 +14,7 @@ namespace BansheeEngine
 	/// thread for updating attached scene objects and bones (if skeleton is attached), or the data is made available for 
 	/// manual queries in the case of generic animation.
 	/// </summary>
+	[ShowInInspector]
 	public partial class Animation : Component
 	{
 		private Animation(bool __dummy0) { }
@@ -25,6 +26,7 @@ namespace BansheeEngine
 		/// modify their states individually.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public RRef<AnimationClip> DefaultClip
 		{
 			get { return Internal_getDefaultClip(mCachedPtr); }
@@ -36,6 +38,7 @@ namespace BansheeEngine
 		/// first or last frame.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public AnimWrapMode WrapMode
 		{
 			get { return Internal_getWrapMode(mCachedPtr); }
@@ -46,6 +49,7 @@ namespace BansheeEngine
 		/// Determines the speed for all animations. The default value is 1.0f. Use negative values to play-back in reverse.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Speed
 		{
 			get { return Internal_getSpeed(mCachedPtr); }
@@ -54,6 +58,7 @@ namespace BansheeEngine
 
 		/// <summary>Checks if any animation clips are currently playing.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool IsPlaying
 		{
 			get { return Internal_isPlaying(mCachedPtr); }
@@ -63,6 +68,7 @@ namespace BansheeEngine
 		/// Determines bounds that will be used for animation and mesh culling. Only relevant if setUseBounds() is set to true.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public AABox Bounds
 		{
 			get
@@ -79,6 +85,7 @@ namespace BansheeEngine
 		/// attached to the relevant CRenderable component will be used instead.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool UseBounds
 		{
 			get { return Internal_getUseBounds(mCachedPtr); }
@@ -89,6 +96,7 @@ namespace BansheeEngine
 		/// Enables or disables culling of the animation when out of view. Culled animation will not be evaluated.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool Cull
 		{
 			get { return Internal_getEnableCull(mCachedPtr); }

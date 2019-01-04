@@ -87,6 +87,7 @@ set(BS_SBANSHEEENGINE_INC_WRAPPERS
 	"Wrappers/BsScriptRRefBase.h"
 	"Wrappers/BsScriptManagedComponent.h"
 	"Wrappers/BsScriptQuaternion.h"
+	"Wrappers/BsScriptPlane.h"
 )
 
 set(BS_SBANSHEEENGINE_INC_WRAPPERS_GUI
@@ -165,6 +166,7 @@ set(BS_SBANSHEEENGINE_SRC_WRAPPERS
 	"Wrappers/BsScriptResource.cpp"
 	"Wrappers/BsScriptManagedComponent.cpp"
 	"Wrappers/BsScriptQuaternion.cpp"
+	"Wrappers/BsScriptPlane.cpp"
 )
 
 set(BS_SBANSHEEENGINE_INC_SERIALIZATION
@@ -215,6 +217,7 @@ set(BS_SBANSHEEENGINE_INC_EXTENSIONS
 	"Extensions/BsMaterialEx.h"
 	"Extensions/BsRenderTargetEx.h"
 	"Extensions/BsColorGradientEx.h"
+	"Extensions/BsParticleDistributionEx.h"
 )
 
 set(BS_SBANSHEEENGINE_SRC_EXTENSIONS
@@ -230,6 +233,7 @@ set(BS_SBANSHEEENGINE_SRC_EXTENSIONS
 	"Extensions/BsMaterialEx.cpp"
 	"Extensions/BsRenderTargetEx.cpp"
 	"Extensions/BsColorGradientEx.cpp"
+	"Extensions/BsParticleDistributionEx.cpp"
 )
 
 source_group("Header Files" FILES ${BS_SBANSHEEENGINE_INC_NOFILTER})

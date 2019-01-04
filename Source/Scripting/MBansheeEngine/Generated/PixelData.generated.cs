@@ -8,6 +8,7 @@ namespace BansheeEngine
 	/// A buffer describing a volume (3D), image (2D) or line (1D) of pixels in memory. Pixels are stored as a succession  of 
 	/// "depth" slices, each containing "height" rows of "width" pixels.
 	/// </summary>
+	[ShowInInspector]
 	public partial class PixelData : ScriptObject
 	{
 		private PixelData(bool __dummy0) { }
@@ -27,6 +28,8 @@ namespace BansheeEngine
 		/// Returns the number of pixels that offsets one row from another. This can be "width", but doesn't have to be as some 
 		/// buffers require padding.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public uint RawRowPitch
 		{
 			get { return Internal_getRowPitch(mCachedPtr); }
@@ -36,18 +39,24 @@ namespace BansheeEngine
 		/// Returns the number of pixels that offsets one depth slice from another. This can be "width * height", but  doesn't 
 		/// have to be as some buffers require padding.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public uint RawSlicePitch
 		{
 			get { return Internal_getSlicePitch(mCachedPtr); }
 		}
 
 		/// <summary>Returns the pixel format used by the internal buffer for storing the pixels.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public PixelFormat Format
 		{
 			get { return Internal_getFormat(mCachedPtr); }
 		}
 
 		/// <summary>Returns extents of the pixel volume this object is capable of holding.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public PixelVolume Extents
 		{
 			get
@@ -61,12 +70,16 @@ namespace BansheeEngine
 		/// <summary>
 		/// Return whether this buffer is laid out consecutive in memory (meaning the pitches are equal to the dimensions).
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool RawIsConsecutive
 		{
 			get { return Internal_isConsecutive(mCachedPtr); }
 		}
 
 		/// <summary>Return the size (in bytes) of the buffer this image requires.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public uint RawSize
 		{
 			get { return Internal_getSize(mCachedPtr); }

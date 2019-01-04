@@ -76,7 +76,7 @@ namespace BansheeEditor
 
         private GUIGraphTime guiTimeline;
         private GUIAnimEvents guiEvents;
-        private GUICurveDrawing guiCurveDrawing;
+        private GUICurves guiCurveDrawing;
         private GUIGraphValues guiSidebar;
 
         private int scrollBarWidth;
@@ -91,7 +91,7 @@ namespace BansheeEditor
         private ContextMenu eventContextMenu;
         private Vector2I contextClickPosition;
 
-        private CurveDrawInfo[] curveInfos = new CurveDrawInfo[0];
+        private EdCurveDrawInfo[] curveInfos = new EdCurveDrawInfo[0];
         private bool disableCurveEdit = false;
 
         private float xRange = 60.0f;
@@ -338,9 +338,12 @@ namespace BansheeEditor
             drawingPanel = mainPanel.AddPanel();
             drawingPanel.SetPosition(0, TIMELINE_HEIGHT + eventsHeaderHeight + VERT_PADDING);
 
-            guiCurveDrawing = new GUICurveDrawing(drawingPanel, this.width, this.height - TIMELINE_HEIGHT -
-                eventsHeaderHeight - VERT_PADDING * 2, curveInfos, drawOptions);
+            guiCurveDrawing = new GUICurves(drawOptions);
+            guiCurveDrawing.SetWidth(this.width);
+            guiCurveDrawing.SetHeight(this.height - TIMELINE_HEIGHT - eventsHeaderHeight - VERT_PADDING * 2);
             guiCurveDrawing.SetRange(60.0f, 20.0f);
+            guiCurveDrawing.Curves = GetPlainCurveDrawInfos();
+            drawingPanel.AddElement(guiCurveDrawing);
 
             GUIPanel sidebarPanel = mainPanel.AddPanel(-10);
             sidebarPanel.SetPosition(0, TIMELINE_HEIGHT + eventsHeaderHeight + VERT_PADDING);
@@ -359,10 +362,10 @@ namespace BansheeEditor
         /// Change the set of curves to display.
         /// </summary>
         /// <param name="curveInfos">New set of curves to draw on the GUI element.</param>
-        public void SetCurves(CurveDrawInfo[] curveInfos)
+        public void SetCurves(EdCurveDrawInfo[] curveInfos)
         {
             this.curveInfos = curveInfos;
-            guiCurveDrawing.SetCurves(curveInfos);
+            guiCurveDrawing.Curves = GetPlainCurveDrawInfos();
 
             Redraw();
         }
@@ -386,7 +389,8 @@ namespace BansheeEditor
             }
 
             guiTimeline.SetSize(this.width, TIMELINE_HEIGHT);
-            guiCurveDrawing.SetSize(this.width, this.height - TIMELINE_HEIGHT - eventsHeaderHeight);
+            guiCurveDrawing.SetWidth(this.width);
+            guiCurveDrawing.SetHeight(this.height - TIMELINE_HEIGHT - eventsHeaderHeight);
             guiSidebar.SetSize(SIDEBAR_WIDTH, this.height - TIMELINE_HEIGHT - eventsHeaderHeight);
 
             timelineBackground.Bounds = new Rect2I(0, 0, this.width, TIMELINE_HEIGHT + VERT_PADDING);
@@ -405,7 +409,7 @@ namespace BansheeEditor
         public void SetFPS(int fps)
         {
             guiTimeline.SetFPS(fps);
-            guiCurveDrawing.SetFPS(fps);
+            guiCurveDrawing.FPS = (uint)fps;
 
             if(showEvents)
                 guiEvents.SetFPS(fps);
@@ -441,7 +445,7 @@ namespace BansheeEditor
             markedFrameIdx = frameIdx;
 
             guiTimeline.SetMarkedFrame(frameIdx);
-            guiCurveDrawing.SetMarkedFrame(frameIdx);
+            guiCurveDrawing.MarkedFrame = (uint)frameIdx;
 
             if(showEvents)
                 guiEvents.SetMarkedFrame(frameIdx);
@@ -471,7 +475,7 @@ namespace BansheeEditor
                 ShowReadOnlyMessage();
 
             OnCurveModified?.Invoke();
-            guiCurveDrawing.Rebuild();
+            RefreshCurveDrawing();
             UpdateEventsGUI();
         }
 
@@ -493,8 +497,6 @@ namespace BansheeEditor
             OnEventAdded?.Invoke();
 
             UpdateEventsGUI();
-            guiCurveDrawing.Rebuild();
-
             StartEventEdit(events.Count - 1);
         }
 
@@ -524,12 +526,19 @@ namespace BansheeEditor
         /// </summary>
         public void Redraw()
         {
-            guiCurveDrawing.Rebuild();
             guiTimeline.Rebuild();
             guiSidebar.Rebuild();
 
             if(showEvents)
                 guiEvents.Rebuild();
+        }
+
+        /// <summary>
+        /// Updates the curve drawing. Should be called after animation curves change.
+        /// </summary>
+        private void RefreshCurveDrawing()
+        {
+            guiCurveDrawing.Curves = GetPlainCurveDrawInfos();
         }
 
         /// <summary>
@@ -552,7 +561,12 @@ namespace BansheeEditor
                 foreach (var keyframeIdx in selectedEntry.keyIndices)
                 {
                     if (mode == TangentMode.Auto || mode == TangentMode.Free)
+                    {
                         curve.SetTangentMode(keyframeIdx, mode);
+
+                        // Refresh tangent display
+                        guiCurveDrawing.SelectKeyframe(new KeyframeRef(selectedEntry.curveIdx, keyframeIdx), mode, true);
+                    }
                     else
                     {
                         TangentMode newMode = curve.TangentModes[keyframeIdx];
@@ -577,6 +591,9 @@ namespace BansheeEditor
                         }
 
                         curve.SetTangentMode(keyframeIdx, newMode);
+
+                        // Refresh tangent display
+                        guiCurveDrawing.SelectKeyframe(new KeyframeRef(selectedEntry.curveIdx, keyframeIdx), newMode, true);
                     }
                 }
 
@@ -584,7 +601,7 @@ namespace BansheeEditor
             }
 
             OnCurveModified?.Invoke();
-            guiCurveDrawing.Rebuild();
+            RefreshCurveDrawing();
         }
 
         /// <summary>
@@ -612,7 +629,7 @@ namespace BansheeEditor
                 ShowReadOnlyMessage();
 
             OnCurveModified?.Invoke();
-            guiCurveDrawing.Rebuild();
+            RefreshCurveDrawing();
             UpdateEventsGUI();
         }
 
@@ -641,7 +658,7 @@ namespace BansheeEditor
                     ShowReadOnlyMessage();
 
                 OnCurveModified?.Invoke();
-                guiCurveDrawing.Rebuild();
+                RefreshCurveDrawing();
                 UpdateEventsGUI();
             }
         }
@@ -667,8 +684,6 @@ namespace BansheeEditor
 
                 OnEventAdded?.Invoke();
                 UpdateEventsGUI();
-                guiCurveDrawing.Rebuild();
-
                 StartEventEdit(events.Count - 1);
             }
         }
@@ -702,7 +717,7 @@ namespace BansheeEditor
             ClearSelection();
 
             OnCurveModified?.Invoke();
-            guiCurveDrawing.Rebuild();
+            RefreshCurveDrawing();
             UpdateEventsGUI();
         }
 
@@ -722,8 +737,6 @@ namespace BansheeEditor
 
             OnEventDeleted?.Invoke();
             ClearSelection();
-
-            guiCurveDrawing.Rebuild();
             UpdateEventsGUI();
         }
 
@@ -745,7 +758,15 @@ namespace BansheeEditor
         /// <param name="keyframeRef">Keyframe to select.</param>
         private void SelectKeyframe(KeyframeRef keyframeRef)
         {
-            guiCurveDrawing.SelectKeyframe(keyframeRef, true);
+            TangentMode tangentMode = TangentMode.Auto;
+            if (keyframeRef.curveIdx >= 0 && keyframeRef.curveIdx < curveInfos.Length)
+            {
+                EdAnimationCurve curve = curveInfos[keyframeRef.curveIdx].curve;
+                if (keyframeRef.keyIdx >= 0 && keyframeRef.keyIdx < curve.TangentModes.Length)
+                    tangentMode = curve.TangentModes[keyframeRef.keyIdx];
+            }
+
+            guiCurveDrawing.SelectKeyframe(keyframeRef, tangentMode, true);
 
             if (!IsSelected(keyframeRef))
             {
@@ -822,7 +843,7 @@ namespace BansheeEditor
                 curve.UpdateKeyframe(keyIndex, x.time, x.value);
                 curve.Apply();
 
-                guiCurveDrawing.Rebuild();
+                RefreshCurveDrawing();
             },
             x =>
             {
@@ -955,7 +976,6 @@ namespace BansheeEditor
                         dragStart = drawingPos;
                     }
 
-                    guiCurveDrawing.Rebuild();
                     UpdateEventsGUI();
                 }
                 else
@@ -978,8 +998,6 @@ namespace BansheeEditor
                         else
                         {
                             ClearSelection();
-
-                            guiCurveDrawing.Rebuild();
                             UpdateEventsGUI();
                         }
                     }
@@ -1002,8 +1020,6 @@ namespace BansheeEditor
                         ClearSelection();
 
                         blankContextMenu.Open(pointerPos, mainPanel);
-
-                        guiCurveDrawing.Rebuild();
                         UpdateEventsGUI();
                     }
                     else
@@ -1013,8 +1029,6 @@ namespace BansheeEditor
                         {
                             ClearSelection();
                             SelectKeyframe(keyframeRef);
-
-                            guiCurveDrawing.Rebuild();
                             UpdateEventsGUI();
                         }
 
@@ -1031,8 +1045,6 @@ namespace BansheeEditor
                         ClearSelection();
 
                         blankEventContextMenu.Open(pointerPos, mainPanel);
-
-                        guiCurveDrawing.Rebuild();
                         UpdateEventsGUI();
                     }
                     else
@@ -1042,8 +1054,6 @@ namespace BansheeEditor
                         {
                             ClearSelection();
                             events[eventIdx].selected = true;
-
-                            guiCurveDrawing.Rebuild();
                             UpdateEventsGUI();
                         }
 
@@ -1083,7 +1093,7 @@ namespace BansheeEditor
 
             if (guiCurveDrawing.PixelToCurveSpace(drawingPos, out var curveCoord, true))
             {
-                int curveIdx = guiCurveDrawing.FindCurve(drawingPos);
+                int curveIdx = (int)guiCurveDrawing.FindCurve(drawingPos);
                 if (curveIdx == -1)
                     return;
 
@@ -1182,8 +1192,8 @@ namespace BansheeEditor
                             }
 
                             isModifiedDuringDrag = true;
-                            guiCurveDrawing.Rebuild();
 
+                            RefreshCurveDrawing();
                             UpdateEventsGUI();
                         }
                         else if (isMousePressedOverTangent && !disableCurveEdit)
@@ -1205,10 +1215,12 @@ namespace BansheeEditor
                                 {
                                     if (normal.x > 0.0f)
                                         tangent = float.PositiveInfinity;
+                                    else
+                                        tangent = -tangent;
 
-                                    keyframe.inTangent = -tangent;
+                                    keyframe.inTangent = tangent;
                                     if(curve.TangentModes[draggedTangent.keyframeRef.keyIdx] == TangentMode.Free)
-                                        keyframe.outTangent = -tangent;
+                                        keyframe.outTangent = tangent;
                                 }
                                 else
                                 {
@@ -1224,7 +1236,7 @@ namespace BansheeEditor
                                 curve.Apply();
 
                                 isModifiedDuringDrag = true;
-                                guiCurveDrawing.Rebuild();
+                                RefreshCurveDrawing();
                             }
                         }
                     }
@@ -1335,6 +1347,7 @@ namespace BansheeEditor
             if (scroll != 0.0f)
             {
                 Rect2I elementBounds = mainPanel.ScreenBounds;
+                Debug.Log(elementBounds + " " + Input.PointerPosition);
                 Vector2I pointerPos = Input.PointerPosition - new Vector2I(elementBounds.x, elementBounds.y);
 
                 Vector2 curvePos;
@@ -1436,7 +1449,7 @@ namespace BansheeEditor
         {
             float zoomLevel = MathEx.Pow(2, zoomAmount);
 
-            Vector2 optimalRange = GetOptimalRange();
+            GetOptimalRangeAndOffset(out _, out var optimalRange);
             return optimalRange / zoomLevel;
         }
 
@@ -1447,11 +1460,11 @@ namespace BansheeEditor
         private Vector2 GetTotalRange()
         {
             // Return optimal range (that covers the visible curve)
-            Vector2 optimalRange = GetOptimalRange();
+            GetOptimalRangeAndOffset(out _, out var range);
 
             // Increase range in case user zoomed out
             Vector2 zoomedRange = GetZoomedRange();
-            return Vector2.Max(optimalRange, zoomedRange);
+            return Vector2.Max(range, zoomedRange);
         }
 
         /// <summary>
@@ -1495,8 +1508,7 @@ namespace BansheeEditor
         ///                         be kept as is.</param>
         internal void CenterAndResize(bool resetTime)
         {
-            Vector2 offset, range;
-            GUICurveDrawing.GetOptimalRangeAndOffset(curveInfos, out offset, out range);
+            GetOptimalRangeAndOffset(out var offset, out var range);
 
             if (!resetTime)
             {
@@ -1538,15 +1550,22 @@ namespace BansheeEditor
         /// <summary>
         /// Returns width/height required to show the entire contents of the currently displayed curves.
         /// </summary>
-        /// <returns>Width/height of the curve area, in curve space (time, value).</returns>
-        private Vector2 GetOptimalRange()
+        /// <param name="offset">Offset used for centering the curves.</param>
+        /// <param name="range">Range representing the width/height in curve space (time, value). </param>
+        private void GetOptimalRangeAndOffset(out Vector2 offset, out Vector2 range)
         {
+            AnimationCurve[] curves = new AnimationCurve[curveInfos.Length];
+            for(int i = 0; i < curveInfos.Length; i++)
+                curves[i] = curveInfos[i].curve.Normal;
+
             float xMin, xMax;
             float yMin, yMax;
-            GUICurveDrawing.CalculateRange(curveInfos, out xMin, out xMax, out yMin, out yMax);
+            AnimationUtility.CalculateRange(curves, out xMin, out xMax, out yMin, out yMax);
 
-            float xRange = xMax;
-            float yRange = Math.Max(Math.Abs(yMin), Math.Abs(yMax));
+            float xRange = xMax - xMin;
+
+            float yRange = (yMax - yMin) * 0.5f;
+            float yOffset = yMin + yRange;
 
             // Add padding to y range
             yRange *= 1.05f;
@@ -1558,8 +1577,23 @@ namespace BansheeEditor
             if (yRange == 0.0f)
                 yRange = 10.0f;
 
-            return new Vector2(xRange, yRange);
+            offset = new Vector2(xMin, yOffset);
+            range = new Vector2(xRange, yRange);
         }
+
+        /// <summary>
+        /// Returns a set of current curve draw infos with non-editor curves.
+        /// </summary>
+        /// <returns>Curve draw infos.</returns>
+        private CurveDrawInfo[] GetPlainCurveDrawInfos()
+        {
+            CurveDrawInfo[] output = new CurveDrawInfo[curveInfos.Length];
+            for(int i = 0; i < curveInfos.Length; i++)
+                output[i] = new CurveDrawInfo(curveInfos[i].curve.Normal, curveInfos[i].color);
+
+            return output;
+        }
+
 
         /// <summary>
         /// Converts coordinate in curve space (time, value) into pixel coordinates relative to the curve drawing area
@@ -1584,10 +1618,26 @@ namespace BansheeEditor
             Rect2I drawingBounds = drawingPanel.Bounds;
             Vector2I drawingPos = pointerPos - new Vector2I(drawingBounds.x, drawingBounds.y);
 
+            Debug.Log(pointerPos + " " + drawingPos);
             return guiCurveDrawing.PixelToCurveSpace(drawingPos, out curveCoord);
         }
 
         #endregion
+    }    
+    
+    /// <summary>
+    /// Information necessary to drawing an editor curve.
+    /// </summary>
+    public struct EdCurveDrawInfo
+    {
+        public EdCurveDrawInfo(EdAnimationCurve curve, Color color)
+        {
+            this.curve = curve;
+            this.color = color;
+        }
+
+        public EdAnimationCurve curve;
+        public Color color;
     }
 
     /// <summary>

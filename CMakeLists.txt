@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9.0)
+cmake_minimum_required (VERSION 3.12.0)
 project (Banshee3D)
 
 set (BSF_DIRECTORY ${PROJECT_SOURCE_DIR}/Source/bsf)
@@ -28,7 +28,7 @@ add_subdirectory(${BSF_SOURCE_DIR})
 
 set (BS_PREBUILT_DEPENDENCIES_VERSION 24)
 set (BS_SRC_DEPENDENCIES_VERSION 15)
-set (BS_BUILTIN_ASSETS_VERSION 9)
+set (BS_BUILTIN_ASSETS_VERSION 13)
 
 # Options
 set(GENERATE_SCRIPT_BINDINGS OFF CACHE BOOL "If true, script binding files will be generated. Script bindings are required for the project to build properly, however they take a while to generate. If you are sure the script bindings are up to date, you can turn off their generation (temporarily) to speed up the build.")
@@ -38,7 +38,18 @@ set(GENERATE_SCRIPT_BINDINGS OFF CACHE BOOL "If true, script binding files will 
 check_and_update_binary_deps(Banshee ${PROJECT_SOURCE_DIR}/Dependencies/ ${BS_PREBUILT_DEPENDENCIES_VERSION})
 
 ## Check data dependencies
-check_and_update_builtin_assets(Banshee ${PROJECT_SOURCE_DIR}/Data ${BS_BUILTIN_ASSETS_VERSION} YES)
+check_and_update_builtin_assets(Banshee ${PROJECT_SOURCE_DIR}/Data/Raw Raw ${BS_BUILTIN_ASSETS_VERSION} NO)
+		
+## Import built-in assets
+if(${INCLUDE_ASSET_PACKAGING_SCRIPTS})
+	add_run_asset_import_target(EditorBuiltinAssets ${PROJECT_SOURCE_DIR}/Data ${BSF_SOURCE_DIR}/.. "--editor")
+	add_upload_assets_target(EditorBuiltinAssets "BansheeCompiledData_Master" ${PROJECT_SOURCE_DIR}/Data Raw/DataPackageContents.txt)
+endif()
+
+## Fetch built-in assets
+set(BANSHEE_COMPILED_ASSETS_VERSION_FILE ${PROJECT_SOURCE_DIR}/Data/.reqversion)
+file (STRINGS ${BANSHEE_COMPILED_ASSETS_VERSION_FILE} BANSHEE_COMPILED_ASSETS_VERSION)
+check_and_update_builtin_assets(BansheeCompiled ${PROJECT_SOURCE_DIR}/Data Data ${BANSHEE_COMPILED_ASSETS_VERSION} NO)
 		
 # Generate script bindings
 include(${BSF_SOURCE_DIR}/CMake/GenerateScriptBindings.cmake)

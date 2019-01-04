@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>Settings that control rendering for a specific camera (view).</summary>
+	[ShowInInspector]
 	public partial class RenderSettings : ScriptObject
 	{
 		private RenderSettings(bool __dummy0) { }
@@ -24,6 +25,8 @@ namespace BansheeEngine
 		/// autoExposure to customize the automatic exposure effect. You may also use exposureScale to manually adjust the 
 		/// automatic exposure. When automatic exposure is turned off you can use exposureScale to manually set the exposure.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableAutoExposure
 		{
 			get { return Internal_getenableAutoExposure(mCachedPtr); }
@@ -31,6 +34,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing automatic scene exposure.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public AutoExposureSettings AutoExposure
 		{
 			get { return Internal_getautoExposure(mCachedPtr); }
@@ -46,6 +51,8 @@ namespace BansheeEngine
 		///
 		/// If this is disabled, then color grading and white balancing will not be enabled either. Only relevant for HDR images.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableTonemapping
 		{
 			get { return Internal_getenableTonemapping(mCachedPtr); }
@@ -53,6 +60,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing tonemapping.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public TonemappingSettings Tonemapping
 		{
 			get { return Internal_gettonemapping(mCachedPtr); }
@@ -64,6 +73,8 @@ namespace BansheeEngine
 		/// specified temperature into a scene illuminated by a standard D65 illuminant (average midday light) in order to 
 		/// simulate the effects of chromatic adaptation of the human visual system.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public WhiteBalanceSettings WhiteBalance
 		{
 			get { return Internal_getwhiteBalance(mCachedPtr); }
@@ -71,6 +82,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing color grading.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public ColorGradingSettings ColorGrading
 		{
 			get { return Internal_getcolorGrading(mCachedPtr); }
@@ -78,6 +91,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing the depth of field effect.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public DepthOfFieldSettings DepthOfField
 		{
 			get { return Internal_getdepthOfField(mCachedPtr); }
@@ -85,6 +100,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing screen space ambient occlusion.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public AmbientOcclusionSettings AmbientOcclusion
 		{
 			get { return Internal_getambientOcclusion(mCachedPtr); }
@@ -92,13 +109,26 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing screen space reflections.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public ScreenSpaceReflectionsSettings ScreenSpaceReflections
 		{
 			get { return Internal_getscreenSpaceReflections(mCachedPtr); }
 			set { Internal_setscreenSpaceReflections(mCachedPtr, value); }
 		}
 
+		/// <summary>Parameters used for customizing the bloom effect.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
+		public BloomSettings Bloom
+		{
+			get { return Internal_getbloom(mCachedPtr); }
+			set { Internal_setbloom(mCachedPtr, value); }
+		}
+
 		/// <summary>Enables the fast approximate anti-aliasing effect.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableFXAA
 		{
 			get { return Internal_getenableFXAA(mCachedPtr); }
@@ -110,6 +140,8 @@ namespace BansheeEngine
 		/// yield brighter image. Allows you to customize exposure manually, applied on top of eye adaptation exposure (if 
 		/// enabled). In range [-8, 8].
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float ExposureScale
 		{
 			get { return Internal_getexposureScale(mCachedPtr); }
@@ -121,6 +153,8 @@ namespace BansheeEngine
 		/// gamma curve for the output device is chosen automatically and this value can by used to merely tweak that curve. If 
 		/// tonemapping is turned off this is the exact value of the gamma curve that will be applied.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float Gamma
 		{
 			get { return Internal_getgamma(mCachedPtr); }
@@ -131,6 +165,8 @@ namespace BansheeEngine
 		/// High dynamic range allows light intensity to be more correctly recorded when rendering by allowing for a larger range 
 		/// of values. The stored light is then converted into visible color range using exposure and a tone mapping  operator.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableHDR
 		{
 			get { return Internal_getenableHDR(mCachedPtr); }
@@ -141,6 +177,8 @@ namespace BansheeEngine
 		/// Determines if scene objects will be lit by lights. If disabled everything will be rendered using their albedo texture 
 		/// with no lighting applied.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableLighting
 		{
 			get { return Internal_getenableLighting(mCachedPtr); }
@@ -148,6 +186,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines if shadows cast by lights should be rendered. Only relevant if lighting is turned on.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableShadows
 		{
 			get { return Internal_getenableShadows(mCachedPtr); }
@@ -155,6 +195,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Parameters used for customizing shadow rendering.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public ShadowSettings ShadowSettings
 		{
 			get { return Internal_getshadowSettings(mCachedPtr); }
@@ -162,6 +204,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines if indirect lighting (e.g. from light probes or the sky) is rendered.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableIndirectLighting
 		{
 			get { return Internal_getenableIndirectLighting(mCachedPtr); }
@@ -173,6 +217,8 @@ namespace BansheeEngine
 		/// buffer or multi-sampled render targets and will not render any scene objects. This can improve performance and memory 
 		/// usage for overlay-only views.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool OverlayOnly
 		{
 			get { return Internal_getoverlayOnly(mCachedPtr); }
@@ -183,6 +229,8 @@ namespace BansheeEngine
 		/// If enabled the camera will use the skybox for rendering the background. A skybox has to be present in the scene. When 
 		/// disabled the camera will use the clear color for rendering the background.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableSkybox
 		{
 			get { return Internal_getenableSkybox(mCachedPtr); }
@@ -227,6 +275,10 @@ namespace BansheeEngine
 		private static extern ScreenSpaceReflectionsSettings Internal_getscreenSpaceReflections(IntPtr thisPtr);
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern void Internal_setscreenSpaceReflections(IntPtr thisPtr, ScreenSpaceReflectionsSettings value);
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern BloomSettings Internal_getbloom(IntPtr thisPtr);
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern void Internal_setbloom(IntPtr thisPtr, BloomSettings value);
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern bool Internal_getenableFXAA(IntPtr thisPtr);
 		[MethodImpl(MethodImplOptions.InternalCall)]

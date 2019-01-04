@@ -2291,6 +2291,70 @@
         "fixedHeight": true,
         "height": 21,
         "minWidth": 30,
+        "name": "GUIFloatFieldX",
+        "subStyles": [
+            {
+                "name": "EditorFieldInput",
+                "style": "InputBox"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "ButtonAddOnRed"
+            }
+        ]
+    },
+    {
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
+        "name": "GUIFloatFieldY",
+        "subStyles": [
+            {
+                "name": "EditorFieldInput",
+                "style": "InputBox"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "ButtonAddOnGreen"
+            }
+        ]
+    },
+    {
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
+        "name": "GUIFloatFieldZ",
+        "subStyles": [
+            {
+                "name": "EditorFieldInput",
+                "style": "InputBox"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "ButtonAddOnBlue"
+            }
+        ]
+    },
+    {
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
+        "name": "GUIFloatFieldGray",
+        "subStyles": [
+            {
+                "name": "EditorFieldInput",
+                "style": "InputBox"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "ButtonAddOnGray"
+            }
+        ]
+    },
+    {
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
         "name": "GUITextField",
         "subStyles": [
             {
@@ -2337,7 +2401,7 @@
     },
     {
         "fixedHeight": true,
-        "height": 35,
+        "height": 21,
         "minWidth": 30,
         "name": "GUIVector2Field",
         "subStyles": [
@@ -2346,14 +2410,18 @@
                 "style": "EditorFieldLabel"
             },
             {
-                "name": "EditorFloatField",
-                "style": "GUIFloatField"
+                "name": "XFloatField",
+                "style": "GUIFloatFieldX"
+            },
+            {
+                "name": "YFloatField",
+                "style": "GUIFloatFieldY"
             }
         ]
     },
     {
         "fixedHeight": true,
-        "height": 35,
+        "height": 21,
         "minWidth": 30,
         "name": "GUIVector3Field",
         "subStyles": [
@@ -2362,8 +2430,16 @@
                 "style": "EditorFieldLabel"
             },
             {
-                "name": "EditorFloatField",
-                "style": "GUIFloatField"
+                "name": "XFloatField",
+                "style": "GUIFloatFieldX"
+            },
+            {
+                "name": "YFloatField",
+                "style": "GUIFloatFieldY"
+            },
+            {
+                "name": "ZFloatField",
+                "style": "GUIFloatFieldZ"
             }
         ]
     },
@@ -2378,8 +2454,20 @@
                 "style": "EditorFieldLabel"
             },
             {
-                "name": "EditorFloatField",
-                "style": "GUIFloatField"
+                "name": "XFloatField",
+                "style": "GUIFloatFieldX"
+            },
+            {
+                "name": "YFloatField",
+                "style": "GUIFloatFieldY"
+            },
+            {
+                "name": "ZFloatField",
+                "style": "GUIFloatFieldZ"
+            },
+            {
+                "name": "WFloatField",
+                "style": "GUIFloatFieldGray"
             }
         ]
     },
@@ -3087,5 +3175,304 @@
         "normal": {
             "texture": "ContainerBg.png"
         }
+    },
+    {
+        "fixedHeight": true,
+        "height": 15,
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "minWidth": 10,
+        "name": "ColorGradient"
+    },
+    {
+        "name": "GUICurves",
+        "minHeight": 40,
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "minWidth": 30,
+        "subStyles": [
+            {
+                "name": "Background",
+                "style": "CurveBg"
+            }
+        ]
+    },
+    {
+        "name": "GUIFloatDistributionField",
+        "minHeight": 20,
+		"maxHeight": 50,
+        "minWidth": 30,
+        "subStyles": [
+            {
+                "name": "FloatField",
+                "style": "GUIFloatField"
+            },
+            {
+                "name": "CurvesField",
+                "style": "GUICurves"
+            },
+            {
+                "name": "DropDownButton",
+                "style": "DropDownArrowButton"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "EditorFieldLabel"
+            }
+        ]
+    },
+    {
+        "name": "GUIVector2DistributionField",
+        "minHeight": 21,
+		"maxHeight": 100,
+        "minWidth": 30,
+        "subStyles": [
+            {
+                "name": "FloatField",
+                "style": "GUIVector2Field"
+            },
+            {
+                "name": "CurvesField",
+                "style": "GUICurves"
+            },
+            {
+                "name": "DropDownButton",
+                "style": "DropDownArrowButton"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "EditorFieldLabel"
+            }
+        ]
+    },
+    {
+        "name": "GUIVector3DistributionField",
+        "minHeight": 21,
+		"maxHeight": 150,
+        "minWidth": 30,
+        "subStyles": [
+            {
+                "name": "FloatField",
+                "style": "GUIVector3Field"
+            },
+            {
+                "name": "CurvesField",
+                "style": "GUICurves"
+            },
+            {
+                "name": "DropDownButton",
+                "style": "DropDownArrowButton"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "EditorFieldLabel"
+            }
+        ]
+    },
+    {
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
+        "name": "GUIColorGradientField",
+        "subStyles": [
+            {
+                "name": "GradientField",
+                "style": "ColorGradient"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "EditorFieldLabel"
+            }
+        ]
+    },
+    {
+        "name": "GUIColorDistributionField",
+        "fixedHeight": true,
+        "height": 21,
+        "minWidth": 30,
+        "subStyles": [
+            {
+                "name": "ColorField",
+                "style": "GUIColorField"
+            },
+            {
+                "name": "GradientField",
+                "style": "GUIColorGradientField"
+            },
+            {
+                "name": "DropDownButton",
+                "style": "DropDownArrowButton"
+            },
+            {
+                "name": "EditorFieldLabel",
+                "style": "EditorFieldLabel"
+            }
+        ]
+    },
+    {
+        "name": "DropDownArrowButton",
+		"fixedWidth": true,
+        "fixedHeight": true,
+		"width": 18,
+        "height": 21,
+        "normal": {
+            "texture": "DropDownArrowNormal.png"
+        },
+        "hover": {
+            "texture": "DropDownArrowHover.png"
+        },
+		"active": {
+            "texture": "DropDownArrowActive.png"
+        }
+    },
+    {
+        "fixedHeight": true,
+        "height": 19,
+		"fixedWidth": true,
+		"width": 15,
+        "border": {
+            "bottom": 1,
+            "left": 1,
+            "right": 1,
+            "top": 4
+        },
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "normal": {
+            "textColor": {
+                "a": 1.0,
+                "b": 0.7,
+                "g": 0.7,
+                "r": 0.7
+            },
+            "texture": "ButtonAddOnBlue.png"
+        },
+        "name": "ButtonAddOnBlue",
+        "textHorzAlign": 1,
+        "textVertAlign": 1,
+        "font": "arialBold.ttf",
+        "fontSize": 8
+    },
+    {
+        "fixedHeight": true,
+        "height": 19,
+		"fixedWidth": true,
+		"width": 15,
+        "border": {
+            "bottom": 1,
+            "left": 1,
+            "right": 1,
+            "top": 4
+        },
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "normal": {
+            "textColor": {
+                "a": 1.0,
+                "b": 0.7,
+                "g": 0.7,
+                "r": 0.7
+            },
+            "texture": "ButtonAddOnGreen.png"
+        },
+        "name": "ButtonAddOnGreen",
+        "textHorzAlign": 1,
+        "textVertAlign": 1,
+        "font": "arialBold.ttf",
+        "fontSize": 8
+    },
+    {
+        "fixedHeight": true,
+        "height": 19,
+		"fixedWidth": true,
+		"width": 15,
+        "border": {
+            "bottom": 1,
+            "left": 1,
+            "right": 1,
+            "top": 4
+        },
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "normal": {
+            "textColor": {
+                "a": 1.0,
+                "b": 0.7,
+                "g": 0.7,
+                "r": 0.7
+            },
+            "texture": "ButtonAddOnRed.png"
+        },
+        "name": "ButtonAddOnRed",
+        "textHorzAlign": 1,
+        "textVertAlign": 1,
+        "font": "arialBold.ttf",
+        "fontSize": 8
+    },
+    {
+        "fixedHeight": true,
+        "height": 19,
+		"fixedWidth": true,
+		"width": 15,
+        "border": {
+            "bottom": 1,
+            "left": 1,
+            "right": 1,
+            "top": 4
+        },
+        "margins": {
+            "bottom": 2,
+            "left": 2,
+            "right": 2,
+            "top": 2
+        },
+        "normal": {
+            "textColor": {
+                "a": 1.0,
+                "b": 0.7,
+                "g": 0.7,
+                "r": 0.7
+            },
+            "texture": "ButtonAddOnGray.png"
+        },
+        "name": "ButtonAddOnGray",
+        "textHorzAlign": 1,
+        "textVertAlign": 1,
+        "font": "arialBold.ttf",
+        "fontSize": 8
+    },
+    {
+        "minHeight": 4,
+		"minWidth": 4,
+        "border": {
+            "bottom": 1,
+            "left": 1,
+            "right": 1,
+            "top": 1
+        },
+        "normal": {
+            "texture": "CurveBg.png"
+        },
+        "name": "CurveBg"
     }
 ]

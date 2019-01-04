@@ -11,6 +11,7 @@ namespace BansheeEngine
 	/// <summary>
 	/// Joint that removes all but a single translational degree of freedom. Bodies are allowed to move along a single axis.
 	/// </summary>
+	[ShowInInspector]
 	public partial class SliderJoint : Joint
 	{
 		private SliderJoint(bool __dummy0) { }
@@ -18,6 +19,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns the current position of the slider.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Position
 		{
 			get { return Internal_getPosition(mCachedPtr); }
@@ -25,6 +27,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns the current speed of the slider.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Speed
 		{
 			get { return Internal_getSpeed(mCachedPtr); }
@@ -35,6 +38,7 @@ namespace BansheeEngine
 		/// enable the limit flag on the joint in order for this to be recognized.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public LimitLinearRange Limit
 		{
 			get

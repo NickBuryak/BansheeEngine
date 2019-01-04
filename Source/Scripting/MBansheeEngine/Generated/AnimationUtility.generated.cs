@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>Helper class for dealing with animations, animation clips and curves.</summary>
+	[ShowInInspector]
 	public partial class AnimationUtility : ScriptObject
 	{
 		private AnimationUtility(bool __dummy0) { }
@@ -27,15 +28,38 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Splits a Vector3 curve into three individual curves, one for each component.</summary>
-		public static AnimationCurve[] SplitCurve(Vector3Curve compoundCurve)
+		public static AnimationCurve[] SplitCurve3D(Vector3Curve compoundCurve)
 		{
-			return Internal_splitCurve(compoundCurve);
+			return Internal_splitCurve3D(compoundCurve);
 		}
 
 		/// <summary>Combines three single component curves into a Vector3 curve.</summary>
-		public static Vector3Curve CombineCurve(AnimationCurve[] curveComponents)
+		public static Vector3Curve CombineCurve3D(AnimationCurve[] curveComponents)
 		{
-			return Internal_combineCurve(curveComponents);
+			return Internal_combineCurve3D(curveComponents);
+		}
+
+		/// <summary>Splits a Vector2 curve into two individual curves, one for each component.</summary>
+		public static AnimationCurve[] SplitCurve2D(Vector2Curve compoundCurve)
+		{
+			return Internal_splitCurve2D(compoundCurve);
+		}
+
+		/// <summary>Combines two single component curves into a Vector2 curve.</summary>
+		public static Vector2Curve CombineCurve2D(AnimationCurve[] curveComponents)
+		{
+			return Internal_combineCurve2D(curveComponents);
+		}
+
+		/// <summary>Calculates the total range covered by a set of curves.</summary>
+		/// <param name="curves">Curves to calculate range for.</param>
+		/// <param name="xMin">Minimum time value present in the curves.</param>
+		/// <param name="xMax">Maximum time value present in the curves.</param>
+		/// <param name="yMin">Minimum curve value present in the curves.</param>
+		/// <param name="yMax">Maximum curve value present in the curves.</param>
+		public static void CalculateRange(AnimationCurve[] curves, out float xMin, out float xMax, out float yMin, out float yMax)
+		{
+			Internal_calculateRange(curves, out xMin, out xMax, out yMin, out yMax);
 		}
 
 		[MethodImpl(MethodImplOptions.InternalCall)]
@@ -43,9 +67,15 @@ namespace BansheeEngine
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern Vector3Curve Internal_quaternionToEulerCurve(QuaternionCurve quatCurve);
 		[MethodImpl(MethodImplOptions.InternalCall)]
-		private static extern AnimationCurve[] Internal_splitCurve(Vector3Curve compoundCurve);
+		private static extern AnimationCurve[] Internal_splitCurve3D(Vector3Curve compoundCurve);
 		[MethodImpl(MethodImplOptions.InternalCall)]
-		private static extern Vector3Curve Internal_combineCurve(AnimationCurve[] curveComponents);
+		private static extern Vector3Curve Internal_combineCurve3D(AnimationCurve[] curveComponents);
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern AnimationCurve[] Internal_splitCurve2D(Vector2Curve compoundCurve);
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern Vector2Curve Internal_combineCurve2D(AnimationCurve[] curveComponents);
+		[MethodImpl(MethodImplOptions.InternalCall)]
+		private static extern void Internal_calculateRange(AnimationCurve[] curves, out float xMin, out float xMax, out float yMin, out float yMax);
 	}
 
 	/** @} */

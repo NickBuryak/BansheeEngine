@@ -37,6 +37,14 @@ namespace BansheeEngine
             List,
             Dictionary,
             RRef,
+            ColorGradient,
+            Curve,
+            FloatDistribution,
+            ColorDistribution,
+            Quaternion,
+            Enum,
+            Vector2Distribution,
+            Vector3Distribution
         }
 
         public delegate object Getter();
@@ -116,8 +124,23 @@ namespace BansheeEngine
         /// <returns>Value of the property.</returns>
         public T GetValue<T>()
         {
-            if (!typeof(T).IsAssignableFrom(internalType))
-                throw new Exception("Attempted to retrieve a serializable value using an invalid type. Provided type: " + typeof(T) + ". Needed type: " + internalType);
+            // Cast if possible
+            if (typeof(T) != internalType)
+            {
+                // Note: Not checking cast operators
+                if (internalType.IsPrimitive || internalType.IsEnum)
+                {
+                    if (internalType == typeof(bool) || typeof(T) == typeof(bool))
+                        throw new Exception("Attempted to retrieve a serializable value using an invalid type. " +
+                            "Provided type: " + typeof(T) + ". Needed type: " + internalType);
+
+                    return (T) Convert.ChangeType(getter(), typeof(T));
+                }
+
+                if(!typeof(T).IsAssignableFrom(internalType))
+                    throw new Exception("Attempted to retrieve a serializable value using an invalid type. " +
+                        "Provided type: " + typeof(T) + ". Needed type: " + internalType);
+            }
 
             return (T)getter();
         }
@@ -129,8 +152,24 @@ namespace BansheeEngine
         /// <param name="value">New value to assign to the property.</param>
         public void SetValue<T>(T value)
         {
-            if (!typeof(T).IsAssignableFrom(internalType))
-                throw new Exception("Attempted to set a serializable value using an invalid type. Provided type: " + typeof(T) + ". Needed type: " + internalType);
+            // Cast if possible
+            if (typeof(T) != internalType)
+            {
+                // Note: Not checking cast operators
+                if (internalType.IsPrimitive || internalType.IsEnum)
+                {
+                    if (internalType == typeof(bool) || typeof(T) == typeof(bool))
+                        throw new Exception("Attempted to set a serializable value using an invalid type. " +
+                            "Provided type: " + typeof(T) + ". Needed type: " + internalType);
+
+                   setter((T) Convert.ChangeType(getter(), typeof(T)));
+                   return;
+                }
+
+                if (!typeof(T).IsAssignableFrom(internalType))
+                    throw new Exception("Attempted to set a serializable value using an invalid type. " +
+                        "Provided type: " + typeof(T) + ". Needed type: " + internalType);
+            }
 
             setter(value);
         }
@@ -323,7 +362,9 @@ namespace BansheeEngine
         {
             if (!internalType.IsArray)
             {
-                if (internalType == typeof (Byte))
+                if (internalType.IsEnum)
+                    return FieldType.Enum;
+                else if (internalType == typeof (Byte))
                     return FieldType.Int;
                 else if (internalType == typeof (SByte))
                     return FieldType.Int;
@@ -354,9 +395,21 @@ namespace BansheeEngine
                 else if (internalType == typeof (Vector4))
                     return FieldType.Vector4;
                 else if (internalType == typeof(Quaternion))
-                    return FieldType.Vector4;
+                    return FieldType.Quaternion;
                 else if (internalType == typeof (Color))
                     return FieldType.Color;
+                else if (internalType == typeof(ColorGradient))
+                    return FieldType.ColorGradient;
+                else if (internalType == typeof(AnimationCurve))
+                    return FieldType.Curve;
+                else if (internalType == typeof(FloatDistribution))
+                    return FieldType.FloatDistribution;
+                else if (internalType == typeof(Vector2Distribution))
+                    return FieldType.Vector2Distribution;
+                else if (internalType == typeof(Vector3Distribution))
+                    return FieldType.Vector3Distribution;
+                else if (internalType == typeof(ColorDistribution))
+                    return FieldType.ColorDistribution;
                 else if (internalType.IsSubclassOf(typeof (GameObject)))
                     return FieldType.GameObjectRef;
                 else if (internalType.IsSubclassOf(typeof (Resource)))

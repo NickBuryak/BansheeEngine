@@ -9,12 +9,15 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>Provides global functionality relating to sounds and music.</summary>
+	[ShowInInspector]
 	public partial class Audio : ScriptObject
 	{
 		private Audio(bool __dummy0) { }
 		protected Audio() { }
 
 		/// <summary>Determines global audio volume. In range [0, 1].</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public static float Volume
 		{
 			get { return Internal_getVolume(); }
@@ -22,6 +25,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines if audio reproduction is paused globally.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public static bool Paused
 		{
 			get { return Internal_isPaused(); }
@@ -29,6 +34,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the device on which is the audio played back on.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public static AudioDevice ActiveDevice
 		{
 			get
@@ -41,6 +48,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Returns the default audio device identifier.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public static AudioDevice DefaultDevice
 		{
 			get
@@ -52,6 +61,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Returns a list of all available audio devices.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public static AudioDevice[] AllDevices
 		{
 			get { return Internal_getAllDevices(); }

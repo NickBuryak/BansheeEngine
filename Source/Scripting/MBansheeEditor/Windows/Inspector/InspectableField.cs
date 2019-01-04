@@ -129,7 +129,7 @@ namespace BansheeEditor
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the array whose contents to display.</param>
-        /// <param name="style">Information related the field style</param>
+        /// <param name="style">Information that can be used for customizing field rendering and behaviour.</param>
         /// <returns>Inspectable field implementation that can be used for displaying the GUI for a serializable property
         ///          of the provided type.</returns>
         public static InspectableField CreateInspectable(Inspector parent, string title, string path, int layoutIndex, 
@@ -137,7 +137,11 @@ namespace BansheeEditor
         {
             InspectableField field = null;
 
-            Type customInspectable = InspectorUtility.GetCustomInspectable(property.InternalType);
+            Type type = property.InternalType;
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(RRef<>))
+                type = type.GenericTypeArguments[0];
+
+            Type customInspectable = InspectorUtility.GetCustomInspectable(type);
             if (customInspectable != null)
             {
                 field = (InspectableField) Activator.CreateInstance(customInspectable, depth, title, property);
@@ -147,30 +151,46 @@ namespace BansheeEditor
                 switch (property.Type)
                 {
                     case SerializableProperty.FieldType.Int:
-                        if (style?.RangeStyle == null || !style.RangeStyle.Slider)
-                        {
-                            field = new InspectableInt(parent, title, path, depth, layout, property, style);
-                        }
+                        if (style != null && style.StyleFlags.HasFlag(InspectableFieldStyleFlags.UseLayerMask))
+                            field = new InspectableLayerMask(parent, title, path, depth, layout, property);
                         else
                         {
-                            field = new InspectableRangedInt(parent, title, path, depth, layout, property, style);
+                            if (style?.RangeStyle == null || !style.RangeStyle.Slider)
+                                field = new InspectableInt(parent, title, path, depth, layout, property, style);
+                            else
+                                field = new InspectableRangedInt(parent, title, path, depth, layout, property, style);
                         }
+
                         break;
                     case SerializableProperty.FieldType.Float:
                         if (style?.RangeStyle == null || !style.RangeStyle.Slider)
-                        {
                             field = new InspectableFloat(parent, title, path, depth, layout, property, style);
-                        }
                         else
-                        {
                             field = new InspectableRangedFloat(parent, title, path, depth, layout, property, style);
-                        }
                         break;
                     case SerializableProperty.FieldType.Bool:
                         field = new InspectableBool(parent, title, path, depth, layout, property);
                         break;
                     case SerializableProperty.FieldType.Color:
                         field = new InspectableColor(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.ColorGradient:
+                        field = new InspectableColorGradient(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.Curve:
+                        field = new InspectableCurve(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.FloatDistribution:
+                        field = new InspectableFloatDistribution(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.Vector2Distribution:
+                        field = new InspectableVector2Distribution(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.Vector3Distribution:
+                        field = new InspectableVector3Distribution(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.ColorDistribution:
+                        field = new InspectableColorDistribution(parent, title, path, depth, layout, property);
                         break;
                     case SerializableProperty.FieldType.String:
                         field = new InspectableString(parent, title, path, depth, layout, property);
@@ -184,6 +204,9 @@ namespace BansheeEditor
                     case SerializableProperty.FieldType.Vector4:
                         field = new InspectableVector4(parent, title, path, depth, layout, property);
                         break;
+                    case SerializableProperty.FieldType.Quaternion:
+                        field = new InspectableQuaternion(parent, title, path, depth, layout, property);
+                        break;
                     case SerializableProperty.FieldType.Resource:
                         field = new InspectableResource(parent, title, path, depth, layout, property);
                         break;
@@ -194,16 +217,19 @@ namespace BansheeEditor
                         field = new InspectableGameObjectRef(parent, title, path, depth, layout, property);
                         break;
                     case SerializableProperty.FieldType.Object:
-                        field = new InspectableObject(parent, title, path, depth, layout, property);
+                        field = new InspectableObject(parent, title, path, depth, layout, property, style);
                         break;
                     case SerializableProperty.FieldType.Array:
-                        field = new InspectableArray(parent, title, path, depth, layout, property);
+                        field = new InspectableArray(parent, title, path, depth, layout, property, style);
                         break;
                     case SerializableProperty.FieldType.List:
                         field = new InspectableList(parent, title, path, depth, layout, property);
                         break;
                     case SerializableProperty.FieldType.Dictionary:
                         field = new InspectableDictionary(parent, title, path, depth, layout, property);
+                        break;
+                    case SerializableProperty.FieldType.Enum:
+                        field = new InspectableEnum(parent, title, path, depth, layout, property);
                         break;
                 }
             }

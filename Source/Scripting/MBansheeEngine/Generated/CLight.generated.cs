@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>Illuminates a portion of the scene covered by the light.</summary>
+	[ShowInInspector]
 	public partial class Light : Component
 	{
 		private Light(bool __dummy0) { }
@@ -16,6 +17,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the type of the light.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public LightType Type
 		{
 			get { return Internal_getType(mCachedPtr); }
@@ -24,6 +26,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines does this light cast shadows when rendered.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool CastsShadow
 		{
 			get { return Internal_getCastsShadow(mCachedPtr); }
@@ -41,6 +44,7 @@ namespace BansheeEngine
 		/// Default value is 0.5. Should be in rough range [-1, 1].
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float ShadowBias
 		{
 			get { return Internal_getShadowBias(mCachedPtr); }
@@ -49,6 +53,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the color emitted by the light.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Color Color
 		{
 			get
@@ -66,6 +71,7 @@ namespace BansheeEngine
 		/// can end up being very physically incorrect.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float AttenuationRadius
 		{
 			get { return Internal_getAttenuationRadius(mCachedPtr); }
@@ -82,6 +88,7 @@ namespace BansheeEngine
 		/// direction of the spot light and the source radius is the radius of the disc.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float SourceRadius
 		{
 			get { return Internal_getSourceRadius(mCachedPtr); }
@@ -93,6 +100,7 @@ namespace BansheeEngine
 		/// directional lights with no area, and illuminance for directional lights with area (non-zero source radius).
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Intensity
 		{
 			get { return Internal_getIntensity(mCachedPtr); }
@@ -101,6 +109,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the total angle covered by a spot light.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Degree SpotAngle
 		{
 			get
@@ -117,6 +126,7 @@ namespace BansheeEngine
 		/// starts quadratically falling off as the angle approaches the total spot angle.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Degree SpotAngleFalloff
 		{
 			get
@@ -133,6 +143,7 @@ namespace BansheeEngine
 		/// depending on its intensity.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool UseAutoAttenuation
 		{
 			get { return Internal_getUseAutoAttenuation(mCachedPtr); }
@@ -141,6 +152,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns world space bounds that completely encompass the light's area of influence.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Sphere Bounds
 		{
 			get

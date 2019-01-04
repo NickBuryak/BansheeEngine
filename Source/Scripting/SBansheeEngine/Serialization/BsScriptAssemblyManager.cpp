@@ -28,6 +28,7 @@
 #include "Physics/BsPhysicsMesh.h"
 #include "Audio/BsAudioClip.h"
 #include "Animation/BsAnimationClip.h"
+#include "Particles/BsVectorField.h"
 
 #include "BsScriptTexture.generated.h"
 #include "Wrappers/BsScriptPlainText.h"
@@ -47,6 +48,7 @@
 #include "BsScriptFont.generated.h"
 #include "BsScriptSpriteTexture.generated.h"
 #include "BsScriptStringTable.generated.h"
+#include "BsScriptVectorField.generated.h"
 #include "Wrappers/BsScriptRRefBase.h"
 
 namespace bs
@@ -68,6 +70,7 @@ namespace bs
 		ADD_ENTRY(PhysicsMesh, ScriptPhysicsMesh, ScriptResourceType::PhysicsMesh)
 		ADD_ENTRY(AudioClip, ScriptAudioClip, ScriptResourceType::AudioClip)
 		ADD_ENTRY(AnimationClip, ScriptAnimationClip, ScriptResourceType::AnimationClip)
+		ADD_ENTRY(VectorField, ScriptVectorField, ScriptResourceType::VectorField)
 	LOOKUP_END
 
 #undef LOOKUP_BEGIN
@@ -110,8 +113,15 @@ namespace bs
 		const Vector<MonoClass*>& allClasses = curAssembly->getAllClasses();
 		for(auto& curClass : allClasses)
 		{
-			if ((curClass->isSubClassOf(mBuiltin.componentClass) || curClass->isSubClassOf(resourceClass) ||
-				curClass->hasAttribute(mBuiltin.serializeObjectAttribute)) && 
+			const bool isSerializable = 
+				curClass->isSubClassOf(mBuiltin.componentClass) || 
+				curClass->isSubClassOf(resourceClass) ||
+				curClass->hasAttribute(mBuiltin.serializeObjectAttribute);
+
+			const bool isInspectable =
+				curClass->hasAttribute(mBuiltin.showInInspectorAttribute);
+
+			if ((isSerializable || isInspectable) &&
 				curClass != mBuiltin.componentClass && curClass != resourceClass &&
 				curClass != mBuiltin.managedComponentClass && curClass != managedResourceClass)
 			{
@@ -119,6 +129,12 @@ namespace bs
 				typeInfo->mTypeNamespace = curClass->getNamespace();
 				typeInfo->mTypeName = curClass->getTypeName();
 				typeInfo->mTypeId = mUniqueTypeId++;
+
+				if(isSerializable)
+					typeInfo->mFlags |= ScriptTypeFlag::Serializable;
+
+				if(isSerializable || isInspectable)
+					typeInfo->mFlags |= ScriptTypeFlag::Inspectable;
 
 				MonoPrimitiveType monoPrimitiveType = MonoUtil::getPrimitiveType(curClass->_getInternalClass());
 
@@ -154,6 +170,15 @@ namespace bs
 				if (typeInfo == nullptr)
 					continue;
 
+				bool typeIsSerializable = true;
+				bool typeIsInspectable = true;
+
+				if(const auto* objTypeInfo = rtti_cast<ManagedSerializableTypeInfoObject>(typeInfo.get()))
+				{
+					typeIsSerializable = objTypeInfo->mFlags.isSet(ScriptTypeFlag::Serializable);
+					typeIsInspectable = typeIsSerializable || objTypeInfo->mFlags.isSet(ScriptTypeFlag::Inspectable);
+				}
+
 				SPtr<ManagedSerializableFieldInfo> fieldInfo = bs_shared_ptr_new<ManagedSerializableFieldInfo>();
 				fieldInfo->mFieldId = mUniqueFieldId++;
 				fieldInfo->mName = field->getName();
@@ -164,20 +189,20 @@ namespace bs
 				MonoMemberVisibility visibility = field->getVisibility();
 				if (visibility == MonoMemberVisibility::Public)
 				{
-					if (!field->hasAttribute(mBuiltin.dontSerializeFieldAttribute))
+					if (typeIsSerializable && !field->hasAttribute(mBuiltin.dontSerializeFieldAttribute))
 						fieldInfo->mFlags |= ScriptFieldFlag::Serializable;
 
-					if (!field->hasAttribute(mBuiltin.hideInInspectorAttribute))
+					if (typeIsInspectable && !field->hasAttribute(mBuiltin.hideInInspectorAttribute))
 						fieldInfo->mFlags |= ScriptFieldFlag::Inspectable;
 
 					fieldInfo->mFlags |= ScriptFieldFlag::Animable;
 				}
 				else
 				{
-					if (field->hasAttribute(mBuiltin.serializeFieldAttribute))
+					if (typeIsSerializable && field->hasAttribute(mBuiltin.serializeFieldAttribute))
 						fieldInfo->mFlags |= ScriptFieldFlag::Serializable;
 
-					if (field->hasAttribute(mBuiltin.showInInspectorAttribute))
+					if (typeIsInspectable && field->hasAttribute(mBuiltin.showInInspectorAttribute))
 						fieldInfo->mFlags |= ScriptFieldFlag::Inspectable;
 				}
 
@@ -186,6 +211,22 @@ namespace bs
 
 				if (field->hasAttribute(mBuiltin.stepAttribute))
 					fieldInfo->mFlags |= ScriptFieldFlag::Step;
+
+				if (field->hasAttribute(mBuiltin.layerMaskAttribute))
+				{
+					// Layout mask attribute is only relevant for 64-bit integer types
+					if (const auto* primTypeInfo = rtti_cast<ManagedSerializableTypeInfoPrimitive>(typeInfo.get()))
+					{
+						if (primTypeInfo->mType == ScriptPrimitiveType::I64 ||
+							primTypeInfo->mType == ScriptPrimitiveType::U64)
+						{
+							fieldInfo->mFlags |= ScriptFieldFlag::LayerMask;
+						}
+					}
+				}
+
+				if(field->hasAttribute(mBuiltin.notNullAttribute))
+					fieldInfo->mFlags |= ScriptFieldFlag::NotNull;
 
 				objInfo->mFieldNameToId[fieldInfo->mName] = fieldInfo->mFieldId;
 				objInfo->mFields[fieldInfo->mFieldId] = fieldInfo;
@@ -197,6 +238,15 @@ namespace bs
 				SPtr<ManagedSerializableTypeInfo> typeInfo = getTypeInfo(property->getReturnType());
 				if (typeInfo == nullptr)
 					continue;
+
+				bool typeIsSerializable = true;
+				bool typeIsInspectable = true;
+
+				if(const auto* objTypeInfo = rtti_cast<ManagedSerializableTypeInfoObject>(typeInfo.get()))
+				{
+					typeIsSerializable = objTypeInfo->mFlags.isSet(ScriptTypeFlag::Serializable);
+					typeIsInspectable = typeIsSerializable || objTypeInfo->mFlags.isSet(ScriptTypeFlag::Inspectable);
+				}
 
 				SPtr<ManagedSerializablePropertyInfo> propertyInfo = bs_shared_ptr_new<ManagedSerializablePropertyInfo>();
 				propertyInfo->mFieldId = mUniqueFieldId++;
@@ -211,18 +261,43 @@ namespace bs
 					if (visibility == MonoMemberVisibility::Public)
 						propertyInfo->mFlags |= ScriptFieldFlag::Animable;
 
-					if (property->hasAttribute(mBuiltin.serializeFieldAttribute))
+					if (typeIsSerializable && property->hasAttribute(mBuiltin.serializeFieldAttribute))
 						propertyInfo->mFlags |= ScriptFieldFlag::Serializable;
 
-					if (property->hasAttribute(mBuiltin.showInInspectorAttribute))
+					if (typeIsInspectable && property->hasAttribute(mBuiltin.showInInspectorAttribute))
 						propertyInfo->mFlags |= ScriptFieldFlag::Inspectable;
+
+					if (property->hasAttribute(mBuiltin.rangeAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::Range;
+
+					if (property->hasAttribute(mBuiltin.stepAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::Step;
+
+					if (property->hasAttribute(mBuiltin.layerMaskAttribute))
+					{
+						// Layout mask attribute is only relevant for 64-bit integer types
+						if (const auto* primTypeInfo = rtti_cast<ManagedSerializableTypeInfoPrimitive>(typeInfo.get()))
+						{
+							if (primTypeInfo->mType == ScriptPrimitiveType::I64 ||
+								primTypeInfo->mType == ScriptPrimitiveType::U64)
+							{
+								propertyInfo->mFlags |= ScriptFieldFlag::LayerMask;
+							}
+						}
+					}
+
+					if (property->hasAttribute(mBuiltin.notNullAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::NotNull;
+
+					if (property->hasAttribute(mBuiltin.passByCopyAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::PassByCopy;
+
+					if (property->hasAttribute(mBuiltin.applyOnDirtyAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::ApplyOnDirty;
+
+					if (property->hasAttribute(mBuiltin.nativeWrapperAttribute))
+						propertyInfo->mFlags |= ScriptFieldFlag::NativeWrapper;
 				}
-
-				if (property->hasAttribute(mBuiltin.rangeAttribute))
-					propertyInfo->mFlags |= ScriptFieldFlag::Range;
-
-				if (property->hasAttribute(mBuiltin.stepAttribute))
-					propertyInfo->mFlags |= ScriptFieldFlag::Step;
 
 				objInfo->mFieldNameToId[propertyInfo->mName] = propertyInfo->mFieldId;
 				objInfo->mFields[propertyInfo->mFieldId] = propertyInfo;
@@ -268,86 +343,88 @@ namespace bs
 			monoPrimitiveType = MonoUtil::getEnumPrimitiveType(monoClass->_getInternalClass());
 
 		//  Determine field type
+		//// Check for simple types or enums first
+		ScriptPrimitiveType scriptPrimitiveType = ScriptPrimitiveType::U32;
+		bool isSimpleType = false;
 		switch(monoPrimitiveType)
 		{
 		case MonoPrimitiveType::Boolean:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::Bool;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::Bool;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::Char:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::Char;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::Char;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::I8:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::I8;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::I8;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::U8:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::U8;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::U8;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::I16:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::I16;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::I16;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::U16:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::U16;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::U16;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::I32:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::I32;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::I32;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::U32:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::U32;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::U32;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::I64:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::I64;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::I64;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::U64:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::U64;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::U64;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::String:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::String;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::String;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::R32:
-			{
-				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::Float;
-				return typeInfo;
-			}
+			scriptPrimitiveType = ScriptPrimitiveType::Float;
+			isSimpleType = true;
+			break;
 		case MonoPrimitiveType::R64:
+			scriptPrimitiveType = ScriptPrimitiveType::Double;
+			isSimpleType = true;
+			break;
+		default:
+			break;
+		};
+
+		if(isSimpleType)
+		{
+			if(!isEnum)
 			{
 				SPtr<ManagedSerializableTypeInfoPrimitive> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoPrimitive>();
-				typeInfo->mType = ScriptPrimitiveType::Double;
+				typeInfo->mType = scriptPrimitiveType;
 				return typeInfo;
 			}
+			else
+			{
+				SPtr<ManagedSerializableTypeInfoEnum> typeInfo = bs_shared_ptr_new<ManagedSerializableTypeInfoEnum>();
+				typeInfo->mUnderlyingType = scriptPrimitiveType;
+				typeInfo->mTypeNamespace = monoClass->getNamespace();
+				typeInfo->mTypeName = monoClass->getTypeName();
+				return typeInfo;
+			}
+		}
+
+		//// Check complex types
+		switch(monoPrimitiveType)
+		{
 		case MonoPrimitiveType::Class:
 			if(monoClass->isSubClassOf(ScriptResource::getMetaData()->scriptClass)) // Resource
 			{
@@ -561,6 +638,26 @@ namespace bs
 		mBuiltin.stepAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "Step");
 		if (mBuiltin.stepAttribute == nullptr)
 			BS_EXCEPT(InvalidStateException, "Cannot find Step managed class.");
+
+		mBuiltin.layerMaskAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "LayerMask");
+		if (mBuiltin.layerMaskAttribute == nullptr)
+			BS_EXCEPT(InvalidStateException, "Cannot find LayerMask managed class.");
+
+		mBuiltin.nativeWrapperAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "NativeWrapper");
+		if (mBuiltin.nativeWrapperAttribute == nullptr)
+			BS_EXCEPT(InvalidStateException, "Cannot find NativeWrapper managed class.");
+
+		mBuiltin.notNullAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "NotNull");
+		if (mBuiltin.notNullAttribute == nullptr)
+			BS_EXCEPT(InvalidStateException, "Cannot find NotNull managed class.");
+
+		mBuiltin.passByCopyAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "PassByCopy");
+		if (mBuiltin.passByCopyAttribute == nullptr)
+			BS_EXCEPT(InvalidStateException, "Cannot find PassByCopy managed class.");
+
+		mBuiltin.applyOnDirtyAttribute = bansheeEngineAssembly->getClass("BansheeEngine", "ApplyOnDirty");
+		if (mBuiltin.applyOnDirtyAttribute == nullptr)
+			BS_EXCEPT(InvalidStateException, "Cannot find ApplyOnDirty managed class.");
 
 		mBuiltin.componentClass = bansheeEngineAssembly->getClass("BansheeEngine", "Component");
 		if(mBuiltin.componentClass == nullptr)

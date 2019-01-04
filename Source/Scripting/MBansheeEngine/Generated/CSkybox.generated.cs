@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>Allows you to specify an environment map to use for sampling radiance of the sky.</summary>
+	[ShowInInspector]
 	public partial class Skybox : Component
 	{
 		private Skybox(bool __dummy0) { }
@@ -19,6 +20,7 @@ namespace BansheeEngine
 		/// contain HDR data.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public RRef<Texture> Texture
 		{
 			get { return Internal_getTexture(mCachedPtr); }
@@ -30,6 +32,7 @@ namespace BansheeEngine
 		/// more or less bright. Equal to one by default.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Brightness
 		{
 			get { return Internal_getBrightness(mCachedPtr); }

@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>A collider with sphere geometry.</summary>
+	[ShowInInspector]
 	public partial class SphereCollider : Collider
 	{
 		private SphereCollider(bool __dummy0) { }
@@ -16,6 +17,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the radius of the sphere geometry.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Radius
 		{
 			get { return Internal_getRadius(mCachedPtr); }
@@ -24,6 +26,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines position of the sphere shape, relative to the component's scene object.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Vector3 Center
 		{
 			get

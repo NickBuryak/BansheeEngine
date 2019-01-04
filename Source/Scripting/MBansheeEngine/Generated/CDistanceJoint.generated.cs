@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>A joint that maintains an upper or lower (or both) bound on the distance between two bodies.</summary>
+	[ShowInInspector]
 	public partial class DistanceJoint : Joint
 	{
 		private DistanceJoint(bool __dummy0) { }
@@ -16,6 +17,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns the current distance between the two joint bodies.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Distance
 		{
 			get { return Internal_getDistance(mCachedPtr); }
@@ -26,6 +28,7 @@ namespace BansheeEngine
 		/// distance flag in order for this limit to be applied.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float MinDistance
 		{
 			get { return Internal_getMinDistance(mCachedPtr); }
@@ -37,6 +40,7 @@ namespace BansheeEngine
 		/// distance flag in order for this limit to be applied.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float MaxDistance
 		{
 			get { return Internal_getMaxDistance(mCachedPtr); }
@@ -48,6 +52,7 @@ namespace BansheeEngine
 		/// and upper limit.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Tolerance
 		{
 			get { return Internal_getTolerance(mCachedPtr); }
@@ -59,6 +64,7 @@ namespace BansheeEngine
 		/// the joint in order for this to be recognized.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Spring Spring
 		{
 			get

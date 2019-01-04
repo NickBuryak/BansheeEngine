@@ -12,6 +12,7 @@ namespace BansheeEngine
 	/// Base class for all Joint types. Joints constrain how two rigidbodies move relative to one another (for example a door  
 	/// hinge). One of the bodies in the joint must always be movable (non-kinematic).
 	/// </summary>
+	[ShowInInspector]
 	public partial class Joint : Component
 	{
 		private Joint(bool __dummy0) { }
@@ -22,6 +23,7 @@ namespace BansheeEngine
 		/// simulation.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float BreakForce
 		{
 			get { return Internal_getBreakForce(mCachedPtr); }
@@ -33,6 +35,7 @@ namespace BansheeEngine
 		/// simulation.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float BreakTorque
 		{
 			get { return Internal_getBreakTorque(mCachedPtr); }
@@ -41,6 +44,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines whether collision between the two bodies managed by the joint are enabled.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public bool EnableCollision
 		{
 			get { return Internal_getEnableCollision(mCachedPtr); }

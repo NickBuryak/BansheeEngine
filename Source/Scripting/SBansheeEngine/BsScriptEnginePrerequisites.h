@@ -177,6 +177,7 @@ namespace bs
 		TID_SerializableFieldInfo = 50051,
 		TID_SerializablePropertyInfo = 50052,
 		TID_SerializableTypeInfoRRef = 50053,
+		TID_SerializableTypeInfoEnum = 50054,
 	};
 
 	/** Information about a builtin component wrapped as a script object. */
@@ -192,7 +193,8 @@ namespace bs
 	enum class ScriptResourceType // Note: Must be the same as C# enum ResourceType
 	{
 		Texture, SpriteTexture, Mesh, Font, Shader, ShaderInclude, Material, Prefab,
-		PlainText, ScriptCode, StringTable, GUISkin, PhysicsMaterial, PhysicsMesh, AudioClip, AnimationClip, Undefined
+		PlainText, ScriptCode, StringTable, GUISkin, PhysicsMaterial, PhysicsMesh, AudioClip, AnimationClip, 
+		VectorField, Undefined
 	};
 
 	/** Information about a builtin resource wrapped as a script object. */

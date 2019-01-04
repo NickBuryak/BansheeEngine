@@ -18,7 +18,7 @@ namespace BansheeEditor
     internal struct FieldAnimCurves
     {
         public SerializableProperty.FieldType type;
-        public CurveDrawInfo[] curveInfos;
+        public EdCurveDrawInfo[] curveInfos;
         public bool isPropertyCurve;
     }
 
@@ -141,24 +141,24 @@ namespace BansheeEditor
                         }
 
                         // Convert compound curve to three per-component curves
-                        AnimationCurve[] componentCurves = AnimationUtility.SplitCurve(curveEntry.curve);
+                        AnimationCurve[] componentCurves = AnimationUtility.SplitCurve3D(curveEntry.curve);
 
                         FieldAnimCurves fieldCurves = new FieldAnimCurves();
                         fieldCurves.type = SerializableProperty.FieldType.Vector3;
-                        fieldCurves.curveInfos = new CurveDrawInfo[3];
+                        fieldCurves.curveInfos = new EdCurveDrawInfo[3];
                         fieldCurves.isPropertyCurve = !clipInfo.isImported;
 
-                        fieldCurves.curveInfos[0] = new CurveDrawInfo();
+                        fieldCurves.curveInfos[0] = new EdCurveDrawInfo();
                         fieldCurves.curveInfos[0].curve = new EdAnimationCurve(componentCurves[0], tangentsX);
-                        fieldCurves.curveInfos[0].color = GUICurveDrawing.GetUniqueColor(globalCurveIdx++);
+                        fieldCurves.curveInfos[0].color = GetUniqueColor(globalCurveIdx++);
 
-                        fieldCurves.curveInfos[1] = new CurveDrawInfo();
+                        fieldCurves.curveInfos[1] = new EdCurveDrawInfo();
                         fieldCurves.curveInfos[1].curve = new EdAnimationCurve(componentCurves[1], tangentsY);
-                        fieldCurves.curveInfos[1].color = GUICurveDrawing.GetUniqueColor(globalCurveIdx++);
+                        fieldCurves.curveInfos[1].color = GetUniqueColor(globalCurveIdx++);
 
-                        fieldCurves.curveInfos[2] = new CurveDrawInfo();
+                        fieldCurves.curveInfos[2] = new EdCurveDrawInfo();
                         fieldCurves.curveInfos[2].curve = new EdAnimationCurve(componentCurves[2], tangentsZ);
-                        fieldCurves.curveInfos[2].color = GUICurveDrawing.GetUniqueColor(globalCurveIdx++);
+                        fieldCurves.curveInfos[2].color = GetUniqueColor(globalCurveIdx++);
 
                         string curvePath = curveEntry.name.TrimEnd('/') + subPath;
                         clipInfo.curves[curvePath] = fieldCurves;
@@ -268,7 +268,7 @@ namespace BansheeEditor
                 bool isMorphCurve = false;
                 string curvePath = KVP.Key;
 
-                fieldCurves.curveInfos = new CurveDrawInfo[numCurves];
+                fieldCurves.curveInfos = new EdCurveDrawInfo[numCurves];
                 for (int i = 0; i < numCurves; i++)
                 {
                     int curveIdx = KVP.Value[i].Item1;
@@ -278,9 +278,9 @@ namespace BansheeEditor
                     if (tangentIdx != -1)
                         tangents = editorCurveData.floatCurves[tangentIdx].tangents;
 
-                    fieldCurves.curveInfos[i] = new CurveDrawInfo();
+                    fieldCurves.curveInfos[i] = new EdCurveDrawInfo();
                     fieldCurves.curveInfos[i].curve = new EdAnimationCurve(clipCurves.Generic[curveIdx].curve, tangents);
-                    fieldCurves.curveInfos[i].color = GUICurveDrawing.GetUniqueColor(globalCurveIdx++);
+                    fieldCurves.curveInfos[i].color = GetUniqueColor(globalCurveIdx++);
 
                     if (clipCurves.Generic[curveIdx].flags.HasFlag(AnimationCurveFlags.MorphFrame))
                     {
@@ -382,7 +382,7 @@ namespace BansheeEditor
 
                     NamedVector3Curve curve = new NamedVector3Curve();
                     curve.name = curvePath;
-                    curve.curve = AnimationUtility.CombineCurve(new[]
+                    curve.curve = AnimationUtility.CombineCurve3D(new[]
                     {
                         new AnimationCurve(kvp.Value.curveInfos[0].curve.KeyFrames),
                         new AnimationCurve(kvp.Value.curveInfos[1].curve.KeyFrames),
@@ -559,6 +559,21 @@ namespace BansheeEditor
                 }
             }
         }
+
+        /// <summary>
+        /// Generates a unique color based on the provided index.
+        /// </summary>
+        /// <param name="idx">Index to use for generating a color. Should be less than 30 in order to guarantee reasonably
+        /// different colors.</param>
+        /// <returns>Unique color.</returns>
+        public static Color GetUniqueColor(int idx)
+        {
+            const int COLOR_SPACING = 359 / 15;
+
+            float hue = ((idx * COLOR_SPACING) % 359) / 359.0f;
+            return Color.HSV2RGB(new Color(hue, 175.0f / 255.0f, 175.0f / 255.0f));
+        }
+
     }
 
     /** @} */

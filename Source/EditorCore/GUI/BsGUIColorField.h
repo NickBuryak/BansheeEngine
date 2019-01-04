@@ -35,7 +35,7 @@ namespace bs
 		void setValue(const Color& value);
 
 		/** @copydoc GUIElement::setTint */
-		virtual void setTint(const Color& color) override;
+		void setTint(const Color& color) override;
 
 		Event<void()> onClicked; /**< Triggered when the user clicks on the GUI element. */
 

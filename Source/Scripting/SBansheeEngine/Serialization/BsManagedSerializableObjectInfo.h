@@ -48,21 +48,36 @@ namespace bs
 	/**	Flags that are used to further define a field in a managed serializable object. */
 	enum class ScriptFieldFlag
 	{
-		Serializable = 0x01,
-		Inspectable = 0x02,
-		Range = 0x04,
-		Step = 0x08,
-		Animable = 0x10
+		Serializable  = 1 << 0,
+		Inspectable   = 1 << 1,
+		Range         = 1 << 2,
+		Step          = 1 << 3,
+		Animable      = 1 << 4,
+		LayerMask     = 1 << 5,
+		PassByCopy    = 1 << 6,
+		NotNull       = 1 << 7,
+		NativeWrapper = 1 << 8,
+		ApplyOnDirty  = 1 << 9
 	};
 
 	typedef Flags<ScriptFieldFlag> ScriptFieldFlags;
 	BS_FLAGS_OPERATORS(ScriptFieldFlag);
 
+	/** Flags that are used to further desribe a type of a managed serializable object. */
+	enum class ScriptTypeFlag
+	{
+		Serializable = 1 << 0,
+		Inspectable  = 1 << 1
+	};
+
+	typedef Flags<ScriptTypeFlag> ScriptTypeFlags;
+	BS_FLAGS_OPERATORS(ScriptTypeFlag);
+
 	/**	Contains information about a type of a managed serializable object. */
 	class BS_SCR_BE_EXPORT ManagedSerializableTypeInfo : public IReflectable
 	{
 	public:
-		virtual ~ManagedSerializableTypeInfo() {}
+		virtual ~ManagedSerializableTypeInfo() = default;
 
 		/**	Checks if the current type matches the provided type. */
 		virtual bool matches(const SPtr<ManagedSerializableTypeInfo>& typeInfo) const = 0;
@@ -108,6 +123,32 @@ namespace bs
 		/************************************************************************/
 	public:
 		friend class ManagedSerializableTypeInfoPrimitiveRTTI;
+		static RTTITypeBase* getRTTIStatic();
+		RTTITypeBase* getRTTI() const override;
+	};
+
+	/**	Contains information about a type of a managed serializable enum. */
+	class BS_SCR_BE_EXPORT ManagedSerializableTypeInfoEnum : public ManagedSerializableTypeInfo
+	{
+	public:
+		/** @copydoc ManagedSerializableTypeInfo::matches */
+		bool matches(const SPtr<ManagedSerializableTypeInfo>& typeInfo) const override;
+
+		/** @copydoc ManagedSerializableTypeInfo::isTypeLoaded */
+		bool isTypeLoaded() const override;
+
+		/** @copydoc ManagedSerializableTypeInfo::getMonoClass */
+		::MonoClass* getMonoClass() const override;
+
+		ScriptPrimitiveType mUnderlyingType;
+		String mTypeNamespace;
+		String mTypeName;
+
+		/************************************************************************/
+		/* 								RTTI		                     		*/
+		/************************************************************************/
+	public:
+		friend class ManagedSerializableTypeInfoEnumRTTI;
 		static RTTITypeBase* getRTTIStatic();
 		RTTITypeBase* getRTTI() const override;
 	};
@@ -179,6 +220,7 @@ namespace bs
 		String mTypeNamespace;
 		String mTypeName;
 		bool mValueType;
+		ScriptTypeFlags mFlags;
 		UINT32 mTypeId;
 
 		/************************************************************************/

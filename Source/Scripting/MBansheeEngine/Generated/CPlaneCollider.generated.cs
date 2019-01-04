@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>A collider with plane geometry. Plane colliders cannot be a part of non-kinematic rigidbodies.</summary>
+	[ShowInInspector]
 	public partial class PlaneCollider : Collider
 	{
 		private PlaneCollider(bool __dummy0) { }
@@ -16,6 +17,7 @@ namespace BansheeEngine
 
 		/// <summary>Normal vector that determines the local orientation of the plane.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Vector3 Normal
 		{
 			get
@@ -29,6 +31,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the distance of the plane from the local origin, along its normal vector.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Distance
 		{
 			get { return Internal_getDistance(mCachedPtr); }

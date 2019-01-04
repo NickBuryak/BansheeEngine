@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 namespace BansheeEngine
 {
 	/// <summary>Settings that control the depth-of-field effect.</summary>
+	[ShowInInspector]
 	public partial class DepthOfFieldSettings : ScriptObject
 	{
 		private DepthOfFieldSettings(bool __dummy0) { }
@@ -15,6 +16,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Enables or disables the depth of field effect.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool Enabled
 		{
 			get { return Internal_getenabled(mCachedPtr); }
@@ -24,6 +27,8 @@ namespace BansheeEngine
 		/// <summary>
 		/// Distance from the camera at which the focal plane is located in. Objects at this distance will be fully in focus.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float FocalDistance
 		{
 			get { return Internal_getfocalDistance(mCachedPtr); }
@@ -34,6 +39,8 @@ namespace BansheeEngine
 		/// Range within which the objects remain fully in focus. This range is applied relative to the focal distance.  Only 
 		/// relevant if Gaussian depth of field is used as other methods don't use a constant in-focus range.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float FocalRange
 		{
 			get { return Internal_getfocalRange(mCachedPtr); }
@@ -44,6 +51,8 @@ namespace BansheeEngine
 		/// Determines the size of the range within which objects transition from focused to fully unfocused, at the near  plane. 
 		/// Only relevant for Gaussian depth of field.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float NearTransitionRange
 		{
 			get { return Internal_getnearTransitionRange(mCachedPtr); }
@@ -54,6 +63,8 @@ namespace BansheeEngine
 		/// Determines the size of the range within which objects transition from focused to fully unfocused, at the far  plane. 
 		/// Only relevant for Gaussian depth of field.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float FarTransitionRange
 		{
 			get { return Internal_getfarTransitionRange(mCachedPtr); }
@@ -64,6 +75,8 @@ namespace BansheeEngine
 		/// Determines the amount of blur to apply to fully unfocused objects that are closer to camera than the in-focus zone. 
 		/// Set to zero to disable near-field blur. Only relevant for Gaussian depth of field.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float NearBlurAmount
 		{
 			get { return Internal_getnearBlurAmount(mCachedPtr); }
@@ -74,6 +87,8 @@ namespace BansheeEngine
 		/// Determines the amount of blur to apply to fully unfocused objects that are farther away from camera than the in-focus 
 		/// zone. Set to zero to disable far-field blur. Only relevant for Gaussian depth of field.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float FarBlurAmount
 		{
 			get { return Internal_getfarBlurAmount(mCachedPtr); }

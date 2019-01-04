@@ -8,18 +8,23 @@ namespace BansheeEngine
 	/// Object you may use to check on the results of an asynchronous operation. Contains uninitialized data until  IsComplete 
 	/// returns true.
 	/// </summary>
+	[ShowInInspector]
 	public partial class AsyncOp : ScriptObject
 	{
 		private AsyncOp(bool __dummy0) { }
 		protected AsyncOp() { }
 
 		/// <summary>Returns true if the async operation has completed.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public bool IsComplete
 		{
 			get { return Internal_isComplete(mCachedPtr); }
 		}
 
 		/// <summary>Retrieves the value returned by the async operation. Only valid if IsComplete returns true.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public object ReturnValue
 		{
 			get { return Internal_getReturnValue(mCachedPtr); }

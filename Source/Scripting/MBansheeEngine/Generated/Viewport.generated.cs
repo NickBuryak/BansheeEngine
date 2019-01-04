@@ -13,6 +13,7 @@ namespace BansheeEngine
 	/// the target by specifying the area rectangle, and allows you to set up color/depth/stencil clear values for that 
 	/// specific region.
 	/// </summary>
+	[ShowInInspector]
 	public partial class Viewport : ScriptObject
 	{
 		private Viewport(bool __dummy0) { }
@@ -25,6 +26,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the render target the viewport is associated with.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public RenderTarget Target
 		{
 			get { return Internal_getTarget(mCachedPtr); }
@@ -32,6 +35,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the area that the viewport covers. Coordinates are in normalized [0, 1] range.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public Rect2 Area
 		{
 			get
@@ -44,6 +49,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Returns the area of the render target covered by the viewport, in pixels.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public Rect2I PixelArea
 		{
 			get
@@ -57,6 +64,8 @@ namespace BansheeEngine
 		/// <summary>
 		/// Determines which portions of the render target should be cleared before rendering to this viewport is performed.
 		/// </summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public ClearFlags ClearFlags
 		{
 			get { return Internal_getClearFlags(mCachedPtr); }
@@ -64,6 +73,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the color to clear the viewport to before rendering, if color clear is enabled.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public Color ClearColor
 		{
 			get
@@ -76,6 +87,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the value to clear the depth buffer to before rendering, if depth clear is enabled.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public float ClearDepth
 		{
 			get { return Internal_getClearDepthValue(mCachedPtr); }
@@ -83,6 +96,8 @@ namespace BansheeEngine
 		}
 
 		/// <summary>Determines the value to clear the stencil buffer to before rendering, if stencil clear is enabled.</summary>
+		[ShowInInspector]
+		[NativeWrapper]
 		public ushort ClearStencil
 		{
 			get { return Internal_getClearStencilValue(mCachedPtr); }

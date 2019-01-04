@@ -32,7 +32,7 @@ namespace bs
 	/**	Types of icons that may be displayed in the scene window. */
 	enum class SceneWindowIcon
 	{
-		View, Move, Rotate, Scale, Pivot, Center, Local, World, MoveSnap, RotateSnap
+		View, Move, Rotate, Scale, Pivot, Center, Local, World, MoveSnap, RotateSnap, SceneCameraOptions
 	};
 
 	/**	Types of icons that may be displayed in the inspector window. */
@@ -178,17 +178,6 @@ namespace bs
 		static const String TextureFieldClearBtnStyleName;
 
 	private:
-		/**
-		 * Imports all necessary resources and converts them to engine-ready format.
-		 *
-		 * @note	
-		 * Normally you only want to use this during development phase and then ship with engine-ready format only.
-		 */
-		void preprocess(bool forceImport, time_t lastUpdateTime);
-
-		/**	Generates the default editor skin and all GUI element styles. */
-		SPtr<GUISkin> generateGUISkin();
-
 		/**	Loads a GUI icon with the specified filename. */
 		HSpriteTexture getGUIIcon(const String& name) const;
 
@@ -222,9 +211,6 @@ namespace bs
 		static const char* IconFolder;
 		static const char* ShaderIncludeFolder;
 		static const char* SpriteSubFolder;
-
-		static constexpr const char* DATA_LIST_JSON = "DataList.json";
-		static constexpr const char* GUI_SKIN_JSON = "GUISkin.json";
 
 		Path BuiltinDataFolder;
 		Path EditorSkinFolder;

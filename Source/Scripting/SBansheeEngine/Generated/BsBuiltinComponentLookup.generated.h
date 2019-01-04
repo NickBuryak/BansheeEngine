@@ -52,6 +52,10 @@
 #include "BsScriptCSkybox.generated.h"
 #include "../../../bsf/Source/Foundation/bsfCore/Components/BsCLightProbeVolume.h"
 #include "BsScriptCLightProbeVolume.generated.h"
+#include "../../../bsf/Source/Foundation/bsfCore/Components/BsCParticleSystem.h"
+#include "BsScriptCParticleSystem.generated.h"
+#include "../../../bsf/Source/Foundation/bsfCore/Components/BsCDecal.h"
+#include "BsScriptCDecal.generated.h"
 
 namespace bs
 {
@@ -81,6 +85,8 @@ namespace bs
 		ADD_ENTRY(CBone, ScriptCBone)
 		ADD_ENTRY(CSkybox, ScriptCSkybox)
 		ADD_ENTRY(CLightProbeVolume, ScriptCLightProbeVolume)
+		ADD_ENTRY(CParticleSystem, ScriptCParticleSystem)
+		ADD_ENTRY(CDecal, ScriptCDecal)
 	LOOKUP_END
 }
 #undef LOOKUP_BEGIN

@@ -13,6 +13,7 @@ namespace BansheeEngine
 	/// the standard physics model to handle various issues with manually moving kinematic objects. Uses a capsule to 
 	/// represent the character's bounds.
 	/// </summary>
+	[ShowInInspector]
 	public partial class CharacterController : Component
 	{
 		private CharacterController(bool __dummy0) { }
@@ -23,6 +24,7 @@ namespace BansheeEngine
 		/// will teleport the character to the location. Use move() for movement that includes physics.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Vector3 FootPosition
 		{
 			get
@@ -36,6 +38,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the radius of the controller capsule.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Radius
 		{
 			get { return Internal_getRadius(mCachedPtr); }
@@ -44,6 +47,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the height between the centers of the two spheres of the controller capsule.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Height
 		{
 			get { return Internal_getHeight(mCachedPtr); }
@@ -52,6 +56,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the up direction of capsule. Determines capsule orientation.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Vector3 Up
 		{
 			get
@@ -65,6 +70,7 @@ namespace BansheeEngine
 
 		/// <summary>Controls what happens when character encounters a height higher than its step offset.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public CharacterClimbingMode ClimbingMode
 		{
 			get { return Internal_getClimbingMode(mCachedPtr); }
@@ -73,6 +79,7 @@ namespace BansheeEngine
 
 		/// <summary>Controls what happens when character encounters a slope higher than its slope offset.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public CharacterNonWalkableMode NonWalkableMode
 		{
 			get { return Internal_getNonWalkableMode(mCachedPtr); }
@@ -84,6 +91,7 @@ namespace BansheeEngine
 		/// motion algorithm when the remaining distance is too small.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float MinMoveDistance
 		{
 			get { return Internal_getMinMoveDistance(mCachedPtr); }
@@ -95,6 +103,7 @@ namespace BansheeEngine
 		/// positive non-zero value.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float ContactOffset
 		{
 			get { return Internal_getContactOffset(mCachedPtr); }
@@ -106,6 +115,7 @@ namespace BansheeEngine
 		/// height of the maximum obstacle that will be stepped over (with exceptions, see climbingMode).
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float StepOffset
 		{
 			get { return Internal_getStepOffset(mCachedPtr); }
@@ -117,6 +127,7 @@ namespace BansheeEngine
 		/// more information.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Radian SlopeLimit
 		{
 			get
@@ -130,6 +141,7 @@ namespace BansheeEngine
 
 		/// <summary>Determines the layer that controls what can the controller collide with.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public ulong Layer
 		{
 			get { return Internal_getLayer(mCachedPtr); }

@@ -9,6 +9,7 @@ namespace BansheeEngine
 	 */
 
 	/// <summary>A collider represented by an arbitrary mesh.</summary>
+	[ShowInInspector]
 	public partial class MeshCollider : Collider
 	{
 		private MeshCollider(bool __dummy0) { }
@@ -20,6 +21,7 @@ namespace BansheeEngine
 		/// rigidbody.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public RRef<PhysicsMesh> Mesh
 		{
 			get { return Internal_getMesh(mCachedPtr); }

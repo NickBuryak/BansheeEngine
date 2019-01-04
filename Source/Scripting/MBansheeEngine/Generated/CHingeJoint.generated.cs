@@ -12,6 +12,7 @@ namespace BansheeEngine
 	/// Hinge joint removes all but a single rotation degree of freedom from its two attached bodies (for example a door  
 	/// hinge).
 	/// </summary>
+	[ShowInInspector]
 	public partial class HingeJoint : Joint
 	{
 		private HingeJoint(bool __dummy0) { }
@@ -19,6 +20,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns the current angle between the two attached bodes.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public Radian Angle
 		{
 			get
@@ -31,6 +33,7 @@ namespace BansheeEngine
 
 		/// <summary>Returns the current angular speed of the joint.</summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public float Speed
 		{
 			get { return Internal_getSpeed(mCachedPtr); }
@@ -41,6 +44,7 @@ namespace BansheeEngine
 		/// limit flag on the joint in order for this to be recognized.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public LimitAngularRange Limit
 		{
 			get
@@ -57,6 +61,7 @@ namespace BansheeEngine
 		/// must enable the drive flag on the joint in order for the drive to be active.
 		/// </summary>
 		[ShowInInspector]
+		[NativeWrapper]
 		public HingeJointDrive Drive
 		{
 			get
