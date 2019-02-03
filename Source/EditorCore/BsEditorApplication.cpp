@@ -47,6 +47,7 @@ namespace bs
 		startUpDesc.audio = BS_AUDIO_MODULE;
 		startUpDesc.physics = BS_PHYSICS_MODULE;
 		startUpDesc.scripting = true;
+		startUpDesc.physicsCooking = true;
 
 		startUpDesc.primaryWindowDesc.videoMode = VideoMode(1920, 1080);
 		startUpDesc.primaryWindowDesc.title = "BansheeEditor";
@@ -71,7 +72,7 @@ namespace bs
 	}
 
 	EditorApplication::EditorApplication()
-		:Application(createStartupDesc()), mIsProjectLoaded(false), mSBansheeEditorPlugin(nullptr)
+		:Application(createStartupDesc()), mIsProjectLoaded(false), mEditorScriptPlugin(nullptr)
 	{
 
 	}
@@ -162,8 +163,8 @@ namespace bs
 	void EditorApplication::loadScriptSystem()
 	{
 		loadPlugin("bsfMono", &mMonoPlugin);
-		loadPlugin("SBansheeEngine", &mSBansheeEnginePlugin);
-		loadPlugin("SBansheeEditor", &mSBansheeEditorPlugin);
+		loadPlugin("bsfScript", &mScriptPlugin);
+		loadPlugin("EditorScript", &mEditorScriptPlugin);
 	}
 
 	void EditorApplication::unloadScriptSystem()
@@ -171,11 +172,11 @@ namespace bs
 		// These plugins must be unloaded before any other script plugins, because
 		// they will cause finalizers to trigger and various modules those finalizers
 		// might reference must still be active
-		if(mSBansheeEditorPlugin != nullptr)
-			unloadPlugin(mSBansheeEditorPlugin);
+		if(mEditorScriptPlugin != nullptr)
+			unloadPlugin(mEditorScriptPlugin);
 
-		if(mSBansheeEnginePlugin != nullptr)
-			unloadPlugin(mSBansheeEnginePlugin);
+		if(mScriptPlugin != nullptr)
+			unloadPlugin(mScriptPlugin);
 
 		if(mMonoPlugin != nullptr)
 			unloadPlugin(mMonoPlugin);
@@ -226,37 +227,10 @@ namespace bs
 	{
 		typedef void(*QuitRequestedFunc)();
 
-		QuitRequestedFunc quitRequestedCall = (QuitRequestedFunc)mSBansheeEditorPlugin->getSymbol("quitRequested");
+		QuitRequestedFunc quitRequestedCall = (QuitRequestedFunc)mEditorScriptPlugin->getSymbol("quitRequested");
 
 		if (quitRequestedCall != nullptr)
 			quitRequestedCall();
-	}
-
-	Path EditorApplication::getEditorAssemblyPath() const
-	{
-		Path assemblyPath = getBuiltinAssemblyFolder();
-		assemblyPath.append(String(EDITOR_ASSEMBLY) + ".dll");
-
-		return assemblyPath;
-	}
-
-	Path EditorApplication::getEditorScriptAssemblyPath() const
-	{
-		Path assemblyPath = getScriptAssemblyFolder();
-		assemblyPath.append(String(SCRIPT_EDITOR_ASSEMBLY) + ".dll");
-
-		return assemblyPath;
-	}
-
-	Path EditorApplication::getScriptAssemblyFolder() const
-	{
-		if (!isProjectLoaded())
-			return Path::BLANK;
-
-		Path assemblyFolder = getProjectPath();
-		assemblyFolder.append(INTERNAL_ASSEMBLY_PATH);
-
-		return assemblyFolder;
 	}
 
 	void EditorApplication::saveProject()
