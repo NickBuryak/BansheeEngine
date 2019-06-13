@@ -3,9 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Library
      *  @{
@@ -202,7 +202,6 @@ namespace BansheeEditor
 
             contentScrollArea = new GUIScrollArea(GUIOption.FlexibleWidth(), GUIOption.FlexibleHeight());
             contentLayout.AddElement(contentScrollArea);
-            contentLayout.AddFlexibleSpace();
 
             entryContextMenu = LibraryMenu.CreateContextMenu(this);
             content = new LibraryGUIContent(this, contentScrollArea);
@@ -289,55 +288,56 @@ namespace BansheeEditor
                         MoveSelection(MoveDirection.Right);
                     }
                 }
-                else
-                {
-                    if (Input.IsButtonDown(ButtonCode.Return))
-                    {
-                        string newName = inProgressRenameElement.GetRenamedName();
-
-                        string originalPath = inProgressRenameElement.path;
-                        originalPath = originalPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-                        string newPath = Path.GetDirectoryName(originalPath);
-                        string newNameWithExtension = newName + Path.GetExtension(originalPath);
-                        newPath = Path.Combine(newPath, newNameWithExtension);
-
-                        bool renameOK = true;
-                        if (!PathEx.IsValidFileName(newName))
-                        {
-                            DialogBox.Open(new LocEdString("Error"), new LocEdString("The name you specified is not a valid file name. Try another."), DialogBox.Type.OK);
-                            renameOK = false;
-                        }
-
-                        if (renameOK)
-                        {
-                            // Windows sees paths with dot at the end as if they didn't have it
-                            // so remove the dot to ensure the project library does the same
-                            string trimmedNewPath = newPath.TrimEnd('.');
-
-                            if (originalPath != trimmedNewPath && ProjectLibrary.Exists(trimmedNewPath))
-                            {
-                                DialogBox.Open(new LocEdString("Error"), new LocEdString("File/folder with that name already exists in this folder."), DialogBox.Type.OK);
-                                renameOK = false;
-                            }
-                        }
-
-                        if (renameOK)
-                        {
-                            ProjectLibrary.Rename(originalPath, newNameWithExtension);
-                            StopRename();
-                        }
-                    }
-                    else if (Input.IsButtonDown(ButtonCode.Escape))
-                    {
-                        StopRename();
-                    }
-                }
             }
             else
             {
                 if (isRenameInProgress && !HasFocus)
                     StopRename();
+            }
+
+            if (isRenameInProgress)
+            {
+                if (Input.IsButtonDown(ButtonCode.Return))
+                {
+                    string newName = inProgressRenameElement.GetRenamedName();
+
+                    string originalPath = inProgressRenameElement.path;
+                    originalPath = originalPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                    string newPath = Path.GetDirectoryName(originalPath);
+                    string newNameWithExtension = newName + Path.GetExtension(originalPath);
+                    newPath = Path.Combine(newPath, newNameWithExtension);
+
+                    bool renameOK = true;
+                    if (!PathEx.IsValidFileName(newName))
+                    {
+                        DialogBox.Open(new LocEdString("Error"), new LocEdString("The name you specified is not a valid file name. Try another."), DialogBox.Type.OK);
+                        renameOK = false;
+                    }
+
+                    if (renameOK)
+                    {
+                        // Windows sees paths with dot at the end as if they didn't have it
+                        // so remove the dot to ensure the project library does the same
+                        string trimmedNewPath = newPath.TrimEnd('.');
+
+                        if (originalPath != trimmedNewPath && ProjectLibrary.Exists(trimmedNewPath))
+                        {
+                            DialogBox.Open(new LocEdString("Error"), new LocEdString("File/folder with that name already exists in this folder."), DialogBox.Type.OK);
+                            renameOK = false;
+                        }
+                    }
+
+                    if (renameOK)
+                    {
+                        ProjectLibrary.Rename(originalPath, newNameWithExtension);
+                        StopRename();
+                    }
+                }
+                else if (Input.IsButtonDown(ButtonCode.Escape))
+                {
+                    StopRename();
+                }
             }
 
             if (autoScrollAmount != 0)
@@ -409,6 +409,8 @@ namespace BansheeEditor
             content.MarkAsPinged(pingPath, false);
             pingPath = path;
             content.MarkAsPinged(pingPath, true);
+
+            ScrollToEntry(pingPath);
         }
 
         /// <summary>
@@ -751,9 +753,27 @@ namespace BansheeEditor
 
         /// <summary>
         /// Scrolls the contents GUI area so that the element at the specified path becomes visible.
+        /// If the entry is in a subdirectory then the subdirectory is entered first.
         /// </summary>
         /// <param name="path">Project library path to the element.</param>
-        private void ScrollToEntry(string path)
+        internal void GoToEntry(string path)
+        {
+            if (!string.IsNullOrEmpty(path))
+            {
+                string parentDir = PathEx.GetParent(path);
+
+                if (!PathEx.Compare(parentDir, CurrentFolder))
+                    EnterDirectory(parentDir);
+            }
+
+            ScrollToEntry(path);
+        }
+
+        /// <summary>
+        /// Scrolls the contents GUI area so that the element at the specified path becomes visible.
+        /// </summary>
+        /// <param name="path">Project library path to the element.</param>
+        internal void ScrollToEntry(string path)
         {
             LibraryGUIEntry entryGUI;
             if (!content.TryGetEntry(path, out entryGUI))
@@ -783,7 +803,7 @@ namespace BansheeEditor
         /// <summary>
         /// Rebuilds the library window GUI. Should be called any time the active folder or contents change.
         /// </summary>
-        private void Refresh()
+        internal void Refresh()
         {
             requiresRefresh = false;
 

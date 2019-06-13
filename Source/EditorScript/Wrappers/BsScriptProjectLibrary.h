@@ -19,7 +19,7 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptProjectLibrary : public ScriptObject<ScriptProjectLibrary>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "ProjectLibrary")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "ProjectLibrary")
 
 		/**	Initializes the project library callbacks. Must be called on library load. */
 		void static startUp();
@@ -70,7 +70,9 @@ namespace bs
 		static MonoObject* internal_Load(MonoString* path);
 		static void internal_Save(MonoObject* resource);
 		static MonoObject* internal_GetRoot();
-		static void internal_Reimport(MonoString* path, MonoObject* options, bool force);
+		static void internal_Reimport(MonoString* path, MonoObject* options, bool force, bool synchronous);
+		static float internal_GetImportProgress(MonoString* path);
+		static void internal_CancelImport();
 		static MonoObject* internal_GetEntry(MonoString* path);
 		static bool internal_IsSubresource(MonoString* path);
 		static MonoObject* internal_GetMeta(MonoString* path);
@@ -92,21 +94,21 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptLibraryEntryBase : public ScriptObjectBase
 	{
 	public:
-		/**	Returns the asset path of the library entry. */
-		const Path& getAssetPath() const { return mAssetPath; }
+		/**	Returns the wrapped library entry object. */
+		const USPtr<ProjectLibrary::LibraryEntry>& getInternal() const { return mEntry; }
 
 	protected:
 		ScriptLibraryEntryBase(MonoObject* instance);
-		virtual ~ScriptLibraryEntryBase() {}
+		virtual ~ScriptLibraryEntryBase() = default;
 
-		Path mAssetPath;
+		USPtr<ProjectLibrary::LibraryEntry> mEntry;
 	};
 
 	/**	Interop class between C++ & CLR for LibraryEntry. */
 	class BS_SCR_BED_EXPORT ScriptLibraryEntry : public ScriptObject <ScriptLibraryEntry>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "LibraryEntry")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "LibraryEntry")
 
 		ScriptLibraryEntry(MonoObject* instance);
 
@@ -124,12 +126,12 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptDirectoryEntry : public ScriptObject <ScriptDirectoryEntry, ScriptLibraryEntryBase>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "DirectoryEntry")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "DirectoryEntry")
 
-		ScriptDirectoryEntry(MonoObject* instance, const Path& assetPath);
+		ScriptDirectoryEntry(MonoObject* instance, const USPtr<ProjectLibrary::DirectoryEntry>& entry);
 
 		/** Creates a new interop object that wraps the provided native directory entry object. */
-		static MonoObject* create(const ProjectLibrary::DirectoryEntry* entry);
+		static MonoObject* create(const USPtr<ProjectLibrary::DirectoryEntry>& entry);
 
 	private:
 		/************************************************************************/
@@ -142,12 +144,12 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptFileEntry : public ScriptObject <ScriptFileEntry, ScriptLibraryEntryBase>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "FileEntry")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "FileEntry")
 
-		ScriptFileEntry(MonoObject* instance, const Path& assetPath);
+		ScriptFileEntry(MonoObject* instance, const USPtr<ProjectLibrary::FileEntry>& entry);
 
 		/** Creates a new interop object that wraps the provided native resource entry object. */
-		static MonoObject* create(const ProjectLibrary::FileEntry* entry);
+		static MonoObject* create(const USPtr<ProjectLibrary::FileEntry>& entry);
 
 	private:
 		/************************************************************************/
@@ -162,7 +164,7 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptResourceMeta : public ScriptObject <ScriptResourceMeta>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "ResourceMeta")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "ResourceMeta")
 
 		ScriptResourceMeta(MonoObject* instance, const SPtr<ProjectResourceMeta>& meta);
 

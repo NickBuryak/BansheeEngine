@@ -2,16 +2,16 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Runtime.CompilerServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup General 
      *  @{
      */
 
     /// <summary>
-    /// Handles scene object and resource selection. Triggeres events when selection changes and allows the user to query
+    /// Handles scene object and resource selection. Triggers events when selection changes and allows the user to query
     /// current selection state.
     /// </summary>
     public sealed class Selection

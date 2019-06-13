@@ -1,8 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /// <summary>
     /// Contains style information about inspectable items.
@@ -53,6 +53,10 @@ namespace BansheeEditor
 
             styleInfo.StyleFlags |= flags.HasFlag(SerializableFieldAttributes.Inline)
                 ? InspectableFieldStyleFlags.Inline
+                : 0;
+
+            styleInfo.StyleFlags |= flags.HasFlag(SerializableFieldAttributes.LoadOnAssign)
+                ? InspectableFieldStyleFlags.LoadOnAssign
                 : 0;
 
             return styleInfo;

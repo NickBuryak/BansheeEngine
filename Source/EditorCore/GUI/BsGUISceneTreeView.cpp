@@ -4,8 +4,8 @@
 #include "Scene/BsSceneObject.h"
 #include "Scene/BsSceneManager.h"
 #include "GUI/BsGUISkin.h"
-#include "UndoRedo/BsCmdRecordSO.h"
 #include "UndoRedo/BsCmdReparentSO.h"
+#include "UndoRedo/BsCmdRenameSO.h"
 #include "UndoRedo/BsCmdDeleteSO.h"
 #include "UndoRedo/BsCmdCloneSO.h"
 #include "UndoRedo/BsCmdCreateSO.h"
@@ -179,17 +179,19 @@ namespace bs
 				}
 			}
 
-			for(UINT32 i = 0; i < element->mChildren.size(); i++)
+			// Make sure to update children list before deleting them. Deletions cause callbacks which can ultimately call
+			// back into this method
+			element->mChildren.swap(newChildren);
+
+			for(UINT32 i = 0; i < newChildren.size(); i++)
 			{
 				if(!tempToDelete[i])
 					continue;
 
-				deleteTreeElementInternal(element->mChildren[i]);
+				deleteTreeElementInternal(newChildren[i]);
 			}
 
 			bs_stack_free(tempToDelete);
-
-			element->mChildren = newChildren;
 			needsUpdate = true;
 		}
 
@@ -257,7 +259,7 @@ namespace bs
 
 	void GUISceneTreeView::updateTreeElementHierarchy()
 	{
-		HSceneObject root = gSceneManager().getRootNode();
+		HSceneObject root = gSceneManager().getMainScene()->getRoot();
 		mRootElement.mSceneObject = root;
 		mRootElement.mId = root->getInstanceId();
 		mRootElement.mSortedIdx = 0;
@@ -271,8 +273,7 @@ namespace bs
 		SceneTreeElement* sceneTreeElement = static_cast<SceneTreeElement*>(element);
 
 		HSceneObject so = sceneTreeElement->mSceneObject;
-		CmdRecordSO::execute(so, false, "Renamed \"" + so->getName() + "\"");
-		so->setName(name);
+		CmdRenameSO::execute(so, name);
 
 		onModified();
 	}
@@ -405,6 +406,11 @@ namespace bs
 
 	void GUISceneTreeView::setSelection(const Vector<HSceneObject>& objects)
 	{
+		setSelection(objects, false);
+	}
+
+	void GUISceneTreeView::setSelection(const Vector<HSceneObject>& objects, bool triggerEvents)
+	{
 		unselectAll(false);
 
 		// Note: I could queue the selection update until after the next frame in order to avoid the hierarchy update here
@@ -423,7 +429,7 @@ namespace bs
 			if (iterFind != objects.end())
 			{
 				expandToElement(currentElem);
-				selectElement(currentElem);
+				selectElement(currentElem, triggerEvents);
 			}
 
 			for (auto& child : currentElem->mChildren)
@@ -609,6 +615,49 @@ namespace bs
 		_markLayoutAsDirty();
 	}
 
+	SPtr<SceneTreeViewState> GUISceneTreeView::getState() const
+	{
+		const TreeElement* root = &mRootElement;
+
+		SPtr<SceneTreeViewState> state = bs_shared_ptr_new<SceneTreeViewState>();
+		recurse(static_cast<SceneTreeElement*>(const_cast<TreeElement*>(root)), [state](SceneTreeElement* element)
+		{
+			if(!element->mSceneObject.isDestroyed())
+				state->elements.push_back({ element->mSceneObject, element->mIsExpanded });
+		});
+
+		return state;
+	}
+
+	void GUISceneTreeView::setState(const SPtr<SceneTreeViewState>& state)
+	{
+		UnorderedMap<UINT64, bool> lookup;
+		for(auto& entry : state->elements)
+		{
+			if(entry.sceneObject.isDestroyed())
+				continue;
+
+			lookup[entry.sceneObject->getInstanceId()] = entry.isExpanded;
+		}
+
+		recurse(static_cast<SceneTreeElement*>(&mRootElement), [this, &lookup](SceneTreeElement* element)
+		{
+			if(element->mSceneObject.isDestroyed())
+				return;
+
+			UINT64 instanceId = element->mSceneObject->getInstanceId();
+
+			auto iterFind = lookup.find(instanceId);
+			if(iterFind != lookup.end())
+			{
+				if(iterFind->second)
+					expandElement(element);
+				else
+					collapseElement(element);
+			}
+		});
+	}
+
 	void GUISceneTreeView::createNewSO()
 	{
 		HSceneObject newSO = CmdCreateSO::execute("New", 0, "Created a new SceneObject");
@@ -623,7 +672,7 @@ namespace bs
 
 		TreeElement* newTreeElement = findTreeElement(newSO);
 		expandToElement(newTreeElement);
-		setSelection({ newSO });
+		setSelection({ newSO }, true);
 		renameSelected();
 
 		onModified();

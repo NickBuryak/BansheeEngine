@@ -43,6 +43,7 @@ namespace bs
 	template<class T, class SELF>
 	class BS_ED_EXPORT TGUIDistributionField : public TGUIField<SELF>
 	{
+		using PrivatelyConstruct = typename TGUIField<SELF>::PrivatelyConstruct;
 		using GUIConstantType = typename impl::TGUIDistributionMeta<T>::ConstantField;
 		enum { NumComponents = TCurveProperties<T>::NumComponents };
 
@@ -70,25 +71,45 @@ namespace bs
 		bool hasInputFocus() const;
 
 		/** 
-		 * Triggered when the user clicks on the curve display. Only relevant if the distribution is a curve distribution. 
-		 * Provides the sequential index of the clicked curve (0 - x, 1 - y, 2 - z).
+		 * Sets input focus to a specific component's input box. 
+		 *
+		 * @param[in]	rangeComponent		Whether to focus on the minimum or the maximum part of the range. Only relevant
+		 *									if the distribution represents a constant range.
+		 * @param[in]	vectorComponent		Vector component to focus on. Only relevant of the distribution constant is
+		 *									a vector type, and if the current distribution type is a non-curve (constant)
+		 *									type.
+		 * @param[in]	focus				True to enable focus, false to disable.
 		 */
-		BS_SCRIPT_EXPORT(in:true)
-		Event<void(INT32)> onClicked;
+		BS_SCRIPT_EXPORT()
+		void setInputFocus(RangeComponent rangeComponent, VectorComponent vectorComponent, bool focus);
 
 		/** 
-		 * Triggered when the user modifies either of the non-curve (constant) values of the distribution. Only relevant
+		 * Triggered when the user clicks on the curve display. Only relevant if the distribution is a curve distribution. 
+		 * Provides the index of the clicked curve.
+		 */
+		BS_SCRIPT_EXPORT(in:true)
+		Event<void(VectorComponent)> onClicked;
+
+		/** 
+		 * Triggered when the user modifies the value of the non-curve (constant) values of the distribution. Only relevant 
 		 * if the distribution is not a curve distribution.
 		 */
-		BS_SCRIPT_EXPORT(in:true)
-		Event<void()> onConstantModified;
+		BS_SCRIPT_EXPORT()
+		Event<void(RangeComponent, VectorComponent)> onConstantModified;
 
 		/** 
-		 * Triggered when the user confirms inputs in either of the non-curve (constant) values of the distribution. Only 
-		 * relevant if the distribution is not a curve distribution.
+		 * Triggered when the user confirms inputs in the non-curve (constant) values of the distribution. Only relevant 
+		 * if the distribution is not a curve distribution.
 		 */
-		BS_SCRIPT_EXPORT(in:true)
-		Event<void()> onConstantConfirmed;
+		BS_SCRIPT_EXPORT()
+		Event<void(RangeComponent, VectorComponent)> onConstantConfirmed;
+
+		/**	
+		 * Triggered when a GUI field representing an individual component loses or gains focus. This only applies to
+		 * input fields representing the non-curve (constant) distribution types.
+		 */
+		BS_SCRIPT_EXPORT()
+		Event<void(bool, RangeComponent, VectorComponent)> onConstantFocusChanged;
 
 		/** @name Internal 
 		 *  @{
@@ -131,11 +152,11 @@ namespace bs
 	 * A composite GUI object representing an editor field. Editor fields are a combination of a label and an input field.
 	 * Label is optional. This specific implementation displays an input field for a floating point distribution.
 	 */
-	class BS_ED_EXPORT BS_SCRIPT_EXPORT(ed:true,m:GUIEditor) 
+	class BS_ED_EXPORT BS_SCRIPT_EXPORT(m:GUIEditor,api:bed) 
 	GUIFloatDistributionField final : public TGUIDistributionField<float, GUIFloatDistributionField>
 	{
 	public:
-		using TGUIDistributionField::TGUIDistributionField;
+		using TGUIDistributionField<float, GUIFloatDistributionField>::TGUIDistributionField;
 
 		/** Returns type name of the GUI element used for finding GUI element styles. */
 		static const String& getGUITypeName();
@@ -145,11 +166,11 @@ namespace bs
 	 * A composite GUI object representing an editor field. Editor fields are a combination of a label and an input field.
 	 * Label is optional. This specific implementation displays an input field for a 2D vector distribution.
 	 */
-	class BS_ED_EXPORT BS_SCRIPT_EXPORT(ed:true,m:GUIEditor) 
+	class BS_ED_EXPORT BS_SCRIPT_EXPORT(m:GUIEditor,api:bed) 
 	GUIVector2DistributionField final : public TGUIDistributionField<Vector2, GUIVector2DistributionField>
 	{
 	public:
-		using TGUIDistributionField::TGUIDistributionField;
+		using TGUIDistributionField<Vector2, GUIVector2DistributionField>::TGUIDistributionField;
 
 		/** Returns type name of the GUI element used for finding GUI element styles. */
 		static const String& getGUITypeName();
@@ -159,11 +180,11 @@ namespace bs
 	 * A composite GUI object representing an editor field. Editor fields are a combination of a label and an input field.
 	 * Label is optional. This specific implementation displays an input field for a 3D vector distribution.
 	 */
-	class BS_ED_EXPORT BS_SCRIPT_EXPORT(ed:true,m:GUIEditor) 
+	class BS_ED_EXPORT BS_SCRIPT_EXPORT(m:GUIEditor,api:bed) 
 	GUIVector3DistributionField final : public TGUIDistributionField<Vector3, GUIVector3DistributionField>
 	{
 	public:
-		using TGUIDistributionField::TGUIDistributionField;
+		using TGUIDistributionField<Vector3, GUIVector3DistributionField>::TGUIDistributionField;
 
 		/** Returns type name of the GUI element used for finding GUI element styles. */
 		static const String& getGUITypeName();

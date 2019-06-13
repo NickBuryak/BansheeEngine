@@ -2,14 +2,15 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Window
      *  @{
      */
 
     /// <summary>
-    /// Can be placed on <see cref="EditorWindow"/> class to provide a default size for the window when it is first opened.
+    /// Can be placed on <see cref="EditorWindow"/> or <see cref="ModalWindow"/> class to provide a default size for the
+    /// window when it is first opened.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
     public sealed class DefaultSize : Attribute

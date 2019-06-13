@@ -1,11 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 using System.Collections.Generic;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
-    /** @addtogroup General
+    /** @addtogroup Editor-General
      *  @{
      */
 
@@ -15,10 +15,16 @@ namespace BansheeEditor
     internal class EditorPersistentData : ManagedComponent
     {
         [SerializeField]
-        internal Dictionary<UUID, bool> dirtyResources = new Dictionary<UUID, bool>();
+        internal Dictionary<UUID, Resource> dirtyResources = new Dictionary<UUID, Resource>();
 
         [SerializeField]
         internal Dictionary<UUID, EditorAnimClipInfo> dirtyAnimClips = new Dictionary<UUID, EditorAnimClipInfo>();
+
+        [SerializeField]
+        internal long lastCompileTime;
+
+        [SerializeField]
+        internal EditorSceneData editorSceneData;
     }
 
     /** @} */

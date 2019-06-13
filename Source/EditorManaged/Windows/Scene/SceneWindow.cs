@@ -1,11 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Scene-Editor
      *  @{
@@ -23,6 +23,9 @@ namespace BansheeEditor
         internal const string ScaleToolBinding = "ScaleTool";
         internal const string FrameBinding = "SceneFrame";
 
+        private const string CameraPositionKey = "SceneCamera0_Position";
+        private const string CameraRotationKey = "SceneCamera0_Rotation";
+
         private const int HeaderHeight = 20;
         private const float DefaultPlacementDepth = 5.0f;
         private static readonly Color ClearColor = new Color(0.0f, 0.3685f, 0.7969f);
@@ -31,7 +34,7 @@ namespace BansheeEditor
         private const int HandleAxesGUIPaddingY = 5;
 
         private Camera camera;
-        private SceneCamera cameraController;
+        private SceneCamera sceneCamera;
         private RenderTexture renderTexture;
         private GUILayoutY mainLayout;
         private GUIPanel rtPanel;
@@ -68,6 +71,7 @@ namespace BansheeEditor
         private GUILabel loadLabel;
 
         private SceneAxesGUI sceneAxesGUI;
+        private ProjectionType sceneAxesLastProjectionType;
 
         private bool hasContentFocus = false;
         private bool HasContentFocus { get { return HasFocus && hasContentFocus; } }
@@ -96,67 +100,15 @@ namespace BansheeEditor
         private Vector2I mouseDownPosition;
         private GUIPanel selectionPanel;
 
+        // Camera previews
+        private const int MaxCameraPreviews = 0; // Disabled until we resolve issues with adding temporary camera copies
+        private List<CameraPreview> cameraPreviews = new List<CameraPreview>();
+        private GUIPanel cameraPreviewsPanel;
+
         /// <summary>
         /// Returns the scene camera.
         /// </summary>
-        public Camera Camera
-        {
-            get { return camera; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's projection type.
-        /// </summary>
-        internal ProjectionType ProjectionType
-        {
-            get { return cameraController.ProjectionType; }
-            set { cameraController.ProjectionType = value; sceneAxesGUI.ProjectionType = value; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's orthographic size.
-        /// </summary>
-        internal float OrthographicSize
-        {
-            get { return cameraController.OrthographicSize; }
-            set { cameraController.OrthographicSize = value; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's field of view.
-        /// </summary>
-        internal Degree FieldOfView
-        {
-            get { return cameraController.FieldOfView; }
-            set { cameraController.FieldOfView = value; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's near clip plane.
-        /// </summary>
-        internal float NearClipPlane
-        {
-            get { return cameraController.NearClipPlane; }
-            set { cameraController.NearClipPlane = value; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's far clip plane.
-        /// </summary>
-        internal float FarClipPlane
-        {
-            get { return cameraController.FarClipPlane; }
-            set { cameraController.FarClipPlane = value; }
-        }
-
-        /// <summary>
-        /// Determines scene camera's scroll speed.
-        /// </summary>
-        internal float ScrollSpeed
-        {
-            get { return cameraController.ScrollSpeed; }
-            set { cameraController.ScrollSpeed = value; }
-        }
+        public SceneCamera Camera => sceneCamera;
 
         /// <summary>
         /// Constructs a new scene window.
@@ -181,7 +133,7 @@ namespace BansheeEditor
         {
             SceneWindow window = GetWindow<SceneWindow>();
             if (window != null)
-                window.cameraController.FrameSelected();
+                window.sceneCamera.FrameSelected();
         }
 
         /// <summary>
@@ -301,7 +253,7 @@ namespace BansheeEditor
 
             rotateSnapButton.OnToggled += (bool active) => OnRotateSnapToggled(active);
             rotateSnapInput.OnChanged += (float value) => OnRotateSnapValueChanged(value);
-            
+
             cameraOptionsButton.OnClick += () => OnCameraOptionsClicked();
 
             GUILayout handlesLayout = mainLayout.AddLayoutX();
@@ -351,6 +303,7 @@ namespace BansheeEditor
 
             sceneAxesPanel = mainPanel.AddPanel(-1);
             sceneAxesGUI = new SceneAxesGUI(this, sceneAxesPanel, HandleAxesGUISize, HandleAxesGUISize, ProjectionType.Perspective);
+            sceneAxesLastProjectionType = ProjectionType.Perspective;
 
             focusCatcher = new GUIButton("", EditorStyles.Blank);
             focusCatcher.OnFocusGained += () => hasContentFocus = true;
@@ -358,6 +311,8 @@ namespace BansheeEditor
 
             GUIPanel focusPanel = GUI.AddPanel(-2);
             focusPanel.AddElement(focusCatcher);
+
+            cameraPreviewsPanel = GUI.AddPanel(-3);
 
             viewToolKey = new VirtualButton(ViewToolBinding);
             moveToolKey = new VirtualButton(MoveToolBinding);
@@ -367,31 +322,34 @@ namespace BansheeEditor
 
             UpdateRenderTexture(Width, Height - HeaderHeight);
             UpdateLoadingProgress();
+            UpdateCameraPreviews();
+
+            Selection.OnSelectionChanged += OnSelectionChanged;
         }
 
         private void OnCameraOptionsClicked()
         {
-            Vector2I openPosition;
-            Rect2I buttonBounds = GUIUtility.CalculateBounds(cameraOptionsButton, GUI);
-
-            openPosition.x = buttonBounds.x + buttonBounds.width / 2;
-            openPosition.y = buttonBounds.y + buttonBounds.height / 2;
-
-            SceneCameraOptionsDropdown cameraOptionsDropdown = DropDownWindow.Open<SceneCameraOptionsDropdown>(GUI, openPosition);
-
-            cameraOptionsDropdown.Initialize(this);
+            SceneCameraSettingsWindow.Open();
         }
 
         private void OnDestroy()
         {
             if (camera != null)
             {
+                Vector3 pos = camera.SceneObject.Position;
+                Quaternion rot = camera.SceneObject.Rotation;
+
+                ProjectSettings.SetObject(CameraPositionKey, pos);
+                ProjectSettings.SetObject(CameraRotationKey, rot);
+
                 camera.SceneObject.Destroy(true);
                 camera = null;
             }
 
             sceneAxesGUI.Destroy();
             sceneAxesGUI = null;
+
+            Selection.OnSelectionChanged -= OnSelectionChanged;
         }
 
         /// <summary>
@@ -444,6 +402,16 @@ namespace BansheeEditor
             }
         }
 
+        /// <summary>
+        /// Callback that triggers when a new set of scene objects or resources has been selected.
+        /// </summary>
+        /// <param name="objects">Selected scene objects.</param>
+        /// <param name="resources">Selected resources.</param>
+        private void OnSelectionChanged(SceneObject[] objects, string[] resources)
+        {
+            UpdateCameraPreviews();
+        }
+
         /// <inheritdoc/>
         void IGlobalShortcuts.OnRenamePressed()
         {
@@ -488,7 +456,7 @@ namespace BansheeEditor
         {
             axis.Normalize();
 
-            cameraController.LookAlong(axis);
+            sceneCamera.LookAlong(axis);
             UpdateGridMode();
         }
 
@@ -582,6 +550,13 @@ namespace BansheeEditor
             // Update scene view handles and selection
             sceneGrid.Draw();
 
+            ProjectionType currentProjType = camera.ProjectionType;
+            if (sceneAxesLastProjectionType != currentProjType)
+            {
+                sceneAxesGUI.ProjectionType = currentProjType;
+                sceneAxesLastProjectionType = currentProjType;
+            }
+
             bool handleActive = sceneHandles.IsActive() || sceneAxesGUI.IsActive();
 
             Vector2I scenePos;
@@ -647,12 +622,16 @@ namespace BansheeEditor
                                 {
                                     if (!string.IsNullOrEmpty(draggedPaths[i]))
                                     {
-                                        string meshName = Path.GetFileNameWithoutExtension(draggedPaths[i]);
-                                        draggedSO = UndoRedo.CreateSO(meshName, "Created a new Renderable \"" + meshName + "\"");
                                         Mesh mesh = ProjectLibrary.Load<Mesh>(draggedPaths[i]);
 
+                                        string meshName = Path.GetFileNameWithoutExtension(draggedPaths[i]);
+                                        draggedSO = new SceneObject(meshName);
+
+                                        GameObjectUndo.RecordNewSceneObject(draggedSO);
                                         Renderable renderable = draggedSO.AddComponent<Renderable>();
                                         renderable.Mesh = mesh;
+                                        GameObjectUndo.ResolveDiffs();
+
                                         if (mesh != null)
                                             draggedSOOffset = mesh.Bounds.Box.Center;
                                         else
@@ -720,7 +699,7 @@ namespace BansheeEditor
 
             if ((HasContentFocus || IsPointerHovering) && AllowViewportInput)
             {
-                cameraController.EnableInput(true);
+                sceneCamera.EnableInput(true);
 
                 if (inBounds && HasContentFocus)
                 {
@@ -755,7 +734,7 @@ namespace BansheeEditor
                 }
             }
             else
-                cameraController.EnableInput(false);
+                sceneCamera.EnableInput(false);
 
             if (AllowViewportInput)
             {
@@ -775,7 +754,7 @@ namespace BansheeEditor
             UpdateGridMode();
 
             if (VirtualInput.IsButtonDown(frameKey))
-                cameraController.FrameSelected();
+                sceneCamera.FrameSelected();
         }
 
         /// <inheritdoc/>
@@ -934,8 +913,8 @@ namespace BansheeEditor
             height = MathEx.Max(20, height);
 
             // Note: Depth buffer and readable flags are required because ScenePicking uses it
-            Texture colorTex = Texture.Create2D((uint)width, (uint)height, PixelFormat.RGBA8, TextureUsage.Render | TextureUsage.CPUReadable);
-            Texture depthTex = Texture.Create2D((uint)width, (uint)height, PixelFormat.D32_S8X24, TextureUsage.DepthStencil | TextureUsage.CPUReadable);
+            Texture colorTex = Texture.Create2D(width, height, PixelFormat.RGBA8, TextureUsage.Render | TextureUsage.CPUReadable);
+            Texture depthTex = Texture.Create2D(width, height, PixelFormat.D32_S8X24, TextureUsage.DepthStencil | TextureUsage.CPUReadable);
 
             renderTexture = new RenderTexture(colorTex, depthTex);
             renderTexture.Priority = 1;
@@ -947,16 +926,24 @@ namespace BansheeEditor
                 camera.Viewport.Target = renderTexture;
                 camera.Viewport.Area = new Rect2(0.0f, 0.0f, 1.0f, 1.0f);
 
-                sceneCameraSO.Position = new Vector3(0, 0.5f, 1);
-                sceneCameraSO.LookAt(new Vector3(0, 0.5f, 0));
+                Vector3 camPosition = new Vector3(0.0f, 1.7f, 5.0f);
+                object camPosObj = ProjectSettings.GetObject<object>(CameraPositionKey);
+                if (camPosObj is Vector3)
+                    camPosition = (Vector3)camPosObj;
+
+                Quaternion camRotation = Quaternion.Identity;
+                object camRotObj = ProjectSettings.GetObject<object>(CameraRotationKey);
+                if (camRotObj is Quaternion)
+                    camRotation = (Quaternion)camRotObj;
+
+                sceneCameraSO.Position = camPosition;
+                sceneCameraSO.Rotation = camRotation;
 
                 camera.Priority = 2;
                 camera.Viewport.ClearColor = ClearColor;
                 camera.Layers = UInt64.MaxValue & ~SceneAxesHandle.LAYER; // Don't draw scene axes in this camera
 
-                cameraController = sceneCameraSO.AddComponent<SceneCamera>();
-
-                cameraController.Initialize();
+                sceneCamera = sceneCameraSO.AddComponent<SceneCamera>();
 
                 renderTextureGUI = new GUIRenderTexture(renderTexture);
                 rtPanel.AddElement(renderTextureGUI);
@@ -982,6 +969,117 @@ namespace BansheeEditor
             // render target destroy/create cycle for every single pixel.
 
             camera.AspectRatio = width / (float)height;
+        }
+
+        /// <summary>
+        /// Set up preview boxes for the currently selected cameras.
+        /// </summary>
+        private void UpdateCameraPreviews()
+        {
+            SceneObject[] selectedObjects = Selection.SceneObjects;
+
+            // Hide unpinned camera previews which are not selected
+            for (int i = 0; i < cameraPreviews.Count; i++)
+            {
+                var cameraPreview = cameraPreviews[i];
+
+                // Remove preview for destroyed cameras
+                if (cameraPreview.Camera == null || cameraPreview.Camera.SceneObject == null
+                    || /*Temporary hack until we can render preview non-main cameras properly*/ !cameraPreview.Camera.Main)
+                {
+                    HideCameraPreview(cameraPreview.Camera);
+                    continue;
+                }
+
+                if (cameraPreview.IsPinned)
+                    continue;
+
+                bool cameraExists = Array.Exists(selectedObjects, x => x == cameraPreview.Camera.SceneObject);
+                if (!cameraExists)
+                    HideCameraPreview(cameraPreview.Camera);
+            }
+
+            // Create preview for selected cameras
+            for (int i = 0; i < selectedObjects.Length; i++)
+            {
+                if (cameraPreviews.Count >= MaxCameraPreviews)
+                    break;
+
+                var selectedCamera = selectedObjects[i].GetComponent<Camera>();
+                if (selectedCamera != null && /*Temporary hack until we can render preview non-main cameras properly*/ selectedCamera.Main)
+                {
+                    var cameraPreview = cameraPreviews.Find(x => x.Camera == selectedCamera);
+                    if (cameraPreview == null)
+                        cameraPreviews.Add(new CameraPreview(selectedCamera, cameraPreviewsPanel));
+                }
+            }
+
+            // Update preview box placement
+            int previewsCount = cameraPreviews.Count;
+            if (previewsCount > 0)
+            {
+                const float PreviewBoxAspect = 16.0f / 9.0f;
+                const float PreviewBoxMinHeight = 80;
+                const float PreviewBoxMinWidth = PreviewBoxMinHeight * PreviewBoxAspect;
+                const float PreviewBoxMaxHeight = 150;
+                const float PreviewBoxMaxWidth = PreviewBoxMaxHeight * PreviewBoxAspect;
+                const float PreviewBoxViewSpaceMaxPercentage = 0.9f;
+                const float PreviewBoxMarigin = 10;
+
+                Rect2I rtBounds = renderTextureGUI.VisibleBounds;
+                Vector2 rtSize = new Vector2(rtBounds.width, rtBounds.height);
+                Vector2 usableSize = rtSize * PreviewBoxViewSpaceMaxPercentage - PreviewBoxMarigin;
+                Vector2 previewSize = usableSize / previewsCount - previewsCount * PreviewBoxMarigin;
+                float previewWidth = MathEx.Clamp(previewSize.x, PreviewBoxMinWidth, PreviewBoxMaxWidth);
+                float previewHeight = previewWidth / PreviewBoxAspect;
+                previewSize = new Vector2(previewWidth, previewHeight);
+
+                int countPerRow = MathEx.FloorToInt(usableSize.x / previewSize.x);
+                int countPerColumn = MathEx.FloorToInt(usableSize.y / previewSize.y);
+                int index = 0;
+
+                for (int y = 1; y <= countPerColumn; y++)
+                {
+                    for (int x = 1; x <= countPerRow; x++)
+                    {
+                        if (index == previewsCount)
+                            break;
+
+                        var pos = rtSize - (previewSize + PreviewBoxMarigin) * new Vector2(x, y);
+                        var cameraPreview = cameraPreviews[index++];
+                        cameraPreview.ShowPreview(cameraPreview.Camera, 
+                            new Rect2I((int)pos.x, (int)pos.y, (int)previewSize.x, (int)previewSize.y));
+                    }
+
+                    if (index == previewsCount)
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Hides the preview box for the provided camera, if one exists.
+        /// </summary>
+        /// <param name="camera">Camera whose preview box to hide.</param>
+        private void HideCameraPreview(Camera camera)
+        {
+            var cameraPreview = cameraPreviews.Find(x => x.Camera == camera);
+            if (cameraPreview != null)
+            {
+                cameraPreviews.Remove(cameraPreview);
+                cameraPreview.Destroy();
+            }
+        }
+
+        /// <summary>
+        /// Hides all the camera preview boxes.
+        /// </summary>
+        private void HideAllCameraPreviews()
+        {
+            foreach(var entry in cameraPreviews)
+                entry.Destroy();
+
+            cameraPreviews.Clear();
         }
 
         /// <summary>
@@ -1033,7 +1131,7 @@ namespace BansheeEditor
 
                 loadingProgressShown = true;
             }
-            else if(!needsProgress && loadingProgressShown)
+            else if (!needsProgress && loadingProgressShown)
             {
                 progressLayout.Active = false;
                 rtPanel.Active = true;

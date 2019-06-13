@@ -1,7 +1,7 @@
 ﻿using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     partial class GUIColorDistributionField
     {
@@ -10,7 +10,7 @@ namespace BansheeEditor
         /// </summary>
         public event Action OnChanged;
 
-        partial void OnMinClicked()
+        partial void Callback_OnMinClicked()
         {
             ColorDistribution distribution = Value;
 
@@ -48,7 +48,7 @@ namespace BansheeEditor
             }
         }
 
-        partial void OnMaxClicked()
+        partial void Callback_OnMaxClicked()
         {
             ColorDistribution distribution = Value;
 

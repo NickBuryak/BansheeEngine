@@ -1,6 +1,6 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup GUI-Editor 
      *  @{
@@ -15,6 +15,7 @@ namespace BansheeEditor
         public const int DefaultFontSize = 8;
         public const string Blank = "Blank";
         public const string Label = "Label";
+        public const string LabelBold = "LabelBold";
         public const string LabelCentered = "LabelCentered";
         public const string TitleLabel = "TitleLabel";
         public const string MultiLineLabel = "MultiLineLabel";

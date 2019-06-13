@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -29,7 +29,7 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
             // Note: We're ignoring changes to the string table made externally here in order to avoid a lot of checks.
             if ((Language) languageField.Value != StringTables.ActiveLanguage)
@@ -38,7 +38,7 @@ namespace BansheeEditor
                 BuildGUI();
             }
 
-            valuesField.Refresh();
+            valuesField.Refresh(force);
 
             return InspectableState.NotModified;
         }
@@ -165,12 +165,12 @@ namespace BansheeEditor
             }
 
             /// <inheritdoc/>
-            internal protected override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force = false)
             {
                 keyField.Value = GetKey<string>();
                 valueField.Value = GetValue<string>();
 
-                return base.Refresh();
+                return base.Refresh(force);
             }
         }
     }

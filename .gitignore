@@ -31,3 +31,7 @@ Documentation/html
 Source/Experimental
 .vs/*
 Source/EditorManaged/MBansheeEditor.csproj
+bsfImportToolBuild
+CMakeSettings.json
+.vscode/*
+Source/EditorManaged/Properties/AssemblyInfo.cs

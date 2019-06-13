@@ -46,6 +46,8 @@ namespace bs
 	const char* BuiltinEditorResources::ShaderFolder = "Shaders/";
 	const char* BuiltinEditorResources::SkinFolder = "Skin/";
 	const char* BuiltinEditorResources::IconFolder = "Icons/";
+	const char* BuiltinEditorResources::Icon3DFolder = "Icons3D/";
+	const char* BuiltinEditorResources::AnimatedSpritesFolder = "AnimatedSprites/";
 	const char* BuiltinEditorResources::ShaderIncludeFolder = "Shaders/Includes/";
 	const char* BuiltinEditorResources::SpriteSubFolder = "Sprites/";
 
@@ -112,7 +114,10 @@ namespace bs
 		EditorSkinFolder = BuiltinDataFolder + SkinFolder;
 		EditorSkinSpritesFolder = EditorSkinFolder + SpriteSubFolder;
 		EditorIconFolder = BuiltinDataFolder + IconFolder;
+		EditorIcon3DFolder = BuiltinDataFolder + Icon3DFolder;
 		EditorIconSpritesFolder = EditorIconFolder + SpriteSubFolder;
+		EditorIcon3DSpritesFolder = EditorIcon3DFolder + SpriteSubFolder;
+		EditorAnimatedSpritesFolder = BuiltinDataFolder + AnimatedSpritesFolder + SpriteSubFolder;
 		EditorShaderFolder = BuiltinDataFolder + ShaderFolder;
 		EditorShaderIncludeFolder = BuiltinDataFolder + ShaderIncludeFolder;
 
@@ -156,6 +161,22 @@ namespace bs
 	HSpriteTexture BuiltinEditorResources::getGUIIcon(const String& name) const
 	{
 		Path texturePath = EditorIconSpritesFolder;
+		texturePath.append("sprite_" + name + ".asset");
+
+		return gResources().load<SpriteTexture>(texturePath);
+	}
+
+	HSpriteTexture BuiltinEditorResources::getGUIIcon3D(const String& name) const
+	{
+		Path texturePath = EditorIcon3DSpritesFolder;
+		texturePath.append("sprite_" + name + ".asset");
+
+		return gResources().load<SpriteTexture>(texturePath);
+	}
+
+	HSpriteTexture BuiltinEditorResources::getAnimatedSprite(const String& name) const
+	{
+		Path texturePath = EditorAnimatedSpritesFolder;
 		texturePath.append("sprite_" + name + ".asset");
 
 		return gResources().load<SpriteTexture>(texturePath);
@@ -254,61 +275,61 @@ namespace bs
 		return Material::create(mShaderSelection);
 	}
 
-	HSpriteTexture BuiltinEditorResources::getLibraryIcon(ProjectIcon icon, int size) const
+	HSpriteTexture BuiltinEditorResources::getProjectLibraryIcon(ProjectLibraryIcon icon, int size) const
 	{
 		String iconName;
 
 		switch (icon)
 		{
-		case ProjectIcon::Folder:
+		case ProjectLibraryIcon::Folder:
 			iconName = FolderIconTex;
 			break;
-		case ProjectIcon::Font:
+		case ProjectLibraryIcon::Font:
 			iconName = FontIconTex;
 			break;
-		case ProjectIcon::Mesh:
+		case ProjectLibraryIcon::Mesh:
 			iconName = MeshIconTex;
 			break;
-		case ProjectIcon::Texture:
+		case ProjectLibraryIcon::Texture:
 			iconName = TextureIconTex;
 			break;
-		case ProjectIcon::PlainText:
+		case ProjectLibraryIcon::PlainText:
 			iconName = PlainTextIconTex;
 			break;
-		case ProjectIcon::ScriptCode:
+		case ProjectLibraryIcon::ScriptCode:
 			iconName = ScriptCodeIconTex;
 			break;
-		case ProjectIcon::Shader:
+		case ProjectLibraryIcon::Shader:
 			iconName = ShaderIconTex;
 			break;
-		case ProjectIcon::ShaderInclude:
+		case ProjectLibraryIcon::ShaderInclude:
 			iconName = ShaderIncludeIconTex;
 			break;
-		case ProjectIcon::Material:
+		case ProjectLibraryIcon::Material:
 			iconName = MaterialIconTex;
 			break;
-		case ProjectIcon::SpriteTexture:
+		case ProjectLibraryIcon::SpriteTexture:
 			iconName = SpriteTextureIconTex;
 			break;
-		case ProjectIcon::Prefab:
+		case ProjectLibraryIcon::Prefab:
 			iconName = PrefabIconTex;
 			break;
-		case ProjectIcon::GUISkin:
+		case ProjectLibraryIcon::GUISkin:
 			iconName = GUISkinIconTex;
 			break;
-		case ProjectIcon::PhysicsMaterial:
+		case ProjectLibraryIcon::PhysicsMaterial:
 			iconName = PhysicsMaterialIconTex;
 			break;
-		case ProjectIcon::PhysicsMesh:
+		case ProjectLibraryIcon::PhysicsMesh:
 			iconName = PhysicsMeshIconTex;
 			break;
-		case ProjectIcon::AudioClip:
+		case ProjectLibraryIcon::AudioClip:
 			iconName = AudioClipIconTex;
 			break;
-		case ProjectIcon::AnimationClip:
+		case ProjectLibraryIcon::AnimationClip:
 			iconName = AnimationClipIconTex;
 			break;
-		case ProjectIcon::VectorField:
+		case ProjectLibraryIcon::VectorField:
 			iconName = SpriteTextureIconTex;
 			break;
 		}
@@ -445,6 +466,31 @@ namespace bs
 		return output;
 	}
 
+	HSpriteTexture BuiltinEditorResources::getSceneViewIcon(SceneViewIcon icon) const
+	{
+		switch (icon)
+		{
+		case SceneViewIcon::AudioListener:
+			return getGUIIcon3D("SceneAudioListener.png");
+		case SceneViewIcon::AudioSource:
+			return getGUIIcon3D("SceneAudioSource.png");
+		case SceneViewIcon::Camera:
+			return getGUIIcon3D("SceneCamera.png");
+		case SceneViewIcon::Decal:
+			return getGUIIcon3D("SceneDecal.png");
+		case SceneViewIcon::Light:
+			return getGUIIcon3D("SceneLight.png");
+		case SceneViewIcon::LightProbes:
+			return getGUIIcon3D("SceneLightProbes.png");
+		case SceneViewIcon::ParticleSystem:
+			return getGUIIcon3D("SceneParticleSystem.png");
+		case SceneViewIcon::ReflectionProbe:
+			return getGUIIcon3D("SceneReflectionProbe.png");
+		}
+
+		return HSpriteTexture();
+	}
+
 	HSpriteTexture BuiltinEditorResources::getLibraryWindowIcon(LibraryWindowIcon icon) const
 	{
 		switch (icon)
@@ -547,7 +593,7 @@ namespace bs
 		return output;
 	}
 
-	HSpriteTexture BuiltinEditorResources::getIcon(EditorIcon icon) const
+	HSpriteTexture BuiltinEditorResources::getEditorIcon(EditorIcon icon) const
 	{
 		switch (icon)
 		{
@@ -560,6 +606,32 @@ namespace bs
 		}
 
 		return HSpriteTexture();
+	}
+
+	GUIContentImages BuiltinEditorResources::getEditorToggleIcon(EditorToggleIcon icon) const
+	{
+		HSpriteTexture off;
+		HSpriteTexture on;
+
+		switch (icon)
+		{
+		case EditorToggleIcon::AnimateProperty:
+			off = getGUIIcon("AnimPropertyIcon.png");
+			on = getGUIIcon("AnimPropertyIconOn.png");
+			break;
+		}
+
+		GUIContentImages output;
+		output.normal = off;
+		output.hover = off;
+		output.active = on;
+		output.focused = off;
+		output.normalOn = on;
+		output.hoverOn = on;
+		output.activeOn = on;
+		output.focusedOn = on;
+
+		return output;
 	}
 
 	HSpriteTexture BuiltinEditorResources::getLogMessageIcon(LogMessageIcon icon, UINT32 size, bool dark) const
@@ -602,6 +674,17 @@ namespace bs
 			case LogMessageIcon::Error:
 				return getGUIIcon("IconError32.png");
 			}
+		}
+
+		return HSpriteTexture();
+	}
+
+	HSpriteTexture BuiltinEditorResources::getSprite(EditorSprites sprite)
+	{
+		switch(sprite)
+		{
+		case EditorSprites::Spinner:
+			return getAnimatedSprite("Spinner.png");
 		}
 
 		return HSpriteTexture();

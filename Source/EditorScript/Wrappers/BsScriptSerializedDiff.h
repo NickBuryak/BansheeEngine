@@ -17,18 +17,19 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptSerializedDiff : public ScriptObject <ScriptSerializedDiff>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "SerializedDiff")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "SerializedDiff")
 
 	private:
-		ScriptSerializedDiff(MonoObject* instance, const SPtr<ManagedSerializableDiff>& obj);
+		ScriptSerializedDiff(MonoObject* instance, const SPtr<IReflectable>& obj);
 
-		SPtr<ManagedSerializableDiff> mSerializedDiff;
+		SPtr<IReflectable> mSerializedDiff;
 
 		/************************************************************************/
 		/* 								CLR HOOKS						   		*/
 		/************************************************************************/
-		static MonoObject* internal_CreateDiff(ScriptSerializedObject* oldObj, MonoObject* newObj);
+		static MonoObject* internal_CreateDiff(ScriptSerializedObject* oldObj, ScriptSerializedObject* newObj);
 		static void internal_ApplyDiff(ScriptSerializedDiff* thisPtr, MonoObject* obj);
+		static bool internal_IsEmpty(ScriptSerializedDiff* thisPtr);
 	};
 
 	/** @} */

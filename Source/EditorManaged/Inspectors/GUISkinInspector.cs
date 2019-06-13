@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -28,9 +28,9 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
-            valuesField.Refresh();
+            valuesField.Refresh(force);
 
             return InspectableState.NotModified;
         }
@@ -143,7 +143,7 @@ namespace BansheeEditor
             }
 
             /// <inheritdoc/>
-            internal protected override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force)
             {
                 keyField.Value = GetKey<string>();
                 return valueField.Refresh(GetValue<GUIElementStyle>());
@@ -490,7 +490,7 @@ namespace BansheeEditor
                     textureField.OnChanged += x =>
                     {
                         SpriteTexture texture = Resources.Load<SpriteTexture>(x.UUID);
-                        state.Texture = texture;
+                        state.texture = texture;
 
                         if (OnChanged != null)
                             OnChanged(state);
@@ -498,7 +498,7 @@ namespace BansheeEditor
 
                     textColorField.OnChanged += x =>
                     {
-                        state.TextColor = x;
+                        state.textColor = x;
 
                         if (OnChanged != null)
                             OnChanged(state);
@@ -521,8 +521,8 @@ namespace BansheeEditor
                 {
                     this.state = state;
 
-                    textureField.Value = state.Texture;
-                    textColorField.Value = state.TextColor;
+                    textureField.Value = state.texture;
+                    textColorField.Value = state.textColor;
                 }
             }
 

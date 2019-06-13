@@ -18,7 +18,7 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptUndoRedo : public ScriptObject <ScriptUndoRedo>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "UndoRedo");
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "UndoRedo");
 
 		/** Creates a new managed UndoRedo stack. */
 		static MonoObject* create();
@@ -49,11 +49,11 @@ namespace bs
 		static void internal_Clear(ScriptUndoRedo* thisPtr);
 		static UINT32 internal_GetTopCommandId(ScriptUndoRedo* thisPtr);
 		static void internal_PopCommand(ScriptUndoRedo* thisPtr, UINT32 id);
-		static void internal_RecordSO(ScriptSceneObject* soPtr, bool recordHierarchy, MonoString* description);
 		static MonoObject* internal_CloneSO(ScriptSceneObject* soPtr, MonoString* description);
 		static MonoArray* internal_CloneSOMulti(MonoArray* soPtrs, MonoString* description);
 		static MonoObject* internal_Instantiate(ScriptPrefab* prefabPtr, MonoString* description);
 		static MonoObject* internal_CreateSO(MonoString* name, MonoString* description);
+		static MonoObject* internal_CreateSO2(MonoString* name, MonoArray* types, MonoString* description);
 		static void internal_DeleteSO(ScriptSceneObject* soPtr, MonoString* description);
 		static void internal_ReparentSO(ScriptSceneObject* soPtr, ScriptSceneObject* parentSOPtr, MonoString* description);
 		static void internal_ReparentSOMulti(MonoArray* soPtrs, ScriptSceneObject* parentSOPtr, MonoString* description);

@@ -4,21 +4,20 @@
 
 #include "BsEditorPrerequisites.h"
 #include "UndoRedo/BsEditorCommand.h"
-#include "UndoRedo/BsUndoRedo.h"
 #include "Utility/BsEditorUtility.h"
 
 namespace bs
 {
+	class SerializedSceneObject;
+
 	/** @addtogroup UndoRedo
 	 *  @{
 	 */
 
 	/** A command used for undo/redo purposes. Deletes a scene object and restores it as an undo operation. */
-	class BS_ED_EXPORT CmdDeleteSO : public EditorCommand
+	class BS_ED_EXPORT CmdDeleteSO final : public EditorCommand
 	{
 	public:
-		~CmdDeleteSO();
-
 		/**
 		 * Creates and executes the command on the provided scene object. Automatically registers the command with 
 		 * undo/redo system.
@@ -39,21 +38,8 @@ namespace bs
 
 		CmdDeleteSO(const String& description, const HSceneObject& sceneObject);
 
-		/**
-		 * Saves the state of the specified object, all of its children and components. Make sure to call clear() when you
-		 * no longer need the data, or wish to call this method again.
-		 */
-		void recordSO(const HSceneObject& sceneObject);
-
-		/**	Clears all the stored data and frees memory. */
-		void clear();
-
 		HSceneObject mSceneObject;
-		EditorUtility::SceneObjProxy mSceneObjectProxy;
-
-		UINT8* mSerializedObject;
-		UINT32 mSerializedObjectSize;
-		UINT64 mSerializedObjectParentId;
+		SPtr<SerializedSceneObject> mSerialized;
 	};
 
 	/** @} */

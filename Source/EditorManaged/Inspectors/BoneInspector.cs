@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System.Collections;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -24,11 +24,35 @@ namespace BansheeEditor
         /// <inheritdoc/>
         protected internal override void Initialize()
         {
-            BuildGUI();
+            Layout.Clear();
+
+            Bone bone = InspectedObject as Bone;
+            if (bone == null)
+                return;
+
+            string[] boneNames = GetBoneNames(bone);
+            if(boneNames == null)
+                boneNames = new string[0];
+
+            boneField = new GUIListBoxField(boneNames, false, new LocEdString("Bone"));
+
+            Layout.AddElement(boneField);
+
+            boneField.OnSelectionChanged += x =>
+            {
+                selectedBoneName = boneNames[x];
+
+                StartUndo("bone");
+                bone.Name = selectedBoneName;
+                EndUndo();
+                
+                MarkAsModified();
+                ConfirmModify();
+            };
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
             Bone bone = InspectedObject as Bone;
             if (bone == null)
@@ -57,35 +81,6 @@ namespace BansheeEditor
                 modifyState = InspectableState.NotModified;
 
             return oldState;
-        }
-
-        /// <summary>
-        /// Recreates all the GUI elements used by this inspector.
-        /// </summary>
-        private void BuildGUI()
-        {
-            Layout.Clear();
-
-            Bone bone = InspectedObject as Bone;
-            if (bone == null)
-                return;
-
-            string[] boneNames = GetBoneNames(bone);
-            if(boneNames == null)
-                boneNames = new string[0];
-
-            boneField = new GUIListBoxField(boneNames, false, new LocEdString("Bone"));
-
-            Layout.AddElement(boneField);
-
-            boneField.OnSelectionChanged += x =>
-            {
-                selectedBoneName = boneNames[x];
-                bone.Name = selectedBoneName;
-                
-                MarkAsModified();
-                ConfirmModify();
-            };
         }
 
         /// <summary>
@@ -119,6 +114,9 @@ namespace BansheeEditor
                 return null;
 
             Skeleton skeleton = mesh.Value.Skeleton;
+            if (skeleton == null)
+                return null;
+
             string[] boneNames = new string[skeleton.NumBones];
             for (int i = 0; i < boneNames.Length; i++)
                 boneNames[i] = skeleton.GetBoneInfo(i).name;

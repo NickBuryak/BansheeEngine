@@ -1,8 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -19,7 +19,7 @@ namespace BansheeEditor
         private GUIEnumField bitDepthField = new GUIEnumField(typeof(AudioBitDepth), new LocEdString("Bit depth"));
         private GUIToggleField is3DField = new GUIToggleField(new LocEdString("3D"));
 
-        private GUIButton reimportButton = new GUIButton(new LocEdString("Reimport"));
+        private GUIReimportButton reimportButton;
 
         private AudioClipImportOptions importOptions;
 
@@ -30,10 +30,8 @@ namespace BansheeEditor
 
             formatField.OnSelectionChanged += x => importOptions.Format = (AudioFormat)x;
             readModeField.OnSelectionChanged += x => importOptions.ReadMode = (AudioReadMode)x;
-            bitDepthField.OnSelectionChanged += x => importOptions.BitDepth = (AudioBitDepth)x;
+            bitDepthField.OnSelectionChanged += x => importOptions.BitDepth = (int)x;
             is3DField.OnChanged += x => importOptions.Is3D = x;
-
-            reimportButton.OnClick += TriggerReimport;
 
             Layout.AddElement(formatField);
             Layout.AddElement(readModeField);
@@ -41,24 +39,31 @@ namespace BansheeEditor
             Layout.AddElement(is3DField);
             Layout.AddSpace(10);
 
-            GUILayout reimportButtonLayout = Layout.AddLayoutX();
-            reimportButtonLayout.AddFlexibleSpace();
-            reimportButtonLayout.AddElement(reimportButton);
+            reimportButton = new GUIReimportButton(InspectedResourcePath, Layout, () =>
+            {
+                ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
+            });
+
+            UpdateGUIValues();
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
-            AudioClipImportOptions newImportOptions = GetImportOptions();
-
-            formatField.Value = (ulong)newImportOptions.Format;
-            readModeField.Value = (ulong)newImportOptions.ReadMode;
-            bitDepthField.Value = (ulong)newImportOptions.BitDepth;
-            is3DField.Value = newImportOptions.Is3D;
-
-            importOptions = newImportOptions;
+            reimportButton.Update();
 
             return InspectableState.NotModified;
+        }
+
+        /// <summary>
+        /// Updates the GUI element values from the current import options object.
+        /// </summary>
+        private void UpdateGUIValues()
+        {
+            formatField.Value = (ulong)importOptions.Format;
+            readModeField.Value = (ulong)importOptions.ReadMode;
+            bitDepthField.Value = (ulong)importOptions.BitDepth;
+            is3DField.Value = importOptions.Is3D; ;
         }
 
         /// <summary>
@@ -85,14 +90,6 @@ namespace BansheeEditor
             }
 
             return output;
-        }
-
-        /// <summary>
-        /// Reimports the resource according to the currently set import options.
-        /// </summary>
-        private void TriggerReimport()
-        {
-            ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
         }
     }
 

@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2018 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup AnimationEditor
      *  @{
@@ -409,7 +409,7 @@ namespace BansheeEditor
         public void SetFPS(int fps)
         {
             guiTimeline.SetFPS(fps);
-            guiCurveDrawing.FPS = (uint)fps;
+            guiCurveDrawing.FPS = fps;
 
             if(showEvents)
                 guiEvents.SetFPS(fps);
@@ -445,7 +445,7 @@ namespace BansheeEditor
             markedFrameIdx = frameIdx;
 
             guiTimeline.SetMarkedFrame(frameIdx);
-            guiCurveDrawing.MarkedFrame = (uint)frameIdx;
+            guiCurveDrawing.MarkedFrame = frameIdx;
 
             if(showEvents)
                 guiEvents.SetMarkedFrame(frameIdx);

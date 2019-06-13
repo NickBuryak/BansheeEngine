@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2018 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -20,16 +20,16 @@ namespace BansheeEditor
         /// <summary>
         /// Creates a new inspectable enum GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the field whose contents to display.</param>
-        public InspectableEnum(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout,
+        public InspectableEnum(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout,
             SerializableProperty property)
-            : base(parent, title, path, SerializableProperty.FieldType.Enum, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.Enum, depth, layout, property)
         { }
 
         /// <inheritoc/>
@@ -45,7 +45,7 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
             if (guiField != null)
                 guiField.Value = property.GetValue<ulong>();
@@ -63,8 +63,12 @@ namespace BansheeEditor
         /// <param name="newValue">Newly selected list box value.</param>
         private void OnFieldValueChanged(ulong newValue)
         {
+            StartUndo();
+
             property.SetValue(newValue);
             state = InspectableState.Modified;
+
+            EndUndo();
         }
     }
 

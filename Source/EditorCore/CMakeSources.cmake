@@ -33,6 +33,7 @@ set(BS_BANSHEEEDITOR_INC_SCENE
 	"Scene/BsScenePicking.h"
 	"Scene/BsSelection.h"
 	"Scene/BsSelectionRenderer.h"
+	"Scene/BsSerializedSceneObject.h"
 )
 
 set(BS_BANSHEEEDITOR_SRC_GUI
@@ -118,11 +119,10 @@ set(BS_BANSHEEEDITOR_INC_GUI
 set(BS_BANSHEEEDITOR_INC_UNDOREDO
 	"UndoRedo/BsEditorCommand.h"
 	"UndoRedo/BsCmdReparentSO.h"
-	"UndoRedo/BsCmdInputFieldValueChange.h"
-	"UndoRedo/BsCmdRecordSO.h"
 	"UndoRedo/BsCmdDeleteSO.h"
 	"UndoRedo/BsCmdCreateSO.h"
 	"UndoRedo/BsCmdCloneSO.h"
+	"UndoRedo/BsCmdRenameSO.h"
 	"UndoRedo/BsCmdInstantiateSO.h"
 	"UndoRedo/BsCmdBreakPrefab.h"
 	"UndoRedo/BsUndoRedo.h"
@@ -145,12 +145,13 @@ set(BS_BANSHEEEDITOR_SRC_NOFILTER
 	"BsEditorApplication.cpp"
 )
 
-set(BS_BANSHEEEDITOR_SRC_SCENEVIEW
-	"SceneView/BsGizmoManager.cpp"
-	"SceneView/BsSelectionRenderer.cpp"
-	"SceneView/BsSelection.cpp"
-	"SceneView/BsScenePicking.cpp"
-	"SceneView/BsSceneGrid.cpp"
+set(BS_BANSHEEEDITOR_SRC_SCENE
+	"Scene/BsGizmoManager.cpp"
+	"Scene/BsSelectionRenderer.cpp"
+	"Scene/BsSelection.cpp"
+	"Scene/BsScenePicking.cpp"
+	"Scene/BsSceneGrid.cpp"
+	"Scene/BsSerializedSceneObject.cpp"
 )
 
 set(BS_BANSHEEEDITOR_INC_NOFILTER
@@ -210,10 +211,10 @@ set(BS_BANSHEEEDITOR_SRC_SETTINGS
 set(BS_BANSHEEEDITOR_SRC_UNDOREDO
 	"UndoRedo/BsEditorCommand.cpp"
 	"UndoRedo/BsCmdReparentSO.cpp"
-	"UndoRedo/BsCmdRecordSO.cpp"
 	"UndoRedo/BsCmdDeleteSO.cpp"
 	"UndoRedo/BsCmdCreateSO.cpp"
 	"UndoRedo/BsCmdCloneSO.cpp"
+	"UndoRedo/BsCmdRenameSO.cpp"
 	"UndoRedo/BsCmdInstantiateSO.cpp"
 	"UndoRedo/BsCmdBreakPrefab.cpp"
 	"UndoRedo/BsUndoRedo.cpp"
@@ -263,6 +264,7 @@ set(BS_BANSHEEEDITOR_INC_WIN32
 set(BS_BANSHEEEDITOR_SRC_WIN32
 	"Private/Win32/BsVSCodeEditor.cpp"
 	"Private/Win32/BsWin32BrowseDialogs.cpp"
+	"Private/Win32/BsEditorWin32Resource.rc"
 )
 
 set(BS_BANSHEEEDITOR_SRC_LINUX
@@ -293,7 +295,7 @@ source_group("Header Files\\GUI" FILES ${BS_BANSHEEEDITOR_INC_GUI})
 source_group("Header Files\\UndoRedo" FILES ${BS_BANSHEEEDITOR_INC_UNDOREDO})
 source_group("Header Files\\RTTI" FILES ${BS_BANSHEEEDITOR_INC_RTTI})
 source_group("Source Files" FILES ${BS_BANSHEEEDITOR_SRC_NOFILTER})
-source_group("Source Files\\SceneView" FILES ${BS_BANSHEEEDITOR_SRC_SCENEVIEW})
+source_group("Source Files\\Scene" FILES ${BS_BANSHEEEDITOR_SRC_SCENE})
 source_group("Header Files" FILES ${BS_BANSHEEEDITOR_INC_NOFILTER})
 source_group("Header Files\\Handles" FILES ${BS_BANSHEEEDITOR_INC_HANDLES})
 source_group("Source Files\\Utility" FILES ${BS_BANSHEEEDITOR_SRC_UTILITY})
@@ -322,7 +324,7 @@ set(BS_BANSHEEEDITOR_SRC
 	${BS_BANSHEEEDITOR_INC_UNDOREDO}
 	${BS_BANSHEEEDITOR_INC_RTTI}
 	${BS_BANSHEEEDITOR_SRC_NOFILTER}
-	${BS_BANSHEEEDITOR_SRC_SCENEVIEW}
+	${BS_BANSHEEEDITOR_SRC_SCENE}
 	${BS_BANSHEEEDITOR_INC_NOFILTER}
 	${BS_BANSHEEEDITOR_INC_HANDLES}
 	${BS_BANSHEEEDITOR_SRC_UTILITY}

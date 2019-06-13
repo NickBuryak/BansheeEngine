@@ -3,9 +3,9 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
 	/** @addtogroup GUIEditor
 	 *  @{
@@ -49,7 +49,7 @@ namespace BansheeEditor
 		}
 
 		/// <summary>Triggered when the user clicks on the GUI element.</summary>
-		partial void OnClicked();
+		partial void Callback_OnClicked();
 
 		/// <summary>Changes the visible range that the GUI element displays.</summary>
 		/// <param name="xRange">Range of the horizontal area. Displayed area will range from [0, xRange].</param>
@@ -85,10 +85,10 @@ namespace BansheeEditor
 		}
 
 		/// <summary>
-		/// Converts coordinate in curve space (time, value) into pixel coordinates relative to this element's origin.
+		/// Converts coordinate in curve space (time, value) into pixel coordinates relative to this element&apos;s origin.
 		/// </summary>
 		/// <param name="curveCoords">Time and value of the location to convert.</param>
-		/// <returns>Coordinates relative to this element's origin, in pixels.</returns>
+		/// <returns>Coordinates relative to this element&apos;s origin, in pixels.</returns>
 		public Vector2I CurveToPixelSpace(Vector2 curveCoords)
 		{
 			Vector2I temp;
@@ -99,7 +99,7 @@ namespace BansheeEditor
 		/// <summary>Attempts to find a curve under the provided coordinates.</summary>
 		/// <param name="pixelCoords">Coordinates relative to this GUI element in pixels.</param>
 		/// <returns>Index of the curve, or -1 if none found.</returns>
-		public uint FindCurve(Vector2I pixelCoords)
+		public int FindCurve(Vector2I pixelCoords)
 		{
 			return Internal_findCurve(mCachedPtr, ref pixelCoords);
 		}
@@ -156,7 +156,7 @@ namespace BansheeEditor
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern void Internal_curveToPixelSpace(IntPtr thisPtr, ref Vector2 curveCoords, out Vector2I __output);
 		[MethodImpl(MethodImplOptions.InternalCall)]
-		private static extern uint Internal_findCurve(IntPtr thisPtr, ref Vector2I pixelCoords);
+		private static extern int Internal_findCurve(IntPtr thisPtr, ref Vector2I pixelCoords);
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern bool Internal_findKeyFrame(IntPtr thisPtr, ref Vector2I pixelCoords, out KeyframeRef keyframe);
 		[MethodImpl(MethodImplOptions.InternalCall)]
@@ -171,7 +171,7 @@ namespace BansheeEditor
 		private static extern void Internal_create0(GUICurves managedInstance, CurveDrawOptions drawOptions, string styleName);
 		private void Internal_onClicked()
 		{
-			OnClicked();
+			Callback_OnClicked();
 		}
 	}
 

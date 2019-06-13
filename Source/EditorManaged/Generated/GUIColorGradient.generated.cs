@@ -3,9 +3,9 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
 	/** @addtogroup GUIEditor
 	 *  @{
@@ -40,7 +40,7 @@ namespace BansheeEditor
 		}
 
 		/// <summary>Triggered when the user clicks on the GUI element.</summary>
-		partial void OnClicked();
+		partial void Callback_OnClicked();
 
 		[MethodImpl(MethodImplOptions.InternalCall)]
 		private static extern void Internal_setGradient(IntPtr thisPtr, ColorGradient colorGradient);
@@ -50,7 +50,7 @@ namespace BansheeEditor
 		private static extern void Internal_create(GUIColorGradient managedInstance, string styleName);
 		private void Internal_onClicked()
 		{
-			OnClicked();
+			Callback_OnClicked();
 		}
 	}
 

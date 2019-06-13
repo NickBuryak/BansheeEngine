@@ -27,9 +27,6 @@ set(BS_EDITORSCRIPT_SRC_WRAPPERS_GUI
 	"Wrappers/GUI/BsScriptGUITextField.cpp"
 	"Wrappers/GUI/BsScriptGUITextureField.cpp"
 	"Wrappers/GUI/BsScriptGUIToggleField.cpp"
-	"Wrappers/GUI/BsScriptGUIVector2Field.cpp"
-	"Wrappers/GUI/BsScriptGUIVector3Field.cpp"
-	"Wrappers/GUI/BsScriptGUIVector4Field.cpp"
 )
 
 set(BS_EDITORSCRIPT_SRC_WRAPPERS
@@ -39,7 +36,6 @@ set(BS_EDITORSCRIPT_SRC_WRAPPERS
 	"Wrappers/BsScriptDragDropManager.cpp"
 	"Wrappers/BsScriptDropDownWindow.cpp"
 	"Wrappers/BsScriptEditorApplication.cpp"
-	"Wrappers/BsScriptEditorBuiltin.cpp"
 	"Wrappers/BsScriptEditorInput.cpp"
 	"Wrappers/BsScriptEditorSettings.cpp"
 	"Wrappers/BsScriptEditorTestSuite.cpp"
@@ -56,7 +52,6 @@ set(BS_EDITORSCRIPT_SRC_WRAPPERS
 	"Wrappers/BsScriptHandleSliderPlane.cpp"
 	"Wrappers/BsScriptHandleSliderSphere.cpp"
 	"Wrappers/BsScriptHandleSlider2D.cpp"
-	"Wrappers/BsScriptImportOptions.cpp"
 	"Wrappers/BsScriptInspectorUtility.cpp"
 	"Wrappers/BsScriptModalWindow.cpp"
 	"Wrappers/BsScriptOSDropTarget.cpp"
@@ -73,11 +68,9 @@ set(BS_EDITORSCRIPT_SRC_WRAPPERS
 	"Wrappers/BsScriptUnitTests.cpp"
 	"Wrappers/BsScriptSerializedObject.cpp"
 	"Wrappers/BsScriptSerializedDiff.cpp"
-	"Wrappers/BsScriptSerializedSceneObject.cpp"
 )
 
 set(BS_EDITORSCRIPT_SRC_NOFILTER
-	"BsScriptEditorPlugin.cpp"
 	"BsGUIGameObjectField.cpp"
 	"BsGUIResourceField.cpp"
 	"BsEditorScriptManager.cpp"
@@ -97,7 +90,6 @@ set(BS_EDITORSCRIPT_INC_WRAPPERS
 	"Wrappers/BsScriptBuildManager.h"
 	"Wrappers/BsScriptDropDownWindow.h"
 	"Wrappers/BsScriptEditorApplication.h"
-	"Wrappers/BsScriptEditorBuiltin.h"
 	"Wrappers/BsScriptEditorInput.h"
 	"Wrappers/BsScriptEditorSettings.h"
 	"Wrappers/BsScriptEditorTestSuite.h"
@@ -120,7 +112,6 @@ set(BS_EDITORSCRIPT_INC_WRAPPERS
 	"Wrappers/BsScriptOSDropTarget.h"
 	"Wrappers/BsScriptModalWindow.h"
 	"Wrappers/BsScriptInspectorUtility.h"
-	"Wrappers/BsScriptImportOptions.h"
 	"Wrappers/BsScriptHandleSliderPlane.h"
 	"Wrappers/BsScriptHandleSliderManager.h"
 	"Wrappers/BsScriptHandleSliderLine.h"
@@ -131,7 +122,6 @@ set(BS_EDITORSCRIPT_INC_WRAPPERS
 	"Wrappers/BsScriptHandleDrawing.h"
 	"Wrappers/BsScriptSerializedObject.h"
 	"Wrappers/BsScriptSerializedDiff.h"	
-	"Wrappers/BsScriptSerializedSceneObject.h"
 )
 
 set(BS_EDITORSCRIPT_INC_WRAPPERS_GUI
@@ -147,9 +137,6 @@ set(BS_EDITORSCRIPT_INC_WRAPPERS_GUI
 	"Wrappers/GUI/BsScriptGUITextField.h"
 	"Wrappers/GUI/BsScriptGUITextureField.h"
 	"Wrappers/GUI/BsScriptGUIToggleField.h"
-	"Wrappers/GUI/BsScriptGUIVector2Field.h"
-	"Wrappers/GUI/BsScriptGUIVector3Field.h"
-	"Wrappers/GUI/BsScriptGUIVector4Field.h"
 )
 
 source_group("Header Files" FILES ${BS_EDITORSCRIPT_INC_NOFILTER})

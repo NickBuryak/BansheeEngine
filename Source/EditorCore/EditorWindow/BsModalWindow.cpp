@@ -15,9 +15,8 @@
 
 namespace bs
 {
-	ModalWindow::ModalWindow(const HString& title, bool hasCloseButton)
-		: EditorWindowBase(true), mTitleBarPanel(nullptr), mTitleBarBgPanel(nullptr), mTitle(nullptr), mCloseButton(nullptr)
-		, mTitleBarBg(nullptr),mContents(nullptr)
+	ModalWindow::ModalWindow(const HString& title, bool hasCloseButton, UINT32 width, UINT32 height)
+		: EditorWindowBase(true, width, height)
 	{
 		EditorWindowManager::instance().registerWindow(this);
 
@@ -71,11 +70,6 @@ namespace bs
 		updateSize();
 	}
 
-	ModalWindow::~ModalWindow()
-	{
-
-	}
-
 	Vector2I ModalWindow::screenToWindowPos(const Vector2I& screenPos) const
 	{
 		Vector2I renderWindowPos = getRenderWindow()->screenToWindowPos(screenPos);
@@ -115,6 +109,31 @@ namespace bs
 		mTitle->setContent(GUIContent(title));
 	}
 
+	void ModalWindow::setSize(UINT32 width, UINT32 height)
+	{
+		EditorWindowBase::setSize(width, height);
+		
+		updateSize();
+	}
+
+	UINT32 ModalWindow::getContentWidth() const
+	{
+		return getWidth() - 2;
+	}
+
+	UINT32 ModalWindow::getContentHeight() const
+	{
+		return getHeight() - getTitleBarHeight() - 2;
+	}
+
+	void ModalWindow::setContentSize(UINT32 width, UINT32 height)
+	{
+		UINT32 actualWidth = width + 2;
+		UINT32 actualHeight = height + getTitleBarHeight() + 2;
+
+		setSize(actualWidth, actualHeight);
+	}
+
 	void ModalWindow::resized()
 	{
 		EditorWindowBase::resized();
@@ -139,7 +158,7 @@ namespace bs
 
 	Rect2I ModalWindow::getContentArea() const
 	{
-		return Rect2I(1, 1 + getTitleBarHeight(), getWidth() - 2, getHeight() - getTitleBarHeight() - 2);
+		return Rect2I(1, 1 + getTitleBarHeight(), getContentWidth(), getContentHeight());
 	}
 
 	UINT32 ModalWindow::getTitleBarHeight() const

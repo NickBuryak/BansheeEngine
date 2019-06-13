@@ -39,6 +39,10 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_GetHeight", (void*)&ScriptModalWindow::internal_getHeight);
 		metaData.scriptClass->addInternalCall("Internal_SetWidth", (void*)&ScriptModalWindow::internal_setWidth);
 		metaData.scriptClass->addInternalCall("Internal_SetHeight", (void*)&ScriptModalWindow::internal_setHeight);
+		metaData.scriptClass->addInternalCall("Internal_GetContentWidth", (void*)&ScriptModalWindow::internal_getContentWidth);
+		metaData.scriptClass->addInternalCall("Internal_GetContentHeight", (void*)&ScriptModalWindow::internal_getContentHeight);
+		metaData.scriptClass->addInternalCall("Internal_SetContentWidth", (void*)&ScriptModalWindow::internal_setContentWidth);
+		metaData.scriptClass->addInternalCall("Internal_SetContentHeight", (void*)&ScriptModalWindow::internal_setContentHeight);
 		metaData.scriptClass->addInternalCall("Internal_SetTitle", (void*)&ScriptModalWindow::internal_setTitle);
 		metaData.scriptClass->addInternalCall("Internal_ScreenToWindowPos", (void*)&ScriptModalWindow::internal_screenToWindowPos);
 		metaData.scriptClass->addInternalCall("Internal_WindowToScreenPos", (void*)&ScriptModalWindow::internal_windowToScreenPos);
@@ -48,7 +52,29 @@ namespace bs
 
 	void ScriptModalWindow::internal_createInstance(MonoObject* instance, bool allowCloseButton)
 	{
-		ManagedModalWindow* modalWindow = bs_new<ManagedModalWindow>(allowCloseButton, instance);
+		::MonoClass* rawMonoClass = MonoUtil::getClass(instance);
+		MonoClass* monoClass = MonoManager::instance().findClass(rawMonoClass);
+
+		MonoAssembly* assembly = MonoManager::instance().getAssembly(EDITOR_ASSEMBLY);
+
+		MonoClass* defaultSizeAttrib = assembly->getClass(EDITOR_NS, "DefaultSize");
+		if (defaultSizeAttrib == nullptr)
+			BS_EXCEPT(InternalErrorException, "Cannot find DefaultSize managed class.");
+
+		MonoField* defaultWidthField = defaultSizeAttrib->getField("width");
+		MonoField* defaultHeightField = defaultSizeAttrib->getField("height");
+
+		int width = 200;
+		int height = 200;
+
+		MonoObject* defaultSizeObj = monoClass->getAttribute(defaultSizeAttrib);
+		if (defaultSizeObj != nullptr)
+		{
+			defaultWidthField->get(defaultSizeObj, &width);
+			defaultHeightField->get(defaultSizeObj, &height);
+		}
+
+		ManagedModalWindow* modalWindow = bs_new<ManagedModalWindow>(allowCloseButton, width, height, instance);
 		ScriptModalWindow* nativeInstance = new (bs_alloc<ScriptModalWindow>()) ScriptModalWindow(modalWindow);
 		modalWindow->setParent(nativeInstance);
 	}
@@ -110,6 +136,34 @@ namespace bs
 			thisPtr->mModalWindow->setSize(thisPtr->mModalWindow->getWidth(), value);
 	}
 
+	UINT32 ScriptModalWindow::internal_getContentWidth(ScriptModalWindow* thisPtr)
+	{
+		if (thisPtr->mModalWindow != nullptr)
+			return thisPtr->mModalWindow->getContentWidth();
+
+		return 0;
+	}
+
+	UINT32 ScriptModalWindow::internal_getContentHeight(ScriptModalWindow* thisPtr)
+	{
+		if (thisPtr->mModalWindow != nullptr)
+			return thisPtr->mModalWindow->getContentHeight();
+
+		return 0;
+	}
+
+	void ScriptModalWindow::internal_setContentWidth(ScriptModalWindow* thisPtr, UINT32 value)
+	{
+		if (thisPtr->mModalWindow != nullptr)
+			thisPtr->mModalWindow->setSize(value, thisPtr->mModalWindow->getHeight());
+	}
+
+	void ScriptModalWindow::internal_setContentHeight(ScriptModalWindow* thisPtr, UINT32 value)
+	{
+		if (thisPtr->mModalWindow != nullptr)
+			thisPtr->mModalWindow->setSize(thisPtr->mModalWindow->getWidth(), value);
+	}
+
 	void ScriptModalWindow::internal_screenToWindowPos(ScriptModalWindow* thisPtr, Vector2I* screenPos, Vector2I* windowPos)
 	{
 		if (thisPtr->mModalWindow != nullptr)
@@ -126,10 +180,8 @@ namespace bs
 			*screenPos = *windowPos;
 	}
 
-	ManagedModalWindow::ManagedModalWindow(bool allowCloseButton, MonoObject* managedInstance)
-		: ModalWindow(HString::dummy(), allowCloseButton), mOnInitializeThunk(nullptr), mOnDestroyThunk(nullptr)
-		, mUpdateThunk(nullptr), mOnWindowResizedMethod(nullptr), mIsInitialized(false), mManagedInstance(managedInstance)
-		, mGCHandle(0), mScriptParent(nullptr), mContentsPanel(nullptr)
+	ManagedModalWindow::ManagedModalWindow(bool allowCloseButton, UINT32 width, UINT32 height, MonoObject* managedInstance)
+		: ModalWindow(HString::dummy(), allowCloseButton, width, height), mManagedInstance(managedInstance)
 	{
 		mGCHandle = MonoUtil::newGCHandle(mManagedInstance);
 		mManagedInstance = MonoUtil::getObjectFromGCHandle(mGCHandle);

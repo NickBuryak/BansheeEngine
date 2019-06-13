@@ -27,6 +27,7 @@
 #include "Wrappers/BsScriptEditorVirtualInput.h"
 #include "Wrappers/BsScriptUndoRedo.h"
 #include "BsEditorScriptLibrary.h"
+#include "Generated/BsScriptPlayInEditor.generated.h"
 
 namespace bs
 {
@@ -39,7 +40,6 @@ namespace bs
 		GameResourceManager::instance().setLoader(resourceLoader);
 
 		loadMonoTypes();
-		ScriptAssemblyManager::instance().loadAssemblyInfo(EDITOR_ASSEMBLY);
 
 		ScriptUndoRedo::startUp();
 		ScriptEditorInput::startUp();
@@ -55,6 +55,7 @@ namespace bs
 		ScriptFolderMonitorManager::startUp();
 		ScriptSelection::startUp();
 		ScriptInspectorUtility::startUp();
+		ScriptPlayInEditor::startUp();
 
 		mOnDomainLoadConn = ScriptObjectManager::instance().onRefreshDomainLoaded.connect(std::bind(&EditorScriptManager::loadMonoTypes, this));
 		mOnAssemblyRefreshDoneConn = ScriptObjectManager::instance().onRefreshComplete.connect(std::bind(&EditorScriptManager::onAssemblyRefreshDone, this));
@@ -74,6 +75,7 @@ namespace bs
 		mOnDomainLoadConn.disconnect();
 		mOnAssemblyRefreshDoneConn.disconnect();
 
+		ScriptPlayInEditor::shutDown();
 		ScriptInspectorUtility::shutDown();
 		ScriptSelection::shutDown();
 		ScriptFolderMonitorManager::shutDown();
@@ -131,7 +133,7 @@ namespace bs
 		String editorAssemblyPath = EditorScriptLibrary::instance().getEditorAssemblyPath().toString();
 		mEditorAssembly = &MonoManager::instance().loadAssembly(editorAssemblyPath, EDITOR_ASSEMBLY);
 
-		mProgramEdClass = mEditorAssembly->getClass("BansheeEditor", "Program");
+		mProgramEdClass = mEditorAssembly->getClass(EDITOR_NS, "Program");
 		mUpdateMethod = mProgramEdClass->getMethod("OnEditorUpdate");
 
 		ScriptEditorWindow::clearRegisteredEditorWindow();

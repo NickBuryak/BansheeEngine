@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2017 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -35,42 +35,6 @@ namespace BansheeEditor
         /// <inheritdoc/>
         protected internal override void Initialize()
         {
-            BuildGUI();
-        }
-
-        /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
-        {
-            LightProbeVolume lpv = InspectedObject as LightProbeVolume;
-            if (lpv == null)
-                return InspectableState.NotModified;
-
-            InspectableState oldState = modifyState;
-            if (modifyState.HasFlag(InspectableState.Modified))
-                modifyState = InspectableState.NotModified;
-
-            // Don't update fields while modification in progress
-            if (modifyState == InspectableState.NotModified)
-            {
-                AABox gridVolume = lpv.GridVolume;
-                Vector3 size = gridVolume.Maximum - gridVolume.Minimum;
-                Vector3 position = gridVolume.Minimum + size * 0.5f;
-
-                positionField.Value = position;
-                sizeField.Value = size;
-
-                Vector3I cellCount = lpv.CellCount;
-                densityField.Value = new Vector3(cellCount.x, cellCount.y, cellCount.z);
-            }
-
-            return oldState;
-        }
-
-        /// <summary>
-        /// Recreates all the GUI elements used by this inspector.
-        /// </summary>
-        private void BuildGUI()
-        {
             Layout.Clear();
 
             LightProbeVolume lpv = InspectedObject as LightProbeVolume;
@@ -80,7 +44,9 @@ namespace BansheeEditor
             // Set up callbacks
             addProbeButton.OnClick += () =>
             {
+                StartUndo();
                 lpv.AddProbe(Vector3.Zero);
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
@@ -89,13 +55,17 @@ namespace BansheeEditor
             removeProbeButton.OnClick += () =>
             {
                 if (LightProbeVolumeNodeHandles.SelectedNode != uint.MaxValue)
-                    lpv.RemoveProbe(LightProbeVolumeNodeHandles.SelectedNode);
+                {
+                    StartUndo();
+                    lpv.RemoveProbe((int) LightProbeVolumeNodeHandles.SelectedNode);
+                    EndUndo();
 
-                MarkAsModified();
-                ConfirmModify();
+                    MarkAsModified();
+                    ConfirmModify();
+                }
             };
 
-            positionField.OnConfirmed += () =>
+            positionField.OnConfirm += x =>
             {
                 AABox gridVolume = lpv.GridVolume;
                 Vector3 extents = (gridVolume.Maximum - gridVolume.Minimum) * 0.5f;
@@ -106,13 +76,16 @@ namespace BansheeEditor
                 Vector3I cellCount = lpv.CellCount;
 
                 gridVolume = new AABox(min, max);
+
+                StartUndo();
                 lpv.Resize(gridVolume, cellCount);
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
             };
 
-            sizeField.OnConfirmed += () =>
+            sizeField.OnConfirm += x =>
             {
                 AABox gridVolume = lpv.GridVolume;
 
@@ -122,20 +95,25 @@ namespace BansheeEditor
                 Vector3I cellCount = lpv.CellCount;
 
                 gridVolume = new AABox(min, max);
+
+                StartUndo();
                 lpv.Resize(gridVolume, cellCount);
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
             };
 
-            densityField.OnConfirmed += () =>
+            densityField.OnConfirm += x =>
             {
                 AABox gridVolume = lpv.GridVolume;
 
                 Vector3 density = densityField.Value;
                 Vector3I cellCount = new Vector3I((int)density.x, (int)density.y, (int)density.y);
 
+                StartUndo();
                 lpv.Resize(gridVolume, cellCount);
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
@@ -143,7 +121,9 @@ namespace BansheeEditor
 
             resetToGridButton.OnClick += () =>
             {
+                StartUndo();
                 lpv.Reset();
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
@@ -151,7 +131,9 @@ namespace BansheeEditor
 
             clipOuterButton.OnClick += () =>
             {
+                StartUndo();
                 lpv.Clip();
+                EndUndo();
 
                 MarkAsModified();
                 ConfirmModify();
@@ -187,6 +169,36 @@ namespace BansheeEditor
             Layout.AddSpace(10);
 
             Layout.AddElement(renderButton);
+        }
+
+        /// <inheritdoc/>
+        protected internal override InspectableState Refresh(bool force = false)
+        {
+            LightProbeVolume lpv = InspectedObject as LightProbeVolume;
+            if (lpv == null)
+                return InspectableState.NotModified;
+
+            InspectableState oldState = modifyState;
+            if (modifyState.HasFlag(InspectableState.Modified))
+                modifyState = InspectableState.NotModified;
+
+            AABox gridVolume = lpv.GridVolume;
+            Vector3 size = gridVolume.Maximum - gridVolume.Minimum;
+            Vector3 position = gridVolume.Minimum + size * 0.5f;
+
+            if (!positionField.HasInputFocus || force)
+                positionField.Value = position;
+
+            if (!sizeField.HasInputFocus || force)
+                sizeField.Value = size;
+
+            if (!densityField.HasInputFocus || force)
+            {
+                Vector3I cellCount = lpv.CellCount;
+                densityField.Value = new Vector3(cellCount.x, cellCount.y, cellCount.z);
+            }
+
+            return oldState;
         }
 
         /// <summary>

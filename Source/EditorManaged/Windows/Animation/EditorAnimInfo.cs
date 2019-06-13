@@ -3,9 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup AnimationEditor
      *  @{
@@ -493,7 +493,7 @@ namespace BansheeEditor
 
             clip.Curves = newClipCurves;
             clip.Events = events;
-            clip.SampleRate = (uint)sampleRate;
+            clip.SampleRate = sampleRate;
 
             tangents = new EditorAnimClipTangents();
             tangents.positionCurves = positionTangents.ToArray();
@@ -536,9 +536,9 @@ namespace BansheeEditor
                     bool isExisting = false;
                     for (int i = 0; i < newEvents.Count; i++)
                     {
-                        if (newEvents[i].name == clipName)
+                        if (newEvents[i].Name == clipName)
                         {
-                            newEvents[i].events = events;
+                            newEvents[i].Events = events;
                             isExisting = true;
                             break;
                         }
@@ -547,8 +547,8 @@ namespace BansheeEditor
                     if (!isExisting)
                     {
                         ImportedAnimationEvents newEntry = new ImportedAnimationEvents();
-                        newEntry.name = clipName;
-                        newEntry.events = events;
+                        newEntry.Name = clipName;
+                        newEntry.Events = events;
 
                         newEvents.Add(newEntry);
                     }

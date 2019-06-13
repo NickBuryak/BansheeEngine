@@ -418,9 +418,9 @@ namespace bs
 						treeElement = element->parent;
 				}
 
+				unselectAll();
 				dragAndDropEnded(treeElement);
 				mDragInProgress = false;
-				unselectAll();
 
 				return true;
 			}
@@ -498,7 +498,7 @@ namespace bs
 		return mIsElementSelected && mSelectedElements.size() > 0;
 	}
 
-	void GUITreeView::selectElement(TreeElement* element)
+	void GUITreeView::selectElement(TreeElement* element, bool triggerEvents)
 	{
 		clearPing();
 
@@ -516,11 +516,12 @@ namespace bs
 			mSelectedElements.push_back(SelectedElement(element, background));
 			mIsElementSelected = true;
 
-			selectionChanged();
+			if(triggerEvents)
+				selectionChanged();
 		}
 	}
 
-	void GUITreeView::unselectElement(TreeElement* element)
+	void GUITreeView::unselectElement(TreeElement* element, bool triggerEvents)
 	{
 		clearPing();
 
@@ -535,7 +536,8 @@ namespace bs
 			mSelectedElements.erase(iterFind);
 			_markLayoutAsDirty();
 
-			selectionChanged();
+			if(triggerEvents)
+				selectionChanged();
 		}
 
 		mIsElementSelected = mSelectedElements.size() > 0;
@@ -677,7 +679,7 @@ namespace bs
 		}
 	}
 
-	void GUITreeView::expandElement(TreeElement* element)
+	void GUITreeView::expandElement(TreeElement* element, bool toggleButton)
 	{
 		if(element->mIsExpanded)
 			return;
@@ -704,9 +706,12 @@ namespace bs
 				}
 			}
 		}
+
+		if (toggleButton && element->mFoldoutBtn != nullptr)
+			element->mFoldoutBtn->toggleOn();
 	}
 
-	void GUITreeView::collapseElement(TreeElement* element)
+	void GUITreeView::collapseElement(TreeElement* element, bool toggleButton)
 	{
 		if(!element->mIsExpanded)
 			return;
@@ -740,6 +745,9 @@ namespace bs
 				}
 			}
 		}
+
+		if (toggleButton && element->mFoldoutBtn != nullptr)
+			element->mFoldoutBtn->toggleOff();
 	}
 
 	void GUITreeView::updateElementGUI(TreeElement* element)
@@ -823,9 +831,9 @@ namespace bs
 		clearPing();
 
 		if(toggled)
-			expandElement(element);
+			expandElement(element, false);
 		else
-			collapseElement(element);
+			collapseElement(element, false);
 	}
 
 	void GUITreeView::onEditAccepted()
@@ -1260,10 +1268,6 @@ namespace bs
 				if(unexpandElement)
 				{
 					collapseElement(autoExpandedElement);
-
-					if(autoExpandedElement->mFoldoutBtn != nullptr)
-						autoExpandedElement->mFoldoutBtn->toggleOff();
-
 					mAutoExpandedElements.pop();
 				}
 			}
@@ -1280,9 +1284,6 @@ namespace bs
 				{
 					mAutoExpandedElements.push(mMouseOverDragElement);
 					expandElement(mMouseOverDragElement);
-
-					if(mMouseOverDragElement->mFoldoutBtn != nullptr)
-						mMouseOverDragElement->mFoldoutBtn->toggleOn();
 				}
 			}
 		}

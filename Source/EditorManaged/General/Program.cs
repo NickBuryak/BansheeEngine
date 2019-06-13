@@ -1,16 +1,16 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup BansheeEditor
      *  Scripting API available in editor only, mainly used for extending the editor in various ways.
      *  @{
      */
 
-    /** @defgroup General General 
+    /** @defgroup Editor-General General 
      *  Various functionality that doesn't fit into any other category.
      */
 
@@ -92,6 +92,7 @@ namespace BansheeEditor
     class Program
     {
         private static EditorApplication app;
+        private static bool delayQuit;
 
         /// <summary>
         /// Called by the runtime whenever the editor assembly is loaded. This means initially when editor is started
@@ -134,21 +135,17 @@ namespace BansheeEditor
         /// </summary>
         static void OnEditorUpdate()
         {
-            app.OnEditorUpdate();
-        }
-
-        /// <summary>
-        /// Attempts to save the current scene, and keeps retrying if failed or until user cancels.
-        /// </summary>
-        static void TrySaveSceneOnQuit()
-        {
-            Action success = () =>
+            if (delayQuit && !ProjectLibrary.ImportInProgress)
             {
+                ConfirmImportInProgressWindow.Hide();
+                
                 EditorApplication.SaveProject();
                 EditorApplication.Quit();
-            };
 
-            EditorApplication.SaveScene(success, TrySaveSceneOnQuit);
+                delayQuit = false;
+            }
+
+            app.OnEditorUpdate();
         }
 
         /// <summary>
@@ -157,28 +154,23 @@ namespace BansheeEditor
         /// </summary>
         static void OnEditorQuitRequested()
         {
-            Action<DialogBox.ResultType> dialogCallback =
-            (result) =>
-            {
-                if (result == DialogBox.ResultType.Yes)
-                    TrySaveSceneOnQuit();
-                else if (result == DialogBox.ResultType.No)
-                {
-                    EditorApplication.SaveProject();
-                    EditorApplication.Quit();
-                }
-            };
+            if (delayQuit)
+                return;
 
-            if (EditorApplication.IsSceneModified())
-            {
-                DialogBox.Open("Warning", "You current scene has modifications. Do you wish to save them first?",
-                    DialogBox.Type.YesNoCancel, dialogCallback);
-            }
-            else
-            {
-                EditorApplication.SaveProject();
-                EditorApplication.Quit();
-            }
+            EditorApplication.AskToSaveSceneAndContinue(
+                () => 
+                {
+                    if (ProjectLibrary.ImportInProgress)
+                    {
+                        ConfirmImportInProgressWindow.Show();
+                        delayQuit = true;
+                    }
+                    else
+                    {
+                        EditorApplication.SaveProject();
+                        EditorApplication.Quit();
+                    }
+                });
         }
     }
 

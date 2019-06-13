@@ -1,8 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Windows
      *  @{
@@ -48,7 +48,8 @@ namespace BansheeEditor
             GameWindow gameWindow = GetWindow<GameWindow>();
             SceneWindow sceneWindow = GetWindow<SceneWindow>();
 
-            if (!EditorApplication.IsPlaying)
+            PlayInEditorState state = PlayInEditor.State;
+            if (state != PlayInEditorState.Playing)
             {
                 gameWindow.Active = true;
                 gameWindow.HasFocus = true;
@@ -59,10 +60,15 @@ namespace BansheeEditor
                 sceneWindow.HasFocus = true;
             }
 
-            if (EditorApplication.IsPaused)
-                EditorApplication.IsPaused = false;
+            if (state == PlayInEditorState.Paused)
+                PlayInEditor.State = PlayInEditorState.Playing;
             else
-                EditorApplication.IsPlaying = !EditorApplication.IsPlaying;
+            {
+                if(state == PlayInEditorState.Playing)
+                    PlayInEditor.State = PlayInEditorState.Stopped;
+                else
+                    PlayInEditor.State = PlayInEditorState.Playing;
+            }
         }
 
         /// <summary>
@@ -72,7 +78,10 @@ namespace BansheeEditor
         [ToolbarItem("Pause", ToolbarIcon.Pause, "Pause", 1799)]
         private static void Pause()
         {
-            EditorApplication.IsPaused = !EditorApplication.IsPaused;
+            if (PlayInEditor.State == PlayInEditorState.Paused)
+                PlayInEditor.State = PlayInEditorState.Playing;
+            else
+                PlayInEditor.State = PlayInEditorState.Paused;
         }
 
         /// <summary>
@@ -82,7 +91,7 @@ namespace BansheeEditor
         [ToolbarItem("Step", ToolbarIcon.Step, "Frame step", 1798)]
         private static void Step()
         {
-            EditorApplication.FrameStep();
+            PlayInEditor.FrameStep();
         }
 
         /// <inheritdoc/>

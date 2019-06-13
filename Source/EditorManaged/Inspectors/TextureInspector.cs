@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -24,8 +24,7 @@ namespace BansheeEditor
         private GUIEnumField cubemapSourceTypeField = 
             new GUIEnumField(typeof(CubemapSourceType), new LocEdString("Cubemap source"));
 
-        private GUIButton reimportButton = new GUIButton(new LocEdString("Reimport"));
-
+        private GUIReimportButton reimportButton;
         private TextureImportOptions importOptions;
 
         /// <inheritdoc/>
@@ -34,13 +33,12 @@ namespace BansheeEditor
             importOptions = GetImportOptions();
 
             formatField.OnSelectionChanged += x => importOptions.Format = (PixelFormat)x;
-            generateMipsField.OnChanged += x => importOptions.GenerateMipmaps = x;
-            maximumMipsField.OnChanged += x => importOptions.MaxMipmapLevel = x;
-            srgbField.OnChanged += x => importOptions.IsSRGB = x;
-            cpuCachedField.OnChanged += x => importOptions.CPUCached = x;
-            isCubemapField.OnChanged += x => importOptions.IsCubemap = x;
+            generateMipsField.OnChanged += x => importOptions.GenerateMips = x;
+            maximumMipsField.OnChanged += x => importOptions.MaxMip = x;
+            srgbField.OnChanged += x => importOptions.SRGB = x;
+            cpuCachedField.OnChanged += x => importOptions.CpuCached = x;
+            isCubemapField.OnChanged += x => importOptions.Cubemap = x;
             cubemapSourceTypeField.OnSelectionChanged += x => importOptions.CubemapSourceType = (CubemapSourceType)x;
-            reimportButton.OnClick += TriggerReimport;
 
             Layout.AddElement(formatField);
             Layout.AddElement(generateMipsField);
@@ -51,29 +49,36 @@ namespace BansheeEditor
             Layout.AddElement(cubemapSourceTypeField);
             Layout.AddSpace(10);
 
-            GUILayout reimportButtonLayout = Layout.AddLayoutX();
-            reimportButtonLayout.AddFlexibleSpace();
-            reimportButtonLayout.AddElement(reimportButton);
-    }
+            reimportButton = new GUIReimportButton(InspectedResourcePath, Layout, () =>
+            {
+                ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
+            });
+
+            UpdateGUIValues();
+        }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
-            TextureImportOptions newImportOptions = GetImportOptions();
-
-            formatField.Value = (ulong)newImportOptions.Format;
-            generateMipsField.Value = newImportOptions.GenerateMipmaps;
-            maximumMipsField.Value = newImportOptions.MaxMipmapLevel;
-            srgbField.Value = newImportOptions.IsSRGB;
-            cpuCachedField.Value = newImportOptions.CPUCached;
-            isCubemapField.Value = newImportOptions.IsCubemap;
-            cubemapSourceTypeField.Value = (ulong) newImportOptions.CubemapSourceType;
-
-            cubemapSourceTypeField.Active = importOptions.IsCubemap;
-
-            importOptions = newImportOptions;
+            reimportButton.Update();
 
             return InspectableState.NotModified;
+        }
+
+        /// <summary>
+        /// Updates the GUI element values from the current import options object.
+        /// </summary>
+        private void UpdateGUIValues()
+        {
+            formatField.Value = (ulong)importOptions.Format;
+            generateMipsField.Value = importOptions.GenerateMips;
+            maximumMipsField.Value = importOptions.MaxMip;
+            srgbField.Value = importOptions.SRGB;
+            cpuCachedField.Value = importOptions.CpuCached;
+            isCubemapField.Value = importOptions.Cubemap;
+            cubemapSourceTypeField.Value = (ulong) importOptions.CubemapSourceType;
+
+            cubemapSourceTypeField.Active = importOptions.Cubemap;
         }
 
         /// <summary>
@@ -100,14 +105,6 @@ namespace BansheeEditor
             }
 
             return output;
-        }
-
-        /// <summary>
-        /// Reimports the texture resource according to the currently set import options.
-        /// </summary>
-        private void TriggerReimport()
-        {
-            ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
         }
     }
 

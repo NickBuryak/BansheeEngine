@@ -3,9 +3,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using BansheeEngine;
+using System.Text;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -22,16 +23,16 @@ namespace BansheeEditor
         /// <summary>
         /// Creates a new inspectable list GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the list whose contents to display.</param>
-        public InspectableList(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout,
+        public InspectableList(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout,
             SerializableProperty property)
-            : base(parent, title, path, SerializableProperty.FieldType.List, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.List, depth, layout, property)
         {
 
         }
@@ -43,9 +44,9 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
-            return listGUIField.Refresh();
+            return listGUIField.Refresh(force);
         }
 
         /// <inheritdoc/>
@@ -53,9 +54,49 @@ namespace BansheeEditor
         {
             GUILayout arrayLayout = layout.AddLayoutY(layoutIndex);
 
-            listGUIField = InspectableListGUI.Create(parent, title, path, property, arrayLayout, depth);
-            listGUIField.IsExpanded = parent.Persistent.GetBool(path + "_Expanded");
-            listGUIField.OnExpand += x => parent.Persistent.SetBool(path + "_Expanded", x);
+            listGUIField = InspectableListGUI.Create(context, title, path, property, arrayLayout, depth);
+            listGUIField.IsExpanded = context.Persistent.GetBool(path + "_Expanded");
+            listGUIField.OnExpand += x => context.Persistent.SetBool(path + "_Expanded", x);
+        }
+
+        /// <inheritdoc />
+        public override InspectableField FindPath(string path)
+        {
+            string subPath = GetSubPath(path, depth + 1);
+
+            if (string.IsNullOrEmpty(subPath))
+                return null;
+
+            int lastLeftIdx = subPath.LastIndexOf('[');
+            int lastRightIdx = subPath.LastIndexOf(']', lastLeftIdx);
+
+            if (lastLeftIdx == -1 || lastRightIdx == -1)
+                return null;
+
+            int count = lastRightIdx - 1 - lastLeftIdx;
+            if (count <= 0)
+                return null;
+
+            string arrayIdxStr = subPath.Substring(lastLeftIdx, count);
+
+            if (!int.TryParse(arrayIdxStr, out int idx))
+                return null;
+
+            if (idx >= listGUIField.NumRows)
+                return null;
+
+            InspectableListGUIRow row = listGUIField.GetRow(idx);
+            InspectableField field = row?.Field;
+
+            if (field != null)
+            {
+                if (field.Path == path)
+                    return field;
+
+                return field.FindPath(path);
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -65,16 +106,16 @@ namespace BansheeEditor
         {
             private IList list;
             private int numElements;
-            private Inspector parent;
+            private InspectableContext context;
             private SerializableProperty property;
             private string path;
 
             /// <summary>
-            /// Returns the parent inspector the array GUI belongs to.
+            /// Context shared by all inspectable fields created by the same parent.
             /// </summary>
-            public Inspector Inspector
+            public InspectableContext Context
             {
-                get { return parent; }
+                get { return context; }
             }
 
             /// <summary>
@@ -86,9 +127,17 @@ namespace BansheeEditor
             }
 
             /// <summary>
+            /// Returns the number of rows in the array.
+            /// </summary>
+            public int NumRows
+            {
+                get { return GetNumRows(); }
+            }
+
+            /// <summary>
             /// Constructs a new empty inspectable list GUI.
             /// </summary>
-            /// <param name="parent">Parent Inspector this field belongs to.</param>
+            /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
             /// <param name="title">Label to display on the list GUI title.</param>
             /// <param name="path">Full path to this property (includes name of this property and all parent properties).
             /// </param>
@@ -97,12 +146,12 @@ namespace BansheeEditor
             /// <param name="depth">Determines at which depth to render the background. Useful when you have multiple
             ///                     nested containers whose backgrounds are overlaping. Also determines background style,
             ///                     depths divisible by two will use an alternate style.</param>
-            public InspectableListGUI(Inspector parent, LocString title, string path, SerializableProperty property, 
-                GUILayout layout, int depth)
+            public InspectableListGUI(InspectableContext context, LocString title, string path, 
+                SerializableProperty property, GUILayout layout, int depth)
                 : base(title, layout, depth)
             {
                 this.property = property;
-                this.parent = parent;
+                this.context = context;
                 this.path = path;
 
                 list = property.GetValue<IList>();
@@ -113,7 +162,7 @@ namespace BansheeEditor
             /// <summary>
             /// Creates a new inspectable list GUI object that displays the contents of the provided serializable property.
             /// </summary>
-            /// <param name="parent">Parent Inspector this field belongs to.</param>
+            /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
             /// <param name="title">Label to display on the list GUI title.</param>
             /// <param name="path">Full path to this property (includes name of this property and all parent properties).
             /// </param>
@@ -122,17 +171,30 @@ namespace BansheeEditor
             /// <param name="depth">Determines at which depth to render the background. Useful when you have multiple
             ///                     nested containers whose backgrounds are overlaping. Also determines background style,
             ///                     depths divisible by two will use an alternate style.</param>
-            public static InspectableListGUI Create(Inspector parent, LocString title, string path, 
+            public static InspectableListGUI Create(InspectableContext context, LocString title, string path, 
                 SerializableProperty property, GUILayout layout, int depth)
             {
-                InspectableListGUI listGUI = new InspectableListGUI(parent, title, path, property, layout, depth);
+                InspectableListGUI listGUI = new InspectableListGUI(context, title, path, property, layout, depth);
                 listGUI.BuildGUI();
 
                 return listGUI;
             }
 
+            /// <summary>
+            /// Returns a list row at the specified index.
+            /// </summary>
+            /// <param name="idx">Index of the row.</param>
+            /// <returns>List row representation or null if index is out of range.</returns>
+            public InspectableListGUIRow GetRow(int idx)
+            {
+                if (idx < GetNumRows())
+                    return (InspectableListGUIRow)rows[idx];
+
+                return null;
+            }
+
             /// <inheritdoc/>
-            public override InspectableState Refresh()
+            public override InspectableState Refresh(bool force)
             {
                 // Check if any modifications to the array were made outside the inspector
                 IList newList = property.GetValue<IList>();
@@ -140,27 +202,28 @@ namespace BansheeEditor
                 {
                     list = newList;
                     numElements = list.Count;
-                    BuildGUI();
+                    BuildGUI(true);
                 }
                 else if (newList == null && list != null)
                 {
                     list = null;
                     numElements = 0;
-                    BuildGUI();
+                    BuildGUI(true);
                 }
                 else
                 {
-                    if (list != null)
+                    if (newList != null)
                     {
-                        if (numElements != list.Count)
+                        if (numElements != newList.Count || force)
                         {
+                            list = newList;
                             numElements = list.Count;
-                            BuildGUI();
+                            BuildGUI(true);
                         }
                     }
                 }
 
-                return base.Refresh();
+                return base.Refresh(force);
             }
 
             /// <inheritdoc/>
@@ -202,14 +265,20 @@ namespace BansheeEditor
             /// <inheritdoc/>
             protected override void CreateList()
             {
+                StartUndo();
+
                 list = property.CreateListInstance(0);
                 property.SetValue(list);
                 numElements = 0;
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected override void ResizeList()
             {
+                StartUndo();
+
                 int size = guiSizeField.Value;
 
                 IList newList = property.CreateListInstance(size);
@@ -221,39 +290,55 @@ namespace BansheeEditor
                 property.SetValue(newList);
                 list = newList;
                 numElements = list.Count;
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected override void ClearList()
             {
+                StartUndo();
+
                 property.SetValue<object>(null);
                 list = null;
                 numElements = 0;
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected internal override void DeleteElement(int index)
             {
+                StartUndo();
+
                 if (index >= 0 && index < list.Count)
                     list.RemoveAt(index);
 
                 numElements = list.Count;
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected internal override void CloneElement(int index)
             {
+                StartUndo();
+
                 SerializableList serializableList = property.GetList();
 
                 if (index >= 0 && index < list.Count)
                     list.Add(SerializableUtility.Clone(serializableList.GetProperty(index).GetValue<object>()));
 
                 numElements = list.Count;
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected internal override void MoveUpElement(int index)
             {
+                StartUndo();
+
                 if ((index - 1) >= 0)
                 {
                     object previousEntry = list[index - 1];
@@ -261,11 +346,15 @@ namespace BansheeEditor
                     list[index - 1] = list[index];
                     list[index] = previousEntry;
                 }
+
+                EndUndo();
             }
 
             /// <inheritdoc/>
             protected internal override void MoveDownElement(int index)
             {
+                StartUndo();
+
                 if ((index + 1) < list.Count)
                 {
                     object nextEntry = list[index + 1];
@@ -273,6 +362,27 @@ namespace BansheeEditor
                     list[index + 1] = list[index];
                     list[index] = nextEntry;
                 }
+
+                EndUndo();
+            }
+
+            /// <summary>
+            /// Notifies the system to start recording a new undo command. Any changes to the field after this is called
+            /// will be recorded in the command. User must call <see cref="EndUndo"/> after field is done being changed.
+            /// </summary>
+            protected void StartUndo()
+            {
+                if (context.Component != null)
+                    GameObjectUndo.RecordComponent(context.Component, path);
+            }
+
+            /// <summary>
+            /// Finishes recording an undo command started via <see cref="StartUndo"/>. If any changes are detected on the
+            /// field an undo command is recorded onto the undo-redo stack, otherwise nothing is done.
+            /// </summary>
+            protected void EndUndo()
+            {
+                GameObjectUndo.ResolveDiffs();
             }
         }
 
@@ -281,7 +391,10 @@ namespace BansheeEditor
         /// </summary>
         private class InspectableListGUIRow : GUIListFieldRow
         {
-            private InspectableField field;
+            /// <summary>
+            /// Inspectable field displayed on the list row.
+            /// </summary>
+            public InspectableField Field { get; private set; }
 
             /// <inheritdoc/>
             protected override GUILayoutX CreateGUI(GUILayoutY layout)
@@ -290,17 +403,17 @@ namespace BansheeEditor
                 SerializableProperty property = GetValue<SerializableProperty>();
 
                 string entryPath = listParent.Path + "[" + SeqIndex + "]";
-                field = CreateField(listParent.Inspector, SeqIndex + ".", entryPath, 0, Depth + 1,
+                Field = CreateField(listParent.Context, SeqIndex + ".", entryPath, 0, Depth + 1,
                     new InspectableFieldLayout(layout), property, new InspectableFieldStyleInfo());
 
-                return field.GetTitleLayout();
+                return Field.GetTitleLayout();
             }
 
             /// <inheritdoc/>
-            protected internal override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force)
             {
-                field.Property = GetValue<SerializableProperty>();
-                return field.Refresh(0);
+                Field.Property = GetValue<SerializableProperty>();
+                return Field.Refresh(0, force);
             }
         }
     }

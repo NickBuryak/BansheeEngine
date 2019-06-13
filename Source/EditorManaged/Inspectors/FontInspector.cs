@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -22,7 +22,7 @@ namespace BansheeEditor
         private GUIToggleField boldField;
         private GUIToggleField italicField;
         private GUIIntField dpiField;
-        private GUIButton reimportButton;
+        private GUIReimportButton reimportButton;
 
         private FontImportOptions importOptions;
 
@@ -31,50 +31,6 @@ namespace BansheeEditor
         {
             importOptions = GetImportOptions();
             BuildGUI();
-        }
-
-        /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
-        {
-            FontImportOptions newImportOptions = GetImportOptions();
-
-            bool rebuildGUI = false;
-
-            int[] newFontSizes = newImportOptions.FontSizes;
-            if (newFontSizes == null)
-                rebuildGUI |= fontSizes.Array != null;
-            else
-            {
-                if (fontSizes.Array == null)
-                    rebuildGUI = true;
-                else
-                    rebuildGUI |= newFontSizes.Length != fontSizes.Array.GetLength(0);
-            }
-
-            CharRange[] newCharRanges = newImportOptions.CharRanges;
-            if (newCharRanges == null)
-                rebuildGUI |= charRanges.Array != null;
-            else
-            {
-                if (charRanges.Array == null)
-                    rebuildGUI = true;
-                else
-                    rebuildGUI |= newCharRanges.Length != charRanges.Array.GetLength(0);
-            }
-
-            if (rebuildGUI)
-                BuildGUI();
-
-            fontSizes.Refresh();
-            charRanges.Refresh();
-
-            renderModeField.Value = (ulong)newImportOptions.RenderMode;
-            boldField.Value = newImportOptions.Bold;
-            italicField.Value = newImportOptions.Italic;
-            dpiField.Value = newImportOptions.DPI;
-            importOptions = newImportOptions;
-
-            return InspectableState.NotModified;
         }
 
         /// <summary>
@@ -91,8 +47,8 @@ namespace BansheeEditor
             fontSizes.OnExpand += x => Persistent.SetBool("fontSizes_Expanded", x);
 
             charRanges = GUIArrayField<CharRange, CharRangeArrayRow>.Create(
-                new LocEdString("Character ranges"), importOptions.CharRanges, Layout);
-            charRanges.OnChanged += x => importOptions.CharRanges = x;
+                new LocEdString("Character ranges"), importOptions.CharIndexRanges, Layout);
+            charRanges.OnChanged += x => importOptions.CharIndexRanges = x;
             charRanges.IsExpanded = Persistent.GetBool("charRanges_Expanded");
             charRanges.OnExpand += x => Persistent.SetBool("charRanges_Expanded", x);
 
@@ -106,10 +62,7 @@ namespace BansheeEditor
             italicField.OnChanged += x => importOptions.Italic = x;
 
             dpiField = new GUIIntField(new LocEdString("DPI"));
-            dpiField.OnChanged += x => importOptions.DPI = x;
-
-            reimportButton = new GUIButton(new LocEdString("Reimport"));
-            reimportButton.OnClick += TriggerReimport;
+            dpiField.OnChanged += x => importOptions.Dpi = x;
 
             Layout.AddElement(renderModeField);
             Layout.AddElement(boldField);
@@ -117,9 +70,61 @@ namespace BansheeEditor
             Layout.AddElement(dpiField);
             Layout.AddSpace(10);
 
-            GUILayout reimportButtonLayout = Layout.AddLayoutX();
-            reimportButtonLayout.AddFlexibleSpace();
-            reimportButtonLayout.AddElement(reimportButton);
+            reimportButton = new GUIReimportButton(InspectedResourcePath, Layout, () =>
+            {
+                ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
+            });
+
+            UpdateGUIValues();
+        }
+
+        /// <inheritdoc/>
+        protected internal override InspectableState Refresh(bool force = false)
+        {
+            reimportButton.Update();
+
+            return InspectableState.NotModified;
+        }
+
+        /// <summary>
+        /// Updates the GUI element values from the current import options object.
+        /// </summary>
+        private void UpdateGUIValues()
+        {
+            bool rebuildGUI = false;
+
+            int[] newFontSizes = importOptions.FontSizes;
+            if (newFontSizes == null)
+                rebuildGUI |= fontSizes.Array != null;
+            else
+            {
+                if (fontSizes.Array == null)
+                    rebuildGUI = true;
+                else
+                    rebuildGUI |= newFontSizes.Length != fontSizes.Array.GetLength(0);
+            }
+
+            CharRange[] newCharRanges = importOptions.CharIndexRanges;
+            if (newCharRanges == null)
+                rebuildGUI |= charRanges.Array != null;
+            else
+            {
+                if (charRanges.Array == null)
+                    rebuildGUI = true;
+                else
+                    rebuildGUI |= newCharRanges.Length != charRanges.Array.GetLength(0);
+            }
+
+            if (rebuildGUI)
+                BuildGUI();
+
+            fontSizes.Refresh(false);
+            charRanges.Refresh(false);
+
+            renderModeField.Value = (ulong)importOptions.RenderMode;
+            boldField.Value = importOptions.Bold;
+            italicField.Value = importOptions.Italic;
+            dpiField.Value = importOptions.Dpi;
         }
 
         /// <summary>
@@ -149,17 +154,6 @@ namespace BansheeEditor
         }
 
         /// <summary>
-        /// Reimports the texture resource according to the currently set import options.
-        /// </summary>
-        private void TriggerReimport()
-        {
-            Texture texture = (Texture)InspectedObject;
-            string resourcePath = ProjectLibrary.GetPath(texture);
-
-            ProjectLibrary.Reimport(resourcePath, importOptions, true);
-        }
-
-        /// <summary>
         /// Row element used for displaying GUI for font size array elements.
         /// </summary>
         internal class FontSizeArrayRow : GUIListFieldRow
@@ -181,11 +175,11 @@ namespace BansheeEditor
             }
 
             /// <inheritdoc/>
-            protected internal override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force)
             {
                 sizeField.Value = GetValue<int>();
 
-                return base.Refresh();
+                return base.Refresh(force);
             }
         }
 
@@ -236,13 +230,13 @@ namespace BansheeEditor
             }
 
             /// <inheritdoc/>
-            protected internal override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force)
             {
                 CharRange newValue = GetValue<CharRange>();
                 rangeStartField.Value = newValue.start;
                 rangeEndField.Value = newValue.end;
 
-                return base.Refresh();
+                return base.Refresh(force);
             }
         }
     }

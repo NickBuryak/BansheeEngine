@@ -1,9 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using System.Collections.Generic;
-using BansheeEngine;
 
-namespace BansheeEditor
+using System;
+using System.Collections.Generic;
+using bs;
+
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -15,9 +17,10 @@ namespace BansheeEditor
     [CustomInspector(typeof(SpriteTexture))]
     internal class SpriteTextureInspector : Inspector
     {
-        private GUITextureField textureField = new GUITextureField(new LocEdString("Atlas"));
-        private GUIVector2Field offsetField = new GUIVector2Field(new LocEdString("Offset"));
-        private GUIVector2Field scaleField = new GUIVector2Field(new LocEdString("Scale"));
+        private GUILayoutWithBackground previewTitleLayout;
+        private GUILayoutWithBackground previewContentLayout;
+
+        private GUITexture previewTexture;
 
         /// <inheritdoc/>
         protected internal override void Initialize()
@@ -28,41 +31,48 @@ namespace BansheeEditor
             if (spriteTexture == null)
                 return;
 
-            textureField.OnChanged += (x) =>
-            {
-                spriteTexture.Texture = x.As<Texture>();
-                EditorApplication.SetDirty(spriteTexture);
-            };
+            drawer.AddDefault(spriteTexture);
 
-            offsetField.OnChanged += (x) =>
-            {
-                spriteTexture.Offset = x;
-                EditorApplication.SetDirty(spriteTexture);
-            };
+            GUILayout previewLayout = PreviewGUI.AddLayoutY();
+            previewTitleLayout = GUILayoutWithBackground.Create<GUILayoutX>(previewLayout, Builtin.WhiteTexture,
+                new Color(0.129f, 0.129f, 0.129f), new RectOffset(11, 0, 2, 0));
 
-            scaleField.OnChanged += (x) =>
-            {
-                spriteTexture.Scale = x;
-                EditorApplication.SetDirty(spriteTexture);
-            };
+            GUILabel title = new GUILabel(new LocEdString("Preview"));
+            previewTitleLayout.Layout.AddElement(title);
+            previewTitleLayout.Layout.AddFlexibleSpace();
 
-            Layout.AddElement(textureField);
-            Layout.AddElement(offsetField);
-            Layout.AddElement(scaleField);
+            previewContentLayout = GUILayoutWithBackground.Create<GUILayoutX>(previewLayout, Builtin.WhiteTexture,
+                new Color(0.09f, 0.09f, 0.09f), new RectOffset(5, 5, 5, 5));
+
+            previewContentLayout.MainPanel.SetHeight(250);
+
+            previewTexture = new GUITexture(spriteTexture, GUITextureScaleMode.ScaleToFit,
+                GUIOption.FlexibleWidth(), GUIOption.FlexibleHeight());
+            previewContentLayout.Layout.AddElement(previewTexture);
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
             SpriteTexture spriteTexture = InspectedObject as SpriteTexture;
             if (spriteTexture == null)
                 return InspectableState.NotModified;
 
-            textureField.TextureRef = spriteTexture.Texture;
-            offsetField.Value = spriteTexture.Offset;
-            scaleField.Value = spriteTexture.Scale;
+            InspectableState state = drawer.Refresh();
+            if (state != InspectableState.NotModified)
+            {
+                EditorApplication.SetDirty(spriteTexture);
 
-            return InspectableState.NotModified;
+                // The inspector will by default just assign a resource reference without loading it, make sure we load it
+                // so it can be previewed
+                if (spriteTexture.Texture != null && !spriteTexture.Texture.IsLoaded)
+                    Resources.Load<Texture>(spriteTexture.Texture.UUID);
+
+                // Make sure GUI redraws as the sprite texture properties were updated
+                previewTexture.SetTexture(spriteTexture);
+            }
+
+            return state;
         }
     }
 

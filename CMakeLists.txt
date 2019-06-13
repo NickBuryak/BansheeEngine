@@ -6,6 +6,12 @@ set (BSF_SOURCE_DIR ${BSF_DIRECTORY}/Source)
 set (APP_ROOT_DIR ${PROJECT_SOURCE_DIR})
 set (BS_IS_BANSHEE3D 1)
 
+# Version
+set (BS_B3D_VERSION_MAJOR 0)
+set (BS_B3D_VERSION_MINOR 5)
+set (BS_B3D_VERSION_PATCH 0) 
+set (BS_B3D_CURRENT_RELEASE_YEAR 2019)
+
 # Grab BSF
 find_path(SUBMODULE_SOURCES "Source/Foundation/bsfEngine/BsApplication.h" "Source/bsf/")
 if(NOT SUBMODULE_SOURCES)
@@ -28,10 +34,10 @@ add_subdirectory(${BSF_SOURCE_DIR})
 
 set (BS_PREBUILT_DEPENDENCIES_VERSION 24)
 set (BS_SRC_DEPENDENCIES_VERSION 15)
-set (BS_BUILTIN_ASSETS_VERSION 14)
+set (BS_BUILTIN_ASSETS_VERSION 17)
 
 # Options
-set(SCRIPT_BINDING_GENERATION OFF CACHE BOOL "If true, script binding generation will be supported through a specialized build target. Enable this if you plan on modifying the scripting API. Requires the SBGen tool dependency. Only relevant if you have selected a SCRIPT_API other than \"None\".")
+set(SCRIPT_BINDING_GENERATION OFF CACHE BOOL "If true, script binding generation will be supported through a specialized build target. Enable this if you plan on modifying the scripting API. Requires the SBGen tool dependency.")
 
 # Ensure dependencies are up to date
 ## Check data dependencies
@@ -66,3 +72,13 @@ add_dependencies(Game MBansheeEngine)
 if(MSVC)
 	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT Banshee3D)
 endif()
+
+## Install
+install(
+	DIRECTORY Data/
+	DESTINATION EditorData
+	PATTERN "Data/Raw" EXCLUDE
+	PATTERN ".version" EXCLUDE
+	PATTERN ".reqversion" EXCLUDE
+	PATTERN "Settings.asset" EXCLUDE
+)

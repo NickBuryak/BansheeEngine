@@ -3,9 +3,9 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
 	/** @addtogroup GUIEditor
 	 *  @{
@@ -20,7 +20,7 @@ namespace BansheeEditor
 		{
 			CurveDrawInfo value = new CurveDrawInfo();
 			value.curve = null;
-			value.color = new Color();
+			value.color = Color.Default();
 
 			return value;
 		}

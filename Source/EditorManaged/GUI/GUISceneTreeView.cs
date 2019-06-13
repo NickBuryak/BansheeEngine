@@ -4,9 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup GUI-Editor 
      *  @{
@@ -17,6 +17,15 @@ namespace BansheeEditor
     /// </summary>
     public sealed class GUISceneTreeView : GUIElement
     {
+        /// <summary>
+        /// State of the tree view, containing the expand/collapse state of all the elements in the view.
+        /// </summary>
+        public SceneTreeViewState State
+        {
+            get { return Internal_GetState(mCachedPtr); }
+            set { Internal_SetState(mCachedPtr, value);}
+        }
+
         /// <summary>
         /// Creates a new scene tree view element.
         /// </summary>
@@ -129,11 +138,14 @@ namespace BansheeEditor
                         if (mesh == null)
                             continue;
 
-                        SceneObject so = UndoRedo.CreateSO(meshName, "Created a new Renderable \"" + meshName + "\"");
+                        SceneObject so = new SceneObject(meshName);
+
+                        GameObjectUndo.RecordNewSceneObject(so);
                         so.Parent = parent;
 
                         Renderable renderable = so.AddComponent<Renderable>();
                         renderable.Mesh = mesh;
+                        GameObjectUndo.ResolveDiffs();
 
                         addedObjects.Add(so);
                     }
@@ -180,6 +192,12 @@ namespace BansheeEditor
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void Internal_RenameSelection(IntPtr thisPtr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private static extern SceneTreeViewState Internal_GetState(IntPtr thisPtr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        private static extern void Internal_SetState(IntPtr thisPtr, SceneTreeViewState state);
     }
 
     /** @} */

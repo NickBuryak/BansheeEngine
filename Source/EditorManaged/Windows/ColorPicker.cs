@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Windows
      *  @{
@@ -12,6 +12,7 @@ namespace BansheeEditor
     /// <summary>
     /// A color picker window that allows the user to select from a gamut of colors.
     /// </summary>
+    [DefaultSize(270, 400)]
     public class ColorPicker : ModalWindow
     {
         private const int SliderIndividualWidth = 150;
@@ -135,8 +136,6 @@ namespace BansheeEditor
             : base(false)
         {
             Title = new LocEdString("Color Picker");
-            Width = 270;
-            Height = 400;
 
             colRed = color.r;
             colGreen = color.g;
@@ -199,6 +198,8 @@ namespace BansheeEditor
             guiCancel.OnClick += OnCancel;
 
             GUIPanel mainPanel = GUI.AddPanel(0);
+            mainPanel.SetWidth(ContentWidth);
+            mainPanel.SetHeight(ContentHeight);
             GUILayout v0 = mainPanel.AddLayoutY();
 
             v0.AddSpace(5);
@@ -276,8 +277,8 @@ namespace BansheeEditor
             v0.AddSpace(5);
 
             GUIPanel overlay = GUI.AddPanel(-1);
-            overlay.SetWidth(Width);
-            overlay.SetHeight(Height);
+            overlay.SetWidth(ContentWidth);
+            overlay.SetHeight(ContentHeight);
 
             overlay.AddElement(guiSliderVert);
             overlay.AddElement(guiSliderRHorz);
@@ -933,7 +934,7 @@ namespace BansheeEditor
                 this.guiTexture = guiTexture;
                 this.guiSlider = guiSlider;
 
-                texture = Texture.Create2D((uint)width, (uint)height);
+                texture = Texture.Create2D(width, height);
                 spriteTexture = new SpriteTexture(texture);
             }
 
@@ -997,7 +998,7 @@ namespace BansheeEditor
                 this.guiTexture = guiTexture;
                 this.guiSlider = guiSlider;
 
-                texture = Texture.Create2D((uint)width, (uint)height);
+                texture = Texture.Create2D(width, height);
                 spriteTexture = new SpriteTexture(texture);
             }
 
@@ -1065,7 +1066,7 @@ namespace BansheeEditor
                 this.guiTexture = guiTexture;
                 this.guiSliderHandle = guiSliderHandle;
 
-                texture = Texture.Create2D((uint)width, (uint)height);
+                texture = Texture.Create2D(width, height);
                 spriteTexture = new SpriteTexture(texture);
             }
 

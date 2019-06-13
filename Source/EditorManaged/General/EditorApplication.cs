@@ -4,11 +4,11 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.IO;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
-    /** @addtogroup General 
+    /** @addtogroup Editor-General 
      *  @{
      */
 
@@ -53,6 +53,8 @@ namespace BansheeEditor
         internal const string DeleteBinding = "Delete";
         internal const string PasteBinding = "Paste";
 
+        internal const string EditorSceneDataPrefix = "__EditorSceneData";
+
         /// <summary>
         /// Determines the active tool shown in the scene view.
         /// </summary>
@@ -85,7 +87,11 @@ namespace BansheeEditor
         /// </summary>
         public static Camera SceneViewCamera
         {
-            get { return EditorWindow.GetWindow<SceneWindow>().Camera; }
+            get
+            {
+                SceneWindow sceneWindow = EditorWindow.GetWindow<SceneWindow>();
+                return sceneWindow?.Camera.Camera;
+            }
         }
 
         /// <summary>
@@ -102,61 +108,6 @@ namespace BansheeEditor
         /// Checks is any project currently loaded.
         /// </summary>
         public static bool IsProjectLoaded { get { return Internal_GetProjectLoaded(); } }
-
-        /// <summary>
-        /// Determines is the game currently running in the editor, or is it stopped or paused. Setting this value to false
-        /// will stop the game, but if you just want to pause it use <see cref="IsPaused"/> property.
-        /// </summary>
-        public static bool IsPlaying
-        {
-            get { return Internal_GetIsPlaying(); }
-            set
-            {
-                ToggleToolbarItem("Play", value);
-                ToggleToolbarItem("Pause", false);
-
-                if (!value)
-                    Selection.SceneObject = null;
-                else
-                {
-                    if (EditorSettings.GetBool(LogWindow.CLEAR_ON_PLAY_KEY, true))
-                    {
-                        Debug.Clear();
-
-                        LogWindow log = EditorWindow.GetWindow<LogWindow>();
-                        if (log != null)
-                            log.Refresh();
-                    }
-                }
-
-                Internal_SetIsPlaying(value);
-            }
-        }
-
-        /// <summary>
-        /// Determines if the game is currently running in the editor, but paused. If the game is stopped and not running
-        /// this will return false. If the game is not running and this is enabled, the game will start running but be 
-        /// immediately paused.
-        /// </summary>
-        public static bool IsPaused
-        {
-            get { return Internal_GetIsPaused(); }
-            set
-            {
-                ToggleToolbarItem("Play", !value);
-                ToggleToolbarItem("Pause", value);
-                Internal_SetIsPaused(value);
-            }
-        }
-
-        /// <summary>
-        /// Returns true if the game is currently neither running nor paused. Use <see cref="IsPlaying"/> or 
-        /// <see cref="IsPaused"/> to actually change these states.
-        /// </summary>
-        public static bool IsStopped
-        {
-            get { return !IsPlaying && !IsPaused; }
-        }
 
         /// <summary>
         /// Checks whether the editor currently has focus.
@@ -195,6 +146,11 @@ namespace BansheeEditor
         }
 
         /// <summary>
+        /// Triggered right before the project is being saved.
+        /// </summary>
+        public static event Action OnProjectSave;
+
+        /// <summary>
         /// Render target that the main camera in the scene (if any) will render its view to. This generally means the main 
         /// game window when running standalone, or the Game viewport when running in editor.
         /// </summary>
@@ -213,9 +169,15 @@ namespace BansheeEditor
         /// <summary>
         /// Returns an object that can be used for storing data that persists throughout the entire editor session.
         /// </summary>
-        internal static EditorPersistentData PersistentData
+        internal static EditorPersistentData PersistentData => persistentData;
+
+        /// <summary>
+        /// Editor specific data for the currently loaded scene. Can be null if no scene is loaded.
+        /// </summary>
+        internal static EditorSceneData EditorSceneData
         {
-            get { return persistentData; }
+            get => PersistentData.editorSceneData;
+            private set => PersistentData.editorSceneData = value;
         }
 
         /// <summary>
@@ -282,18 +244,20 @@ namespace BansheeEditor
         private static bool unitTestsExecuted;
         private static EditorPersistentData persistentData;
 
+        private static bool delayUnloadProject;
+        private static Action delayUnloadCallback;
+
         #pragma warning disable 0414
         private static EditorApplication instance;
         #pragma warning restore 0414
 
         /// <summary>
         /// Constructs a new editor application. Called at editor start-up by the runtime, and any time assembly refresh
-        /// occurrs.
+        /// occurs.
         /// </summary>
         internal EditorApplication()
         {
             instance = this;
-            codeManager = new ScriptCodeManager();
 
             const string soName = "EditorPersistentData";
             SceneObject so = Scene.Root.FindChild(soName);
@@ -303,6 +267,29 @@ namespace BansheeEditor
             persistentData = so.GetComponent<EditorPersistentData>();
             if (persistentData == null)
                 persistentData = so.AddComponent<EditorPersistentData>();
+
+            codeManager = new ScriptCodeManager();
+
+            Scene.OnSceneLoad += OnSceneLoad;
+            Scene.OnSceneUnload += OnSceneUnload;
+
+            PlayInEditor.OnPlay += () =>
+            {
+                if (EditorSettings.GetBool(LogWindow.CLEAR_ON_PLAY_KEY, true))
+                {
+                    Debug.Clear();
+
+                    LogWindow log = EditorWindow.GetWindow<LogWindow>();
+                    if (log != null)
+                        log.Refresh();
+                }
+
+                ToggleToolbarItem("Play", true);
+            };
+
+            PlayInEditor.OnStopped += () => ToggleToolbarItem("Play", false);
+            PlayInEditor.OnPaused += () => ToggleToolbarItem("Pause", true);
+            PlayInEditor.OnUnpaused += () => ToggleToolbarItem("Pause", false);
 
             // Register controls
             InputConfiguration inputConfig = VirtualInput.KeyConfig;
@@ -348,6 +335,46 @@ namespace BansheeEditor
         }
 
         /// <summary>
+        /// Updates <see cref="EditorSceneData"/> with the current state of the active scene.
+        /// </summary>
+        internal static void UpdateEditorSceneData()
+        {
+            if (EditorSceneData == null)
+                EditorSceneData = EditorSceneData.FromScene(Scene.Root);
+            else
+                EditorSceneData.UpdateFromScene(Scene.Root);
+
+            HierarchyWindow hierarcyWindow = EditorWindow.GetWindow<HierarchyWindow>();
+            hierarcyWindow?.SaveHierarchyState(EditorSceneData);
+        }
+
+
+        /// <summary>
+        /// Triggered when the scene has been loaded.
+        /// </summary>
+        /// <param name="uuid">UUID of the loaded scene.</param>
+        private static void OnSceneUnload(UUID uuid)
+        {
+            UpdateEditorSceneData();
+
+            string key = EditorSceneDataPrefix + uuid;
+            ProjectSettings.SetObject(key, EditorSceneData);
+        }
+
+        /// <summary>
+        /// Triggered when a scene is about to be unloaded.
+        /// </summary>
+        /// <param name="uuid">UUID of the scene to be unloaded.</param>
+        private static void OnSceneLoad(UUID uuid)
+        {
+            string key = EditorSceneDataPrefix + uuid;
+            EditorSceneData = ProjectSettings.GetObject<EditorSceneData>(key);
+
+            if (EditorSceneData == null)
+                EditorSceneData = EditorSceneData.FromScene(Scene.Root);
+        }
+
+        /// <summary>
         /// Triggered when the folder monitor detects an asset in the monitored folder was modified.
         /// </summary>
         /// <param name="path">Path to the modified file or folder.</param>
@@ -364,6 +391,15 @@ namespace BansheeEditor
             // Update managers
             ProjectLibrary.Update();
             codeManager.Update();
+
+            if (delayUnloadProject)
+            {
+                delayUnloadProject = false;
+                UnloadProject();
+
+                delayUnloadCallback?.Invoke();
+                delayUnloadCallback = null;
+            }
         }
 
         /// <summary>
@@ -678,6 +714,8 @@ namespace BansheeEditor
         [ToolbarItem("Save Project", ToolbarIcon.SaveProject, "Save project", 1999)]
         public static void SaveProject()
         {
+            OnProjectSave?.Invoke();
+
             // Apply changes to any animation clips edited using the animation editor
             foreach (var KVP in persistentData.dirtyAnimClips)
                 KVP.Value.SaveToClip();
@@ -719,9 +757,9 @@ namespace BansheeEditor
             }
 
             if (IsProjectLoaded)
-                UnloadProject();
-
-            Internal_LoadProject(path); // Triggers Internal_OnProjectLoaded when done
+                TryUnloadProject(() => Internal_LoadProject(path));
+            else
+                Internal_LoadProject(path); // Triggers Internal_OnProjectLoaded when done
         }
 
         /// <summary>
@@ -762,7 +800,7 @@ namespace BansheeEditor
                 return;
 
             SetStatusProject(true);
-            persistentData.dirtyResources[resource.UUID] = true;
+            persistentData.dirtyResources[resource.UUID] = resource;
         }
 
         /// <summary>
@@ -817,39 +855,75 @@ namespace BansheeEditor
         }
 
         /// <summary>
-        /// Unloads the currently loaded project. Offers the user a chance to save the current scene if it is modified.
-        /// Automatically saves all project data before unloading.
+        /// Attempts to unload the currently loaded project. Offers the user a chance to save the current scene if it is
+        /// modified. Automatically saves all project data before unloading.
+        /// </summary>
+        /// <param name="onDone">Callback to trigger when project project unload is done.</param>
+        private static void TryUnloadProject(Action onDone)
+        {
+            if (delayUnloadProject)
+                return;
+
+            AskToSaveSceneAndContinue(
+                    () =>
+                {
+                    if (ProjectLibrary.ImportInProgress)
+                    {
+                        ConfirmImportInProgressWindow.Show();
+                        delayUnloadCallback = onDone;
+                        delayUnloadProject = true;
+                    }
+                    else
+                    {
+                        UnloadProject();
+                        onDone?.Invoke();
+                    }
+                });
+        }
+
+        /// <summary>
+        /// Unloads the currently loaded project, without making any checks or requiring confirmation.
         /// </summary>
         private static void UnloadProject()
         {
-            Action continueUnload =
-                () =>
-                {
-                    Scene.Clear();
+            Scene.Clear();
 
-                    if (monitor != null)
-                    {
-                        monitor.Destroy();
-                        monitor = null;
-                    }
+            if (monitor != null)
+            {
+                monitor.Destroy();
+                monitor = null;
+            }
 
-                    LibraryWindow window = EditorWindow.GetWindow<LibraryWindow>();
-                    if(window != null)
-                        window.Reset();
+            LibraryWindow window = EditorWindow.GetWindow<LibraryWindow>();
+            if (window != null)
+                window.Reset();
 
-                    SetSceneDirty(false);
-                    Internal_UnloadProject();
-                    SetStatusProject(false);
-                };
+            SetSceneDirty(false);
+            Internal_UnloadProject();
+            SetStatusProject(false);
+        }
+
+        /// <summary>
+        /// Checks if the current scene is modified and asks the user to save the scene if it is. Triggers the
+        /// <see cref="next"/> callback when done, unless user cancels the operation.
+        /// </summary>
+        /// <param name="next">Callback to trigger after this method finishes.</param>
+        internal static void AskToSaveSceneAndContinue(Action next)
+        {
+            Action trySaveScene = null;
+            trySaveScene = () =>
+            {
+                SaveScene(next, trySaveScene);
+            };
 
             Action<DialogBox.ResultType> dialogCallback =
-            (result) =>
-            {
-                if (result == DialogBox.ResultType.Yes)
-                    SaveScene();
-
-                continueUnload();
-            };
+                (result) =>
+                {
+                    if (result == DialogBox.ResultType.Yes)
+                        trySaveScene();
+                    else if (result == DialogBox.ResultType.No)
+                        next?.Invoke();
+                };
 
             if (IsSceneModified())
             {
@@ -857,7 +931,7 @@ namespace BansheeEditor
                     DialogBox.Type.YesNoCancel, dialogCallback);
             }
             else
-                continueUnload();
+                next?.Invoke();
         }
 
         /// <summary>
@@ -866,6 +940,8 @@ namespace BansheeEditor
         /// </summary>
         public static void ReloadAssemblies()
         {
+            UpdateEditorSceneData();
+
             Internal_ReloadAssemblies();
         }
 
@@ -914,28 +990,6 @@ namespace BansheeEditor
         public static bool IsSceneModified()
         {
             return sceneDirty;
-        }
-
-        /// <summary>
-        /// Runs a single frame of the game and pauses it. If the game is not currently running it will be started.
-        /// </summary>
-        public static void FrameStep()
-        {
-            if (IsStopped)
-            {
-                if (EditorSettings.GetBool(LogWindow.CLEAR_ON_PLAY_KEY, true))
-                {
-                    Debug.Clear();
-
-                    LogWindow log = EditorWindow.GetWindow<LogWindow>();
-                    if (log != null)
-                        log.Refresh();
-                }
-            }
-
-            ToggleToolbarItem("Play", false);
-            ToggleToolbarItem("Pause", true);
-            Internal_FrameStep();
         }
 
         /// <summary>
@@ -1109,17 +1163,6 @@ namespace BansheeEditor
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void Internal_ToggleToolbarItem(string name, bool on);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern bool Internal_GetIsPlaying();
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_SetIsPlaying(bool value);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern bool Internal_GetIsPaused();
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_SetIsPaused(bool value);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern void Internal_FrameStep();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern void Internal_SetMainRenderTarget(IntPtr rendertarget);

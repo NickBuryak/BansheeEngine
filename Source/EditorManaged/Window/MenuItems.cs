@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Window
      *  @{
@@ -24,10 +24,11 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Camera component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Camera component");
             Camera cam = so.AddComponent<Camera>();
             cam.Main = true;
 
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -41,8 +42,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Renderable component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Renderable component");
             so.AddComponent<Renderable>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -56,8 +59,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Particle System component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Particle System component");
             so.AddComponent<ParticleSystem>();
+            
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -71,8 +76,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Decal component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Decal component");
             so.AddComponent<Decal>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -86,9 +93,11 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Light component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Light component");
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Radial;
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -102,9 +111,11 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Light component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Light component");
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Spot;
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -118,9 +129,11 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Light component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Light component");
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Directional;
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -134,8 +147,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added an Skybox component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added an Skybox component");
             so.AddComponent<Skybox>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -149,8 +164,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added an ReflectionProbe component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added an ReflectionProbe component");
             so.AddComponent<ReflectionProbe>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -164,8 +181,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a Light Probe Volume component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a Light Probe Volume component");
             so.AddComponent<LightProbeVolume>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -179,8 +198,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added a GUIWidget component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added a GUIWidget component");
             so.AddComponent<GUIWidget>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -193,15 +214,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             {
-                so = UndoRedo.CreateSO("BoxCollider", "New scene object");
+                so = new SceneObject("BoxCollider");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<BoxCollider>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a BoxCollider component");
+                so.AddComponent<BoxCollider>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a BoxCollider component");
-            so.AddComponent<BoxCollider>();
-
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -214,14 +240,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("SphereCollider", "New scene object");
+                so = new SceneObject("SphereCollider");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<SphereCollider>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a SphereCollider component");
+                so.AddComponent<SphereCollider>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a SphereCollider component");
-            so.AddComponent<SphereCollider>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -234,14 +266,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("CapsuleCollider", "New scene object");
+                so = new SceneObject("CapsuleCollider");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<CapsuleCollider>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a CapsuleCollider component");
+                so.AddComponent<CapsuleCollider>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a CapsuleCollider component");
-            so.AddComponent<CapsuleCollider>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -254,14 +292,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("MeshCollider", "New scene object");
+                so = new SceneObject("MeshCollider");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<MeshCollider>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a MeshCollider component");
+                so.AddComponent<MeshCollider>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a MeshCollider component");
-            so.AddComponent<MeshCollider>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -274,14 +318,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("PlaneCollider", "New scene object");
+                so = new SceneObject("PlaneCollider");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<PlaneCollider>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a PlaneCollider component");
+                so.AddComponent<PlaneCollider>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a PlaneCollider component");
-            so.AddComponent<PlaneCollider>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -294,14 +344,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             {
-                so = UndoRedo.CreateSO("Rigidbody", "New scene object");
+                so = new SceneObject("Rigidbody");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<Rigidbody>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a Rigidbody component");
+                so.AddComponent<Rigidbody>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a Rigidbody component");
-            so.AddComponent<Rigidbody>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -314,14 +370,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("CharacterController", "New scene object");
+                so = new SceneObject("CharacterController");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<CharacterController>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a CharacterController component");
+                so.AddComponent<CharacterController>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a CharacterController component");
-            so.AddComponent<CharacterController>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -334,14 +396,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("FixedJoint", "New scene object");
+                so = new SceneObject("FixedJoint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<FixedJoint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a FixedJoint component");
+                so.AddComponent<FixedJoint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a FixedJoint component");
-            so.AddComponent<FixedJoint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -354,14 +422,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("DistanceJoint", "New scene object");
+                so = new SceneObject("DistanceJoint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<DistanceJoint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a DistanceJoint component");
+                so.AddComponent<DistanceJoint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a DistanceJoint component");
-            so.AddComponent<DistanceJoint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -374,14 +448,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("HingeJoint", "New scene object");
+                so = new SceneObject("HingeJoint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<HingeJoint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a HingeJoint component");
+                so.AddComponent<HingeJoint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a HingeJoint component");
-            so.AddComponent<HingeJoint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -394,14 +474,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("SphericalJoint", "New scene object");
+                so = new SceneObject("SphericalJoint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<SphericalJoint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a SphericalJoint component");
+                so.AddComponent<SphericalJoint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a SphericalJoint component");
-            so.AddComponent<SphericalJoint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -414,14 +500,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("SliderJoint", "New scene object");
+                so = new SceneObject("SliderJoint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<SliderJoint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a SliderJoint component");
+                so.AddComponent<SliderJoint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a SliderJoint component");
-            so.AddComponent<SliderJoint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -434,14 +526,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             { 
-                so = UndoRedo.CreateSO("D6Joint", "New scene object");
+                so = new SceneObject("D6Joint");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<D6Joint>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a D6Joint component");
+                so.AddComponent<D6Joint>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a D6Joint component");
-            so.AddComponent<D6Joint>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -454,14 +552,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             {
-                so = UndoRedo.CreateSO("AudioListener", "New scene object");
+                so = new SceneObject("AudioListener");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<AudioListener>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a AudioListener component");
+                so.AddComponent<AudioListener>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a AudioListener component");
-            so.AddComponent<AudioListener>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -474,14 +578,20 @@ namespace BansheeEditor
             SceneObject so = Selection.SceneObject;
             if (so == null)
             {
-                so = UndoRedo.CreateSO("AudioSource", "New scene object");
+                so = new SceneObject("AudioSource");
 
-                Selection.SceneObject = so;
+                GameObjectUndo.RecordNewSceneObject(so);
+                so.AddComponent<AudioSource>();
+
                 FocusOnHierarchyOrScene();
             }
+            else
+            {
+                GameObjectUndo.RecordSceneObject(so, false, "Added a AudioSource component");
+                so.AddComponent<AudioSource>();
+            }
 
-            UndoRedo.RecordSO(so, false, "Added a AudioSource component");
-            so.AddComponent<AudioSource>();
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -495,8 +605,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added an Animation component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added an Animation component");
             so.AddComponent<Animation>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -511,8 +623,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, false, "Added an Bone component");
+            GameObjectUndo.RecordSceneObject(so, false, "Added an Bone component");
             so.AddComponent<Bone>();
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -524,9 +638,8 @@ namespace BansheeEditor
         [ToolbarItem("SceneObject", ToolbarIcon.NewSceneObject, "Creates a new empty scene object", 1601, true)]
         private static void AddEmptySO()
         {
-            SceneObject so = UndoRedo.CreateSO("SceneObject", "New scene object");
+            UndoRedo.CreateSO("SceneObject", "New scene object");
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -538,11 +651,14 @@ namespace BansheeEditor
         [ToolbarItem("Camera", ToolbarIcon.NewCamera, "New camera", 1600, false)]
         private static void AddCameraSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Camera", "Created a Camera");
+            SceneObject so = new SceneObject("Camera");
+            GameObjectUndo.RecordNewSceneObject(so);
+
             Camera cam = so.AddComponent<Camera>();
             cam.Main = true;
 
-            Selection.SceneObject = so;
+            GameObjectUndo.ResolveDiffs();
+
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -554,10 +670,12 @@ namespace BansheeEditor
         [ToolbarItem("Renderable", ToolbarIcon.NewRenderable, "New renderable", 1599)]
         private static void AddRenderableSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Renderable", "Created a Renderable");
-            so.AddComponent<Renderable>();
+            SceneObject so = new SceneObject("Renderable");
 
-            Selection.SceneObject = so;
+            GameObjectUndo.RecordNewSceneObject(so);
+            so.AddComponent<Renderable>();
+            GameObjectUndo.ResolveDiffs();
+
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -568,10 +686,12 @@ namespace BansheeEditor
         [MenuItem("Scene Objects/Particle system", 8948)]
         private static void AddParticleSystemSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Particle system", "Created a ParticleSystem");
-            so.AddComponent<ParticleSystem>();
+            SceneObject so = new SceneObject("Particle system");
 
-            Selection.SceneObject = so;
+            GameObjectUndo.RecordNewSceneObject(so);
+            so.AddComponent<ParticleSystem>();
+            GameObjectUndo.ResolveDiffs();
+
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -582,10 +702,12 @@ namespace BansheeEditor
         [MenuItem("Scene Objects/Decal", 8947)]
         private static void AddDecalSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Decal", "Created a Decal");
-            so.AddComponent<Decal>();
+            SceneObject so = new SceneObject("Decal");
 
-            Selection.SceneObject = so;
+            GameObjectUndo.RecordNewSceneObject(so);
+            so.AddComponent<Decal>();
+            GameObjectUndo.ResolveDiffs();
+
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -597,11 +719,13 @@ namespace BansheeEditor
         [ToolbarItem("Point light", ToolbarIcon.NewPointLight, "New radial light", 1598)]
         private static void AddPointLightSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Radial light", "Created a Light");
+            SceneObject so = new SceneObject("Radial light");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Radial;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -613,11 +737,13 @@ namespace BansheeEditor
         [ToolbarItem("Spot light", ToolbarIcon.NewSpotLight, "New spot light", 1597)]
         private static void AddSpotLightSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Spot light", "Created a Light");
+            SceneObject so = new SceneObject("Spot light");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Spot;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -629,11 +755,13 @@ namespace BansheeEditor
         [ToolbarItem("Directional light", ToolbarIcon.NewDirLight, "New directional light", 1596)]
         private static void AddDirectionalLightSO()
         {
-            SceneObject so = UndoRedo.CreateSO("Directional light", "Created a Light");
+            SceneObject so = new SceneObject("Directional light");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Light light = so.AddComponent<Light>();
             light.Type = LightType.Directional;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -644,10 +772,12 @@ namespace BansheeEditor
         [MenuItem("Scene Objects/GUI widget", 8850, true)]
         private static void AddGUIWidgetSO()
         {
-            SceneObject so = UndoRedo.CreateSO("GUIWidget", "Created a GUIWidget");
-            so.AddComponent<GUIWidget>();
+            SceneObject so = new SceneObject("GUI widget");
 
-            Selection.SceneObject = so;
+            GameObjectUndo.RecordNewSceneObject(so);
+            so.AddComponent<GUIWidget>();
+            GameObjectUndo.ResolveDiffs();
+
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -659,11 +789,13 @@ namespace BansheeEditor
         [ToolbarItem("Cube", ToolbarIcon.NewCube, "Creates a scene object with a box primitive", 1700, true)]
         private static void Add3DBox()
         {
-            SceneObject so = UndoRedo.CreateSO("Box", "Created a box");
+            SceneObject so = new SceneObject("Box");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Renderable renderable = so.AddComponent<Renderable>();
             renderable.Mesh = Builtin.Box;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -675,11 +807,13 @@ namespace BansheeEditor
         [ToolbarItem("Sphere", ToolbarIcon.NewSphere, "Creates a scene object with a sphere primitive", 1699)]
         private static void Add3DSphere()
         {
-            SceneObject so = UndoRedo.CreateSO("Sphere", "Created a sphere");
+            SceneObject so = new SceneObject("Sphere");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Renderable renderable = so.AddComponent<Renderable>();
             renderable.Mesh = Builtin.Sphere;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -691,11 +825,13 @@ namespace BansheeEditor
         [ToolbarItem("Cone", ToolbarIcon.NewCone, "Creates a scene object with a cone primitive", 1698)]
         private static void Add3DCone()
         {
-            SceneObject so = UndoRedo.CreateSO("Cone", "Created a cone");
+            SceneObject so = new SceneObject("Cone");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Renderable renderable = so.AddComponent<Renderable>();
             renderable.Mesh = Builtin.Cone;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -707,11 +843,13 @@ namespace BansheeEditor
         [ToolbarItem("Quad", ToolbarIcon.NewQuad, "Creates a scene object with a quad primitive", 1697)]
         private static void Add3DQuad()
         {
-            SceneObject so = UndoRedo.CreateSO("Quad", "Created a quad");
+            SceneObject so = new SceneObject("Quad");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Renderable renderable = so.AddComponent<Renderable>();
             renderable.Mesh = Builtin.Quad;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -722,11 +860,13 @@ namespace BansheeEditor
         [MenuItem("Scene Objects/3D primitives/Disc", 8096)]
         private static void Add3DDisc()
         {
-            SceneObject so = UndoRedo.CreateSO("Disc", "Created a disc");
+            SceneObject so = new SceneObject("Disc");
+
+            GameObjectUndo.RecordNewSceneObject(so);
             Renderable renderable = so.AddComponent<Renderable>();
             renderable.Mesh = Builtin.Disc;
+            GameObjectUndo.ResolveDiffs();
 
-            Selection.SceneObject = so;
             FocusOnHierarchyOrScene();
             EditorApplication.SetSceneDirty();
         }
@@ -754,9 +894,10 @@ namespace BansheeEditor
             if (so == null)
                 return;
 
-            UndoRedo.RecordSO(so, true, "Reverting \"" + so.Name + "\" to prefab.");
-
+            GameObjectUndo.RecordSceneObject(so, true, "Reverting \"" + so.Name + "\" to prefab.");
             PrefabUtility.RevertPrefab(so);
+
+            GameObjectUndo.ResolveDiffs();
             EditorApplication.SetSceneDirty();
         }
 
@@ -840,6 +981,7 @@ namespace BansheeEditor
                 return;
             }
 
+            GameObjectUndo.ResolveDiffs();
             UndoRedo.Global.Undo();
         }
 

@@ -1,8 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -19,16 +19,16 @@ namespace BansheeEditor
         /// <summary>
         /// Creates a new inspectable 2D vector GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the field whose contents to display.</param>
-        public InspectableVector2(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout, 
+        public InspectableVector2(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout, 
             SerializableProperty property)
-            : base(parent, title, path, SerializableProperty.FieldType.Vector2, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.Vector2, depth, layout, property)
         {
 
         }
@@ -39,18 +39,28 @@ namespace BansheeEditor
             if (property.Type == SerializableProperty.FieldType.Vector2)
             {
                 guiField = new GUIVector2Field(new GUIContent(title));
-                guiField.OnChanged += OnFieldValueChanged;
-                guiField.OnConfirmed += OnFieldValueConfirm;
-                guiField.OnFocusLost += OnFieldValueConfirm;
+                guiField.OnComponentChanged += OnFieldValueChanged;
+                guiField.OnConfirm += x =>
+                {
+                    OnFieldValueConfirm();
+                    StartUndo(x.ToString());
+                };
+                guiField.OnComponentFocusChanged += (focus, comp) =>
+                {
+                    if(focus)
+                        StartUndo(comp.ToString());
+                    else
+                        OnFieldValueConfirm();
+                };
 
                 layout.AddElement(layoutIndex, guiField);
             }
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
-            if (guiField != null && !guiField.HasInputFocus)
+            if (guiField != null && (!guiField.HasInputFocus || force))
                 guiField.Value = property.GetValue<Vector2>();
 
             InspectableState oldState = state;
@@ -60,13 +70,25 @@ namespace BansheeEditor
             return oldState;
         }
 
-        /// <summary>
-        /// Triggered when the user changes the field value.
-        /// </summary>
-        /// <param name="newValue">New value of the 2D vector field.</param>
-        private void OnFieldValueChanged(Vector2 newValue)
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
         {
-            property.SetValue(newValue);
+            if(subFieldName == "X")
+                guiField.SetInputFocus(VectorComponent.X, true);
+            else if(subFieldName == "Y")
+                guiField.SetInputFocus(VectorComponent.Y, true);
+            else
+                guiField.SetInputFocus(VectorComponent.X, true);
+        }
+
+        /// <summary>
+        /// Triggered when the user changes the field value of a single component.
+        /// </summary>
+        /// <param name="newValue">New value of a single component in the 3D vector field.</param>
+        /// <param name="component">Component that was changed.</param>
+        private void OnFieldValueChanged(float newValue, VectorComponent component)
+        {
+            property.SetValue(guiField.Value);
             state |= InspectableState.ModifyInProgress;
         }
 
@@ -77,6 +99,8 @@ namespace BansheeEditor
         {
             if (state.HasFlag(InspectableState.ModifyInProgress))
                 state |= InspectableState.Modified;
+
+            EndUndo();
         }
     }
 

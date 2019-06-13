@@ -1,9 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using System.IO;
-using BansheeEngine;
 
-namespace BansheeEditor
+using System.Diagnostics;
+using System.IO;
+using bs;
+
+namespace bs.Editor
 {
     /** @addtogroup Library
      *  @{
@@ -42,6 +44,7 @@ namespace BansheeEditor
         public GUITexture icon;
         public GUILabel label;
         public Rect2I bounds;
+        public int spacing;
 
         private GUITexture underlay;
         private GUITexture groupUnderlay;
@@ -71,10 +74,11 @@ namespace BansheeEditor
         /// <param name="path">Path to the project library entry to display data for.</param>
         /// <param name="index">Sequential index of the entry in the conent area.</param>
         /// <param name="width">Width of the GUI entry.</param>
-        /// <param name="height">Maximum allowed height for the label.</param>"
+        /// <param name="height">Maximum allowed height for the label.</param>
+        /// <param name="spacing">Spacing between this element and the next element on the same row. 0 if last.</param>
         /// <param name="type">Type of the entry, which controls its style and/or behaviour.</param>
         public LibraryGUIEntry(LibraryGUIContent owner, GUILayout parent, string path, int index, int width, int height,
-            LibraryGUIEntryType type)
+            int spacing, LibraryGUIEntryType type)
         {
             GUILayout entryLayout;
 
@@ -146,6 +150,7 @@ namespace BansheeEditor
             this.underlay = null;
             this.type = type;
             this.width = width;
+            this.spacing = spacing;
         }
 
         /// <summary>
@@ -187,12 +192,33 @@ namespace BansheeEditor
             {
                 if (owner.GridLayout)
                 {
-                    int offsetToNext = BG_HORZ_PADDING + owner.HorzElementSpacing;
-                    if (type == LibraryGUIEntryType.MultiLast)
-                        offsetToNext = BG_HORZ_PADDING * 2;
+                    bool firstInRow = index % owner.ElementsPerRow == 0;
+                    bool lastInRow = index % owner.ElementsPerRow == (owner.ElementsPerRow - 1);
 
-                    Rect2I bgBounds = new Rect2I(bounds.x - BG_HORZ_PADDING, bounds.y, 
-                        bounds.width + offsetToNext, bounds.height);
+                    int offsetToPrevious = 0;
+                    if (type == LibraryGUIEntryType.MultiFirst)
+                    {
+                        if (firstInRow)
+                            offsetToPrevious = owner.PaddingLeft / 3;
+                        else
+                            offsetToPrevious = spacing / 3;
+                    }
+                    else if (firstInRow)
+                        offsetToPrevious = owner.PaddingLeft;
+
+                    int offsetToNext = spacing;
+                    if (type == LibraryGUIEntryType.MultiLast)
+                    {
+                        if (lastInRow)
+                            offsetToNext = owner.PaddingRight / 3;
+                        else
+                            offsetToNext = spacing / 3;
+                    }
+                    else if (lastInRow)
+                        offsetToNext = owner.PaddingRight + spacing;
+
+                    Rect2I bgBounds = new Rect2I(bounds.x - offsetToPrevious, bounds.y,
+                        bounds.width + offsetToNext + offsetToPrevious, bounds.height);
                     groupUnderlay.Bounds = bgBounds;
                 }
                 else
@@ -436,6 +462,11 @@ namespace BansheeEditor
 
                         delayedOpenCodeEditorFrame = Time.FrameIdx + 1;
                     }
+                    else if(meta.ResType == ResourceType.PlainText || meta.ResType == ResourceType.Shader || meta.ResType == ResourceType.ShaderInclude)
+                    {
+                        string absPath = Path.Combine(ProjectLibrary.ResourceFolder, fileEntry.Path);
+                        Process.Start(absPath);
+                    }
                 }
             }
         }
@@ -451,7 +482,7 @@ namespace BansheeEditor
             LibraryEntry entry = ProjectLibrary.GetEntry(path);
             if (entry.Type == LibraryEntryType.Directory)
             {
-                return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Folder, size);
+                return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Folder, size);
             }
             else
             {
@@ -474,37 +505,37 @@ namespace BansheeEditor
                 switch (meta.ResType)
                 {
                     case ResourceType.Font:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Font, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Font, size);
                     case ResourceType.Mesh:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Mesh, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Mesh, size);
                     case ResourceType.Texture:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Texture, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Texture, size);
                     case ResourceType.PlainText:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.PlainText, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.PlainText, size);
                     case ResourceType.ScriptCode:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.ScriptCode, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.ScriptCode, size);
                     case ResourceType.SpriteTexture:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.SpriteTexture, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.SpriteTexture, size);
                     case ResourceType.Shader:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Shader, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Shader, size);
                     case ResourceType.ShaderInclude:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Shader, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Shader, size);
                     case ResourceType.Material:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Material, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Material, size);
                     case ResourceType.Prefab:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.Prefab, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.Prefab, size);
                     case ResourceType.GUISkin:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.GUISkin, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.GUISkin, size);
                     case ResourceType.PhysicsMaterial:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.PhysicsMaterial, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.PhysicsMaterial, size);
                     case ResourceType.PhysicsMesh:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.PhysicsMesh, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.PhysicsMesh, size);
                     case ResourceType.AudioClip:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.AudioClip, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.AudioClip, size);
                     case ResourceType.AnimationClip:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.AnimationClip, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.AnimationClip, size);
                     case ResourceType.VectorField:
-                        return EditorBuiltin.GetLibraryItemIcon(LibraryItemIcon.VectorField, size);
+                        return EditorBuiltin.GetProjectLibraryIcon(ProjectLibraryIcon.VectorField, size);
                 }
             }
 

@@ -3,15 +3,15 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
 	/** @addtogroup GUIEditor
 	 *  @{
 	 */
 
-	/// <summary>Determines how should ticks reported by <see cref="GUIGraphTicks"/> be distributed.</summary>
+	/// <summary>Determines how should ticks reported by &lt;see cref=&quot;GUIGraphTicks&quot;/&gt; be distributed.</summary>
 	public enum GUITickStepType
 	{
 		/// <summary>Ticks represent time values (Multiples of 60).</summary>

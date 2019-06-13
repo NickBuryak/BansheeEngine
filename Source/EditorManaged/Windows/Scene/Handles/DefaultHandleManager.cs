@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Handles
      *  @{
@@ -109,6 +109,8 @@ namespace BansheeEditor
                         isDragged = true;
 
                         SceneObject[] selectedSceneObjects = Selection.SceneObjects;
+                        GameObjectUndo.RecordSceneObjectHeader(selectedSceneObjects);
+
                         activeSelection = new HandledObject[selectedSceneObjects.Length];
                         for (int i = 0; i < selectedSceneObjects.Length; i++)
                             activeSelection[i] = new HandledObject(selectedSceneObjects[i]);
@@ -119,6 +121,9 @@ namespace BansheeEditor
                 }
                 else
                 {
+                    if (isDragged)
+                        GameObjectUndo.ResolveDiffs();
+
                     isDragged = false;
                     activeSelection = null;
                 }

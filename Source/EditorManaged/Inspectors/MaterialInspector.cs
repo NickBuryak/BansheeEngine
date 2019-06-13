@@ -1,9 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using System.Collections.Generic;
-using BansheeEngine;
 
-namespace BansheeEditor
+using System;
+using System.Collections.Generic;
+using bs;
+
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -18,13 +20,14 @@ namespace BansheeEditor
         private MaterialParamGUI[] guiParams;
         private GUIResourceField shaderField;
         private GUIEnumField builtinShaderField;
+        private Material material;
 
         /// <inheritdoc/>
         protected internal override void Initialize()
         {
             LoadResource();
 
-            Material material = InspectedObject as Material;
+            material = InspectedObject as Material;
             if (material == null)
                 return;
 
@@ -33,17 +36,7 @@ namespace BansheeEditor
 
             builtinShaderField = new GUIEnumField(typeof(BuiltinShader), new LocEdString("Shader"));
             builtinShaderField.Value = (ulong) builtinType;
-            builtinShaderField.OnSelectionChanged += x =>
-            {
-                BuiltinShader newBuiltinType = (BuiltinShader) x;
-
-                material.Shader = Builtin.GetShader(newBuiltinType);
-                EditorApplication.SetDirty(material);
-                RebuildParamGUI(material);
-
-                bool newIsCustom = newBuiltinType == BuiltinShader.Custom;
-                shaderField.Active = newIsCustom;
-            };
+            builtinShaderField.OnSelectionChanged += OnBuiltinShaderFieldChanged;
 
             shaderField = new GUIResourceField(typeof(Shader), new LocEdString("Shader file"));
             shaderField.ValueRef = material.Shader;
@@ -63,9 +56,8 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
-            Material material = InspectedObject as Material;
             if (material == null)
                 return InspectableState.NotModified;
 
@@ -82,6 +74,23 @@ namespace BansheeEditor
             }
 
             return InspectableState.NotModified;
+        }
+
+        private void OnBuiltinShaderFieldChanged(UInt64 value)
+        {
+            Shader activeShader = material.Shader.Value;
+            BuiltinShader builtinType = ShaderToBuiltin(activeShader);
+            BuiltinShader newBuiltinType = (BuiltinShader)value;
+
+            if (builtinType == newBuiltinType)
+                return;
+
+            material.Shader = Builtin.GetShader(newBuiltinType);
+            EditorApplication.SetDirty(material);
+            RebuildParamGUI(material);
+
+            bool newIsCustom = newBuiltinType == BuiltinShader.Custom;
+            shaderField.Active = newIsCustom;
         }
 
         /// <summary>
@@ -103,7 +112,7 @@ namespace BansheeEditor
             Layout.AddElement(shaderField);
 
             if (material != null && material.Shader != null)
-                guiParams = CreateMaterialGUI(material, Layout);
+                guiParams = CreateMaterialGUI(material, "", null, Layout);
         }
 
         /// <summary>
@@ -113,13 +122,15 @@ namespace BansheeEditor
         /// <returns>Type of builtin shader, if any.</returns>
         private BuiltinShader ShaderToBuiltin(Shader shader)
         {
-            // Note: Need a better way to detect the builtin shader perhaps (store it in Material?)
-            Shader standardShader = Builtin.GetShader(BuiltinShader.Standard);
-            Shader transparentShader = Builtin.GetShader(BuiltinShader.Transparent);
-;            if(standardShader == shader)
-                return BuiltinShader.Standard;
-            else if(transparentShader == shader)
-                return BuiltinShader.Transparent;
+            // Note: Might be nice to have a better way to detect the builtin shader perhaps (store it in Material?)
+            //   - Or I could just compare UUID's here to avoid loading the shaders
+            var enumValues = Enum.GetValues(typeof(BuiltinShader));
+            for (int i = 1; i < enumValues.Length; i++)
+            {
+                Shader builtinShader = Builtin.GetShader((BuiltinShader) i);
+                if (builtinShader == shader)
+                    return (BuiltinShader) i;
+            }
             
             return BuiltinShader.Custom;
         }
@@ -128,9 +139,12 @@ namespace BansheeEditor
         /// Creates a set of objects in which each object represents a GUI for a material parameter.
         /// </summary>
         /// <param name="mat">Material for whose parameters to create GUI for.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="layout">Layout to add the parameter GUI elements to.</param>
         /// <returns>A material parameter GUI object for each supported material parameter.</returns>
-        static internal MaterialParamGUI[] CreateMaterialGUI(Material mat, GUILayout layout)
+        internal static MaterialParamGUI[] CreateMaterialGUI(Material mat, string path, Component component, 
+            GUILayout layout)
         {
             Shader shader = mat.Shader.Value;
             if (shader == null)
@@ -148,37 +162,37 @@ namespace BansheeEditor
                 {
                     case ShaderParameterType.Float:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamFloatGUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamFloatGUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Vector2:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamVec2GUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamVec2GUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Vector3:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamVec3GUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamVec3GUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Vector4:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamVec4GUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamVec4GUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Matrix3:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamMat3GUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamMat3GUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Matrix4:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamMat4GUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamMat4GUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Color:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamColorGUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamColorGUI(param, path, component, mat, layout));
                         break;
                     case ShaderParameterType.Texture2D:
                     case ShaderParameterType.Texture3D:
                     case ShaderParameterType.TextureCube:
                         layout.AddSpace(5);
-                        guiParams.Add(new MaterialParamTextureGUI(param, mat, layout));
+                        guiParams.Add(new MaterialParamTextureGUI(param, path, component, mat, layout));
                         break;
                 }
             }
@@ -193,14 +207,25 @@ namespace BansheeEditor
     internal abstract class MaterialParamGUI
     {
         protected ShaderParameter shaderParam;
+        protected string path;
+        protected Component component;
+
+        /// <summary>
+        /// Underlying shader parameter the field is representing.
+        /// </summary>
+        internal ShaderParameter Param { get => shaderParam; }
 
         /// <summary>
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for.</param>
-        protected MaterialParamGUI(ShaderParameter shaderParam)
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
+        protected MaterialParamGUI(ShaderParameter shaderParam, string path, Component component)
         {
             this.shaderParam = shaderParam;
+            this.path = path;
+            this.component = component;
         }
 
         /// <summary>
@@ -213,6 +238,50 @@ namespace BansheeEditor
         /// Destroys the internal GUI elements.
         /// </summary>
         internal abstract void Destroy();
+
+        /// <summary>
+        /// Moves keyboard focus to this field.
+        /// </summary>
+        /// <param name="subFieldName">
+        /// Name of the sub-field to focus on. Only relevant if the field represents multiple GUI input elements.
+        /// </param>
+        public virtual void SetHasFocus(string subFieldName = null) { }
+
+        /// <summary>
+        /// Zero parameter wrapper for <see cref="StartUndo(string)"/>
+        /// </summary>
+        protected void StartUndo()
+        {
+            StartUndo(null);
+        }
+
+        /// <summary>
+        /// Notifies the system to start recording a new undo command. Any changes to the field after this is called
+        /// will be recorded in the command. User must call <see cref="EndUndo"/> after field is done being changed.
+        /// </summary>
+        /// <param name="subPath">Additional path to append to the end of the current field path.</param>
+        protected void StartUndo(string subPath)
+        {
+            if (component != null)
+            {
+                string fullPath = path.TrimEnd('/');
+                fullPath += "/" + shaderParam.name;
+
+                if (!string.IsNullOrEmpty(subPath))
+                    fullPath += '/' + subPath.TrimStart('/');
+
+                GameObjectUndo.RecordComponent(component, fullPath);
+            }
+        }
+
+        /// <summary>
+        /// Finishes recording an undo command started via <see cref="StartUndo(string)"/>. If any changes are detected on
+        /// the field an undo command is recorded onto the undo-redo stack, otherwise nothing is done.
+        /// </summary>
+        protected void EndUndo()
+        {
+            GameObjectUndo.ResolveDiffs();
+        }
     }
 
     /// <summary>
@@ -220,38 +289,91 @@ namespace BansheeEditor
     /// </summary>
     internal class MaterialParamFloatGUI : MaterialParamGUI
     {
-        private GUIFloatField guiElem;
+        private GUILayout fieldLayout;
+        private GUIFloatField guiConstant;
+        private GUICurvesField guiCurves;
 
         /// <summary>
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of floating point type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamFloatGUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamFloatGUI(ShaderParameter shaderParam, string path, Component component, 
+            Material material, GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
-            guiElem = new GUIFloatField(title);
-            guiElem.OnChanged += (x) =>
+
+            var guiToggle = new GUIToggle(new GUIContent(
+                EditorBuiltin.GetEditorToggleIcon(EditorToggleIcon.AnimateProperty), new LocString("Animate")));
+            guiConstant = new GUIFloatField(title);
+            guiCurves = new GUICurvesField(title);
+
+            bool isAnimated = material.IsAnimated(shaderParam.name);
+            guiConstant.Active = !isAnimated;
+            guiCurves.Active = isAnimated;
+
+            fieldLayout = layout.AddLayoutX();
+            fieldLayout.AddElement(guiConstant);
+            fieldLayout.AddElement(guiCurves);
+            fieldLayout.AddSpace(10);
+            fieldLayout.AddElement(guiToggle);
+
+            guiConstant.OnChanged += (x) =>
             {
                 material.SetFloat(shaderParam.name, x);
                 EditorApplication.SetDirty(material);
             };
 
-            layout.AddElement(guiElem);
+            guiConstant.OnFocusGained += () => StartUndo("constant");
+            guiConstant.OnFocusLost += EndUndo;
+            guiConstant.OnConfirmed += () =>
+            {
+                EndUndo();
+                StartUndo("constant");
+            };
+
+            guiCurves.OnChanged += x =>
+            {
+                StartUndo("curve");
+
+                material.SetFloatCurve(shaderParam.name, x);
+                EditorApplication.SetDirty(material);
+
+                EndUndo();
+            };
+
+            guiToggle.OnToggled += x =>
+            {
+                guiConstant.Active = !x;
+                guiCurves.Active = x;
+            };
         }
 
         /// <inheritdoc/>
         internal override void Refresh(Material material)
         {
-            guiElem.Value = material.GetFloat(shaderParam.name);
+            bool isAnimated = material.IsAnimated(shaderParam.name);
+            if (isAnimated)
+                guiCurves.SetCurve(material.GetFloatCurve(shaderParam.name));
+            else
+                guiConstant.Value = material.GetFloat(shaderParam.name);
         }
 
         /// <inheritdoc/>
         internal override void Destroy()
         {
-            guiElem.Destroy();
+            fieldLayout.Destroy();
+        }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (subFieldName == "constant")
+                guiConstant.Focus = true;
         }
     }
 
@@ -266,17 +388,34 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of 2D vector type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamVec2GUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamVec2GUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
             guiElem = new GUIVector2Field(title);
-            guiElem.OnChanged += (x) =>
+            guiElem.OnValueChanged += (x) =>
             {
                 material.SetVector2(shaderParam.name, x);
                 EditorApplication.SetDirty(material);
+            };
+
+            guiElem.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if(focus)
+                    StartUndo(comp.ToString());
+                else
+                    EndUndo();
+            };
+
+            guiElem.OnConfirm += comp =>
+            {
+                EndUndo();
+                StartUndo(comp.ToString());
             };
 
             layout.AddElement(guiElem);
@@ -293,6 +432,15 @@ namespace BansheeEditor
         {
             guiElem.Destroy();
         }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (subFieldName == "x")
+                guiElem.SetInputFocus(VectorComponent.X, true);
+            else if(subFieldName == "y")
+                guiElem.SetInputFocus(VectorComponent.Y, true);
+        }
     }
 
     /// <summary>
@@ -306,17 +454,38 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of 3D vector type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamVec3GUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        /// <param name="loadResources">
+        /// If true, any assigned texture resources will be loaded in memory. If false the resources will be just referenced
+        /// without loading.
+        /// </param>
+        internal MaterialParamVec3GUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
             guiElem = new GUIVector3Field(title);
-            guiElem.OnChanged += (x) =>
+            guiElem.OnValueChanged += (x) =>
             {
                 material.SetVector3(shaderParam.name, x);
                 EditorApplication.SetDirty(material);
+            };
+
+            guiElem.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if(focus)
+                    StartUndo(comp.ToString());
+                else
+                    EndUndo();
+            };
+
+            guiElem.OnConfirm += comp =>
+            {
+                EndUndo();
+                StartUndo(comp.ToString());
             };
 
             layout.AddElement(guiElem);
@@ -333,6 +502,17 @@ namespace BansheeEditor
         {
             guiElem.Destroy();
         }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (subFieldName == "x")
+                guiElem.SetInputFocus(VectorComponent.X, true);
+            else if(subFieldName == "y")
+                guiElem.SetInputFocus(VectorComponent.Y, true);
+            else if(subFieldName == "z")
+                guiElem.SetInputFocus(VectorComponent.Z, true);
+        }
     }
 
     /// <summary>
@@ -346,17 +526,34 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of 4D vector type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamVec4GUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamVec4GUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
             guiElem = new GUIVector4Field(title);
-            guiElem.OnChanged += (x) =>
+            guiElem.OnValueChanged += (x) =>
             {
                 material.SetVector4(shaderParam.name, x);
                 EditorApplication.SetDirty(material);
+            };
+
+            guiElem.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if(focus)
+                    StartUndo(comp.ToString());
+                else
+                    EndUndo();
+            };
+
+            guiElem.OnConfirm += comp =>
+            {
+                EndUndo();
+                StartUndo(comp.ToString());
             };
 
             layout.AddElement(guiElem);
@@ -372,6 +569,19 @@ namespace BansheeEditor
         internal override void Destroy()
         {
             guiElem.Destroy();
+        }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (subFieldName == "x")
+                guiElem.SetInputFocus(VectorComponent.X, true);
+            else if(subFieldName == "y")
+                guiElem.SetInputFocus(VectorComponent.Y, true);
+            else if(subFieldName == "z")
+                guiElem.SetInputFocus(VectorComponent.Z, true);
+            else if(subFieldName == "w")
+                guiElem.SetInputFocus(VectorComponent.W, true);
         }
     }
 
@@ -389,10 +599,13 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of 3x3 matrix type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamMat3GUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamMat3GUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
             GUILabel guiTitle = new GUILabel(title, GUIOption.FixedWidth(100));
@@ -428,6 +641,14 @@ namespace BansheeEditor
                         material.SetMatrix3(shaderParam.name, value);
                         EditorApplication.SetDirty(material);
                     };
+
+                    field.OnFocusGained += () => StartUndo(hoistedRow + "x" + hoistedCol);
+                    field.OnFocusLost += EndUndo;
+                    field.OnConfirmed += () =>
+                    {
+                        EndUndo();
+                        StartUndo(hoistedRow + "x" + hoistedCol);
+                    };
                 }
             }
         }
@@ -452,6 +673,27 @@ namespace BansheeEditor
         {
             mainLayout.Destroy();
         }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (string.IsNullOrEmpty(subFieldName))
+                return;
+
+            string[] parts = subFieldName.Split('x');
+            if (parts.Length != 2)
+                return;
+
+            if (!int.TryParse(parts[0], out int row) || !int.TryParse(parts[1], out int col))
+                return;
+
+            if (row >= MAT_SIZE && col >= MAT_SIZE)
+                return;
+
+            int index = row * MAT_SIZE + col;
+            guiMatFields[index].Focus = true;
+
+        }
     }
 
     /// <summary>
@@ -468,10 +710,13 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of 4x4 matrix type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamMat4GUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamMat4GUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
             GUILabel guiTitle = new GUILabel(title, GUIOption.FixedWidth(100));
@@ -507,6 +752,14 @@ namespace BansheeEditor
                         material.SetMatrix4(shaderParam.name, value);
                         EditorApplication.SetDirty(material);
                     };
+
+                    field.OnFocusGained += () => StartUndo(hoistedRow + "x" + hoistedCol);
+                    field.OnFocusLost += EndUndo;
+                    field.OnConfirmed += () =>
+                    {
+                        EndUndo();
+                        StartUndo(hoistedRow + "x" + hoistedCol);
+                    };
                 }
             }
         }
@@ -531,6 +784,27 @@ namespace BansheeEditor
         {
             mainLayout.Destroy();
         }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            if (string.IsNullOrEmpty(subFieldName))
+                return;
+
+            string[] parts = subFieldName.Split('x');
+            if (parts.Length != 2)
+                return;
+
+            if (!int.TryParse(parts[0], out int row) || !int.TryParse(parts[1], out int col))
+                return;
+
+            if (row >= MAT_SIZE && col >= MAT_SIZE)
+                return;
+
+            int index = row * MAT_SIZE + col;
+            guiMatFields[index].Focus = true;
+
+        }
     }
 
     /// <summary>
@@ -538,38 +812,87 @@ namespace BansheeEditor
     /// </summary>
     internal class MaterialParamColorGUI : MaterialParamGUI
     {
-        private GUIColorField guiElem;
+        private GUILayout fieldLayout;
+        private GUIColorField guiColor;
+        private GUIColorGradientField guiColorGradient;
 
         /// <summary>
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of color type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamColorGUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamColorGUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
-            guiElem = new GUIColorField(title);
-            guiElem.OnChanged += (x) =>
+
+            var guiToggle = new GUIToggle(new GUIContent( 
+                EditorBuiltin.GetEditorToggleIcon(EditorToggleIcon.AnimateProperty), new LocString("Animate")));
+            guiColor = new GUIColorField(title);
+            guiColorGradient = new GUIColorGradientField(title);
+
+            bool isAnimated = material.IsAnimated(shaderParam.name);
+            guiColor.Active = !isAnimated;
+            guiColorGradient.Active = isAnimated;
+
+            fieldLayout = layout.AddLayoutX();
+            fieldLayout.AddElement(guiColor);
+            fieldLayout.AddElement(guiColorGradient);
+            fieldLayout.AddSpace(10);
+            fieldLayout.AddElement(guiToggle);
+
+            guiColor.OnChanged += (x) =>
             {
+                StartUndo();
+
                 material.SetColor(shaderParam.name, x);
                 EditorApplication.SetDirty(material);
+
+                EndUndo();
             };
 
-            layout.AddElement(guiElem);
+            guiColorGradient.OnChanged += x =>
+            {
+                StartUndo();
+
+                material.SetColorGradient(shaderParam.name, x);
+                EditorApplication.SetDirty(material);
+
+                EndUndo();
+            };
+
+            guiToggle.OnToggled += x =>
+            {
+                guiColor.Active = !x;
+                guiColorGradient.Active = x;
+
+                if (x)
+                {
+                    ColorGradient gradient = material.GetColorGradient(shaderParam.name);
+                    if (gradient.NumKeys == 0)
+                        material.SetColorGradient(shaderParam.name, new ColorGradient(material.GetColor(shaderParam.name)));
+                }
+            };
         }
 
         /// <inheritdoc/>
         internal override void Refresh(Material material)
         {
-            guiElem.Value = material.GetColor(shaderParam.name);
+            bool isAnimated = material.IsAnimated(shaderParam.name);
+            if (isAnimated)
+                guiColorGradient.Value = material.GetColorGradient(shaderParam.name);
+            else
+                guiColor.Value = material.GetColor(shaderParam.name);
         }
 
         /// <inheritdoc/>
         internal override void Destroy()
         {
-            guiElem.Destroy();
+            fieldLayout.Destroy();
         }
     }
 
@@ -584,13 +907,21 @@ namespace BansheeEditor
         /// Creates a new material parameter GUI.
         /// </summary>
         /// <param name="shaderParam">Shader parameter to create the GUI for. Must be of texture type.</param>
+        /// <param name="path">Path to the material field in the parent object.</param>
+        /// <param name="component">Optional component the material is part of (if any).</param>
         /// <param name="material">Material the parameter is a part of.</param>
         /// <param name="layout">Layout to append the GUI elements to.</param>
-        internal MaterialParamTextureGUI(ShaderParameter shaderParam, Material material, GUILayout layout)
-            : base(shaderParam)
+        internal MaterialParamTextureGUI(ShaderParameter shaderParam, string path, Component component, Material material, 
+            GUILayout layout)
+            : base(shaderParam, path, component)
         {
             LocString title = new LocEdString(shaderParam.name);
-            guiElem = new GUITextureField(title);
+
+            GUITextureFieldType type = shaderParam.type == ShaderParameterType.Texture2D ? 
+                GUITextureFieldType.TextureOrSpriteTexture :
+                GUITextureFieldType.Texture;
+
+            guiElem = new GUITextureField(type, title);
 
             switch (shaderParam.type)
             {
@@ -599,12 +930,37 @@ namespace BansheeEditor
                 case ShaderParameterType.TextureCube:
                     guiElem.OnChanged += (x) =>
                     {
-                        Resource resource = x.Value;
+                        string texPath = ProjectLibrary.GetPath(x.UUID);
+                        if (!string.IsNullOrEmpty(texPath))
+                        {
+                            if (ProjectLibrary.GetEntry(texPath) is FileEntry fileEntry)
+                            {
+                                if (fileEntry.ResourceMetas.Length > 0)
+                                {
+                                    StartUndo();
 
-                        if(resource is Texture tex)
-                            material.SetTexture(shaderParam.name, tex);
-                        else if(resource is SpriteTexture spriteTex)
-                            material.SetSpriteTexture(shaderParam.name, spriteTex);
+                                    // Note: Ideally we can avoid loading texture resources if the material is not
+                                    // referenced anywhere in the scene. But we don't have a good way to check that at
+                                    // the moment.
+                                    //    Resources.LoadAsync<Resource>(x.UUID);
+
+                                    ResourceMeta meta = fileEntry.ResourceMetas[0];
+                                    if (meta.ResType == ResourceType.SpriteTexture)
+                                        material.SetSpriteTexture(shaderParam.name,
+                                            bs.Resources.LoadAsync<SpriteTexture>(x.UUID));//(SpriteTexture)x.Value);//x.As<SpriteTexture>());
+                                    else if (meta.ResType == ResourceType.Texture)
+                                        material.SetTexture(shaderParam.name, bs.Resources.LoadAsync<Texture>(x.UUID));//(Texture)x.Value); //x.As<Texture>());
+
+                                    EndUndo();
+                                }
+                            }
+                        }
+                        else
+                        {
+                            StartUndo();
+                            material.SetTexture(shaderParam.name, null);
+                            EndUndo();
+                        }
 
                         EditorApplication.SetDirty(material);
                     };
@@ -617,22 +973,25 @@ namespace BansheeEditor
         /// <inheritdoc/>
         internal override void Refresh(Material material)
         {
+            RRef<Texture> texture;
             switch (shaderParam.type)
             {
                 case ShaderParameterType.Texture2D:
-                case ShaderParameterType.Texture3D:
-                case ShaderParameterType.TextureCube:
                     RRef<SpriteTexture> spriteTex = material.GetSpriteTexture(shaderParam.name);
 
-                    if (spriteTex != null)
+                    if (spriteTex != null && spriteTex.UUID != UUID.Empty)
                         guiElem.SpriteTextureRef = spriteTex;
                     else
                     {
-                        RRef<Texture> texture = material.GetTexture(shaderParam.name);
+                        texture = material.GetTexture(shaderParam.name);
                         guiElem.TextureRef = texture;
                     }
 
-
+                    break;
+                case ShaderParameterType.Texture3D:
+                case ShaderParameterType.TextureCube:
+                    texture = material.GetTexture(shaderParam.name);
+                    guiElem.TextureRef = texture;
                     break;
             }
         }

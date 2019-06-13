@@ -3,9 +3,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup GUI-Editor 
      *  @{
@@ -71,7 +71,7 @@ namespace BansheeEditor
         /// <summary>
         /// (Re)builds the list GUI elements. Must be called at least once in order for the contents to be populated.
         /// </summary>
-        public void BuildGUI()
+        public void BuildGUI(bool force = false)
         {
             UpdateHeaderGUI();
 
@@ -99,6 +99,9 @@ namespace BansheeEditor
 
                 for (int i = 0; i < rows.Count; i++)
                     rows[i].SetIndex(i);
+
+                if(force)
+                    guiSizeField.Value = numRows;
             }
             else
             {
@@ -229,13 +232,14 @@ namespace BansheeEditor
         /// <summary>
         /// Refreshes contents of all list rows and checks if anything was modified.
         /// </summary>
+        /// <param name="force">Forces the GUI fields to display the latest values assigned on the object.</param>
         /// <returns>State representing was anything modified between two last calls to <see cref="Refresh"/>.</returns>
-        public virtual InspectableState Refresh()
+        public virtual InspectableState Refresh(bool force)
         {
             InspectableState state = InspectableState.NotModified;
 
             for (int i = 0; i < rows.Count; i++)
-                state |= rows[i].Refresh();
+                state |= rows[i].Refresh(force);
 
             if (isModified)
             {
@@ -982,8 +986,9 @@ namespace BansheeEditor
         /// <summary>
         /// Refreshes the GUI for the list row and checks if anything was modified.
         /// </summary>
+        /// <param name="force">Forces the GUI fields to display the latest values assigned on the object.</param>
         /// <returns>State representing was anything modified between two last calls to <see cref="Refresh"/>.</returns>
-        protected internal virtual InspectableState Refresh()
+        protected internal virtual InspectableState Refresh(bool force)
         {
             InspectableState oldState = modifiedState;
             if (modifiedState.HasFlag(InspectableState.Modified))

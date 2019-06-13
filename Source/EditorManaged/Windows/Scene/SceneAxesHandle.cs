@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Scene-Editor
      *  @{
@@ -243,12 +243,11 @@ namespace BansheeEditor
             SceneWindow sceneWindow = EditorWindow.GetWindow<SceneWindow>();
             if (sceneWindow != null)
             {
-                if (sceneWindow.ProjectionType == ProjectionType.Orthographic)
-                    sceneWindow.ProjectionType = ProjectionType.Perspective;
+                if (sceneWindow.Camera.Camera.ProjectionType == ProjectionType.Orthographic)
+                    sceneWindow.Camera.ChangeProjectionType(ProjectionType.Perspective);
                 else
-                    sceneWindow.ProjectionType = ProjectionType.Orthographic;
+                    sceneWindow.Camera.ChangeProjectionType(ProjectionType.Orthographic);
             }
-                
         }
     }
 

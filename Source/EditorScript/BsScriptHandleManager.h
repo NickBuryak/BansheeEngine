@@ -13,7 +13,7 @@ namespace bs
 
 	/**
 	 * Renders, updates and manipulates handles declared in managed code. Managed code handles have a [CustomHandle]
-	 * attribute and must implement BansheeEditor.Handle.
+	 * attribute and must implement bs.Editor.Handle.
 	 */
 	class BS_SCR_BED_EXPORT ScriptHandleManager : public HandleManager
 	{
@@ -58,6 +58,9 @@ namespace bs
 
 		/** @copydoc HandleManager::queueDrawCommands */
 		void queueDrawCommands() override;
+
+		/** Creates or destroys handle objects depending on the current selection. */
+		void updateHandles();
 
 		/**   
 		 * Clears references to all managed types and objects. Must be called before loadAssemblyData() if 

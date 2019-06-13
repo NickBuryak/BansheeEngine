@@ -19,7 +19,7 @@ namespace bs
 	class BS_ED_EXPORT ModalWindow : public EditorWindowBase
 	{
 	public:
-		virtual ~ModalWindow();
+		virtual ~ModalWindow() = default;
 
 		/** @copydoc EditorWindowBase::update */
 		void update() override;
@@ -30,6 +30,27 @@ namespace bs
 		/**	Changes the text in the modal window title bar. */
 		void setTitle(const HString& title);
 
+		/** @copydoc EditorWindowBase::setSize */
+		void setSize(UINT32 width, UINT32 height) override;
+
+		/**	
+		 * Returns the width of the content area of the window, in pixels. The content area represents the area of the
+		 * window not including the title bar and the border.
+		 */
+		UINT32 getContentWidth() const;
+
+		/**	
+		 * Returns the height of the content area of the window, in pixels. The content area represents the area of the
+		 * window not including the title bar and the border.
+		 */
+		UINT32 getContentHeight() const;
+
+		/** 
+		 * Sets the width & height of the content area of the window, in pixels. The content area represents the area of
+		 * the window not including the titlebar and the border.
+		 */
+		void setContentSize(UINT32 width, UINT32 height);
+
 		/** Converts screen pointer coordinates into coordinates relative to the window content's GUI panel. */
 		Vector2I screenToWindowPos(const Vector2I& screenPos) const;
 
@@ -39,7 +60,7 @@ namespace bs
 	protected:
 		friend class EditorWindowManager;
 
-		ModalWindow(const HString& title, bool hasCloseButton = false);
+		ModalWindow(const HString& title, bool hasCloseButton = false, UINT32 width = 200, UINT32 height = 200);
 
 		/**
 		 * Returns the area in which the GUI contents are displayed (not including title bar and other default 
@@ -60,15 +81,15 @@ namespace bs
 		/**	Returns the height in pixels taken up by the title bar. */
 		UINT32 getTitleBarHeight() const;
 
-		GUIPanel* mTitleBarPanel;
-		GUIPanel* mTitleBarBgPanel;
+		GUIPanel* mTitleBarPanel = nullptr;
+		GUIPanel* mTitleBarBgPanel = nullptr;
 
-		GUILabel* mTitle;
-		GUIButton* mCloseButton;
-		GUITexture* mTitleBarBg;
+		GUILabel* mTitle = nullptr;
+		GUIButton* mCloseButton = nullptr;
+		GUITexture* mTitleBarBg = nullptr;
 
 	protected:
-		GUIPanel* mContents;
+		GUIPanel* mContents = nullptr;
 	};
 
 	/** @} */

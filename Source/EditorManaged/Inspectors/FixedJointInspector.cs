@@ -1,8 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -17,26 +17,8 @@ namespace BansheeEditor
         /// <inheritdoc/>
         protected internal override void Initialize()
         {
-            FixedJoint joint = InspectedObject as FixedJoint;
-
-            if (joint != null)
-                BuildGUI(joint, false);
-        }
-
-        /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
-        {
-            FixedJoint joint = InspectedObject as FixedJoint;
-            if (joint == null)
-                return InspectableState.NotModified;
-
-            Refresh(joint);
-
-            InspectableState oldState = modifyState;
-            if (modifyState.HasFlag(InspectableState.Modified))
-                modifyState = InspectableState.NotModified;
-
-            return oldState;
+            FixedJoint joint = (FixedJoint) InspectedObject;
+            BuildGUI(joint, false);
         }
     }
 

@@ -30,10 +30,85 @@ namespace bs
 	/** Spacing between two internal elements, in pixels. */
 	static constexpr UINT32 ELEM_SPACING = 5;
 
+	namespace impl
+	{
+		template<class T, class F>
+		void addOnConfirmCallback(T* field, F func)
+		{
+			field->onConfirm.connect([func]() { func(VectorComponent::X); });
+		}
+
+		template<class F>
+		void addOnConfirmCallback(GUIVector2Field* field, F func)
+		{
+			field->onConfirm.connect([func](VectorComponent x) { func(x); });
+		}
+
+		template<class F>
+		void addOnConfirmCallback(GUIVector3Field* field, F func)
+		{
+			field->onConfirm.connect([func](VectorComponent x) { func(x); });
+		}
+
+		template<class T, class F>
+		void addOnValueChangedCallback(T* field, F func)
+		{
+			field->onValueChanged.connect([func](float val) { func(val, VectorComponent::X); });
+		}
+
+		template<class F>
+		void addOnValueChangedCallback(GUIVector2Field* field, F func)
+		{
+			field->onComponentChanged.connect([func](float val, VectorComponent x) { func(val, x); });
+		}
+
+		template<class F>
+		void addOnValueChangedCallback(GUIVector3Field* field, F func)
+		{
+			field->onComponentChanged.connect([func](float val, VectorComponent x) { func(val, x); });
+		}
+
+		template<class T, class F>
+		void addOnInputChangedCallback(T* field, F func)
+		{
+			field->onFocusChanged.connect([func](bool val) { func(val, VectorComponent::X); });
+		}
+
+		template<class F>
+		void addOnInputChangedCallback(GUIVector2Field* field, F func)
+		{
+			field->onComponentFocusChanged.connect([func](bool val, VectorComponent x) { func(val, x); });
+		}
+
+		template<class F>
+		void addOnInputChangedCallback(GUIVector3Field* field, F func)
+		{
+			field->onComponentFocusChanged.connect([func](bool val, VectorComponent x) { func(val, x); });
+		}
+
+		template<class T>
+		void setFocus(T* field, VectorComponent component, bool focus)
+		{
+			field->setFocus(focus);
+		}
+
+		template<>
+		void setFocus(GUIVector2Field* field, VectorComponent component, bool focus)
+		{
+			field->setInputFocus(component, focus);
+		}
+
+		template<>
+		void setFocus(GUIVector3Field* field, VectorComponent component, bool focus)
+		{
+			field->setInputFocus(component, focus);
+		}
+	}
+
 	template<class T, class SELF>
 	TGUIDistributionField<T, SELF>::TGUIDistributionField(const PrivatelyConstruct& dummy, const GUIContent& labelContent, 
 		UINT32 labelWidth, const String& style, const GUIDimensions& dimensions, bool withLabel)
-		: TGUIField(dummy, labelContent, labelWidth, style, dimensions, withLabel)
+		: TGUIField<SELF>(dummy, labelContent, labelWidth, style, dimensions, withLabel)
 	{
 		mContextMenu = bs_shared_ptr_new<GUIContextMenu>();
 
@@ -166,13 +241,40 @@ namespace bs
 		return false;
 	}
 
+	template <class T, class SELF>
+	void TGUIDistributionField<T, SELF>::setInputFocus(RangeComponent rangeComponent, VectorComponent vectorComponent, bool focus)
+	{
+		switch(mPropertyType)
+		{
+		case PDT_Constant:
+		case PDT_RandomRange:
+			if(rangeComponent == RangeComponent::Min)
+				impl::setFocus(mMinInput, vectorComponent, focus);
+			else
+				impl::setFocus(mMaxInput, vectorComponent, focus);
+
+			break;
+		case PDT_Curve:
+		case PDT_RandomCurveRange:
+		{
+			for (UINT32 i = 0; i < NumComponents; i++)
+			{
+				if ((VectorComponent)i == vectorComponent && mCurveDisplay[i])
+					mCurveDisplay[i]->setFocus(focus);
+			}
+		}
+			break;
+		}
+		
+	}
+
 	template<class T, class SELF>
 	void TGUIDistributionField<T, SELF>::setTint(const Color& color)
 	{
 		mDropDownButton->setTint(color);
 
-		if (mLabel)
-			mLabel->setTint(color);
+		if (this->mLabel)
+			this->mLabel->setTint(color);
 
 		if(mMinInput)
 			mMinInput->setTint(color);
@@ -245,9 +347,9 @@ namespace bs
 		optimalsize.x += dropDownSize.x;
 		optimalsize.y = std::max(optimalsize.y, dropDownSize.y);
 
-		if (mLabel)
+		if (this->mLabel)
 		{
-			Vector2I elemOptimal = mLabel->_calculateLayoutSizeRange().optimal;
+			Vector2I elemOptimal = this->mLabel->_calculateLayoutSizeRange().optimal;
 
 			optimalsize.x += elemOptimal.x;
 			optimalsize.y = std::max(optimalsize.y, elemOptimal.y);
@@ -259,21 +361,21 @@ namespace bs
 	template<class T, class SELF>
 	void TGUIDistributionField<T, SELF>::styleUpdated()
 	{
-		mDropDownButton->setStyle(getSubStyleName(DROP_DOWN_FIELD_STYLE_TYPE));
+		mDropDownButton->setStyle(this->getSubStyleName(DROP_DOWN_FIELD_STYLE_TYPE));
 
-		if (mLabel)
-			mLabel->setStyle(getSubStyleName(getLabelStyleType()));
+		if (this->mLabel)
+			this->mLabel->setStyle(this->getSubStyleName(this->getLabelStyleType()));
 
 		if (mMinInput)
-			mMinInput->setStyle(getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
+			mMinInput->setStyle(this->getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
 
 		if (mMaxInput)
-			mMaxInput->setStyle(getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
+			mMaxInput->setStyle(this->getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
 
 		for (int i = 0; i < NumComponents; i++)
 		{
 			if (mCurveDisplay[i])
-				mCurveDisplay[i]->setStyle(getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
+				mCurveDisplay[i]->setStyle(this->getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
 		}
 	}
 
@@ -283,18 +385,18 @@ namespace bs
 		constexpr const char* COMP_NAMES[] = { "X", "Y", "Z", "W" };
 		constexpr UINT32 ELEMENT_LABEL_WIDTH = 15;
 
-		if(mLabel)
-			mLayout->removeElement(mLabel);
+		if(this->mLabel)
+			this->mLayout->removeElement(this->mLabel);
 
-		mLayout->clear();
-		mLayout->addElement(mLabel);
+		this->mLayout->clear();
+		this->mLayout->addElement(this->mLabel);
 
-		GUILayout* valueLayout = mLayout->addNewElement<GUILayoutY>();
+		GUILayout* valueLayout = this->mLayout->template addNewElement<GUILayoutY>();
 		switch (mValue.getType())
 		{
 		default:
 		case PDT_Constant:
-			mMinInput = GUIConstantType::create(GUIOptions(), getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
+			mMinInput = GUIConstantType::create(GUIOptions(), this->getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
 			mMaxInput = nullptr;
 			mLabels = { nullptr, nullptr };
 
@@ -302,43 +404,67 @@ namespace bs
 				mCurveDisplay[i] = nullptr;
 
 			mMinInput->setValue(mMinConstant);
-			mMinInput->onValueChanged.connect([this](T value)
-			{
-				mMinConstant = value;
-				mValue = TDistribution<T>(value);
 
-				onConstantModified();
+			impl::addOnValueChangedCallback(mMinInput, [this](float value, VectorComponent component)
+			{
+				mMinConstant = mMinInput->getValue();
+				mValue = TDistribution<T>(mMinConstant);
+
+				onConstantModified(RangeComponent::Min, component);
 			});
-			mMinInput->onConfirm.connect([this]() { onConstantConfirmed(); });
+			impl::addOnConfirmCallback(mMinInput, [this](VectorComponent component)
+			{
+				onConstantConfirmed(RangeComponent::Min, component);
+			});
+			impl::addOnInputChangedCallback(mMinInput, [this](bool focus, VectorComponent component)
+			{
+				onConstantFocusChanged(focus, RangeComponent::Min, component);
+			});
 
 			valueLayout->addElement(mMinInput);
 			break;
 		case PDT_RandomRange: 
-			mMinInput = GUIConstantType::create(GUIOptions(), getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
-			mMaxInput = GUIConstantType::create(GUIOptions(), getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
+			mMinInput = GUIConstantType::create(GUIOptions(), this->getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
+			mMaxInput = GUIConstantType::create(GUIOptions(), this->getSubStyleName(FLOAT_FIELD_STYLE_TYPE));
 
 			for(int i = 0; i < NumComponents; i++)
 				mCurveDisplay[i] = nullptr;
 
 			mMinInput->setValue(mMinConstant);
-			mMinInput->onValueChanged.connect([this](T value)
-			{
-				mMinConstant = value;
-				mValue = TDistribution<T>(value, mMaxConstant);
 
-				onConstantModified();
+			impl::addOnValueChangedCallback(mMinInput, [this](float value, VectorComponent component)
+			{
+				mMinConstant = mMinInput->getValue();
+				mValue = TDistribution<T>(mMinConstant, mMaxConstant);
+
+				onConstantModified(RangeComponent::Min, component);
 			});
-			mMinInput->onConfirm.connect([this]() { onConstantConfirmed(); });
+			impl::addOnConfirmCallback(mMinInput, [this](VectorComponent component)
+			{
+				onConstantConfirmed(RangeComponent::Min, component);
+			});
+			impl::addOnInputChangedCallback(mMinInput, [this](bool focus, VectorComponent component)
+			{
+				onConstantFocusChanged(focus, RangeComponent::Min, component);
+			});
 
 			mMaxInput->setValue(mMaxConstant);
-			mMaxInput->onValueChanged.connect([this](T value)
-			{
-				mMaxConstant = value;
-				mValue = TDistribution<T>(mMinConstant, value);
 
-				onConstantModified();
+			impl::addOnValueChangedCallback(mMaxInput, [this](float value, VectorComponent component)
+			{
+				mMaxConstant = mMaxInput->getValue();
+				mValue = TDistribution<T>(mMinConstant, mMaxConstant);
+
+				onConstantModified(RangeComponent::Max, component);
 			});
-			mMaxInput->onConfirm.connect([this]() { onConstantConfirmed(); });
+			impl::addOnConfirmCallback(mMaxInput, [this](VectorComponent component)
+			{
+				onConstantConfirmed(RangeComponent::Max, component);
+			});
+			impl::addOnInputChangedCallback(mMaxInput, [this](bool focus, VectorComponent component)
+			{
+				onConstantFocusChanged(focus, RangeComponent::Max, component);
+			});
 
 			mLabels[0] = valueLayout->addNewElement<GUILabel>(HString("Min."), "HeaderLight");
 			valueLayout->addElement(mMinInput);
@@ -356,25 +482,24 @@ namespace bs
 				if(NumComponents > 1)
 				{
 					mCurveDisplay[i] = GUICurvesField::create(CurveDrawOption::DrawMarkers, HString(COMP_NAMES[i]),
-						ELEMENT_LABEL_WIDTH, getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
+						ELEMENT_LABEL_WIDTH, this->getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
 				}
 				else
 				{
 					mCurveDisplay[i] = GUICurvesField::create(CurveDrawOption::DrawMarkers, 
-						getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
+						this->getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
 				}
 
 				mCurveDisplay[i]->setCurve(mMinCurve[i]);
 
 				mCurveDisplay[i]->setPadding(3);
 				mCurveDisplay[i]->centerAndZoom();
-				mCurveDisplay[i]->onClicked.connect([this,i]() { onClicked(i); });
+				mCurveDisplay[i]->onClicked.connect([this,i]() { onClicked((VectorComponent)i); });
 
 				if(i != 0)
 					valueLayout->addNewElement<GUIFixedSpace>(ELEM_SPACING);
 
 				valueLayout->addElement(mCurveDisplay[i]);
-
 			}
 
 			break;
@@ -388,18 +513,18 @@ namespace bs
 				if(NumComponents > 1)
 				{
 					mCurveDisplay[i] = GUICurvesField::create(CurveDrawOption::DrawMarkers, HString(COMP_NAMES[i]),
-						ELEMENT_LABEL_WIDTH, getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
+						ELEMENT_LABEL_WIDTH, this->getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
 				}
 				else
 				{
 					mCurveDisplay[i] = GUICurvesField::create(CurveDrawOption::DrawMarkers, 
-						getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
+						this->getSubStyleName(CURVES_FIELD_STYLE_TYPES[i]));
 				}
 
 				mCurveDisplay[i]->setCurveRange(mMinCurve[i], mMaxCurve[i]);
 				mCurveDisplay[i]->setPadding(3);
 				mCurveDisplay[i]->centerAndZoom();
-				mCurveDisplay[i]->onClicked.connect([this,i]() { onClicked(i); });
+				mCurveDisplay[i]->onClicked.connect([this,i]() { onClicked((VectorComponent)i); });
 
 				if(i != 0)
 					valueLayout->addNewElement<GUIFixedSpace>(ELEM_SPACING);
@@ -410,17 +535,17 @@ namespace bs
 			break;
 		}
 
-		mDropDownButton = GUIButton::create(HString::dummy(), getSubStyleName(DROP_DOWN_FIELD_STYLE_TYPE));
+		mDropDownButton = GUIButton::create(HString::dummy(), this->getSubStyleName(DROP_DOWN_FIELD_STYLE_TYPE));
 		mDropDownButton->onClick.connect([this]()
 		{
-			const Rect2I bounds = mDropDownButton->getBounds(mParentWidget->getPanel());
+			const Rect2I bounds = mDropDownButton->getBounds(this->mParentWidget->getPanel());
 			const Vector2I center(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
 
-			mContextMenu->open(center, *mParentWidget);
+			mContextMenu->open(center, *(this->mParentWidget));
 		});
 
-		mLayout->addNewElement<GUIFixedSpace>(10);
-		mLayout->addElement(mDropDownButton);
+		this->mLayout->template addNewElement<GUIFixedSpace>(10);
+		this->mLayout->addElement(mDropDownButton);
 	}
 
 	template class BS_ED_EXPORT TGUIDistributionField<float, GUIFloatDistributionField>;

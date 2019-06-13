@@ -2,9 +2,9 @@
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System;
 using System.Runtime.CompilerServices;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Utility-Editor
      *  @{
@@ -24,34 +24,6 @@ namespace BansheeEditor
         { }
 
         /// <summary>
-        /// Serializes all data within the provided component.
-        /// </summary>
-        /// <param name="obj">Component to serialize.</param>
-        /// <returns>Object containing serialized data.</returns>
-        public static SerializedObject Create(ManagedComponent obj)
-        {
-            if (obj == null)
-                return null;
-
-            IntPtr componentPtr = obj.GetCachedPtr();
-            return Internal_CreateComponent(componentPtr);
-        }
-
-        /// <summary>
-        /// Serializes all data within the provided resources.
-        /// </summary>
-        /// <param name="obj">Resource to serialize.</param>
-        /// <returns>Object containing serialized data.</returns>
-        public static SerializedObject Create(ManagedResource obj)
-        {
-            if (obj == null)
-                return null;
-
-            IntPtr resourcePtr = obj.GetCachedPtr();
-            return Internal_CreateResource(resourcePtr);
-        }
-
-        /// <summary>
         /// Serializes all data within the provided object.
         /// </summary>
         /// <param name="obj">Object to serialize.</param>
@@ -61,7 +33,7 @@ namespace BansheeEditor
             if (obj == null)
                 return null;
 
-            return Internal_CreateGeneric(obj);
+            return Internal_Create(obj);
         }
 
         /// <summary>
@@ -75,13 +47,7 @@ namespace BansheeEditor
         }
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern SerializedObject Internal_CreateComponent(IntPtr componentPtr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern SerializedObject Internal_CreateResource(IntPtr resourcePtr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        private static extern SerializedObject Internal_CreateGeneric(object obj);
+        private static extern SerializedObject Internal_Create(object obj);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         private static extern object Internal_Deserialize(IntPtr instance);

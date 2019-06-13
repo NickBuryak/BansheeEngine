@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspectors
      *  @{
@@ -20,6 +20,8 @@ namespace BansheeEditor
         private GUILabel textLabel = new GUILabel("", EditorStyles.MultiLineLabel, GUIOption.FixedHeight(500));
         private GUITexture textBg = new GUITexture(null, EditorStylesInternal.ScrollAreaBg);
         private GUIToggleField isEditorField = new GUIToggleField(new LocEdString("Is editor script"));
+
+        private GUIReimportButton reimportButton;
 
         private string shownText = "";
         private ScriptCodeImportOptions importOptions;
@@ -53,23 +55,34 @@ namespace BansheeEditor
             textBgPanel.AddElement(textBg);
 
             Layout.AddElement(isEditorField);
+            Layout.AddSpace(10);
 
-            GUIButton reimportButton = new GUIButton(new LocEdString("Reimport"));
-            reimportButton.OnClick += TriggerReimport;
+            reimportButton = new GUIReimportButton(InspectedResourcePath, Layout, () =>
+            {
+                ProjectLibrary.Reimport(InspectedResourcePath, importOptions, true);
+            });
 
-            GUILayout reimportButtonLayout = Layout.AddLayoutX();
-            reimportButtonLayout.AddElement(reimportButton);
-            reimportButtonLayout.AddFlexibleSpace();
+            UpdateGUIValues();
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
+            reimportButton.Update();
+
+            return InspectableState.NotModified;
+        }
+
+        /// <summary>
+        /// Updates the GUI element values from the current import options object.
+        /// </summary>
+        private void UpdateGUIValues()
+        {
+            isEditorField.Value = importOptions.EditorScript;
+
             ScriptCode scriptCode = InspectedObject as ScriptCode;
             if (scriptCode == null)
-                return InspectableState.NotModified;
-
-            isEditorField.Value = importOptions.EditorScript;
+                return;
 
             string newText = scriptCode.Text;
             string newShownText = scriptCode.Text.Substring(0, MathEx.Min(newText.Length, MAX_SHOWN_CHARACTERS));
@@ -79,8 +92,6 @@ namespace BansheeEditor
                 textLabel.SetContent(newShownText);
                 shownText = newShownText;
             }
-
-            return InspectableState.NotModified;
         }
 
         /// <summary>
@@ -111,17 +122,6 @@ namespace BansheeEditor
             }
 
             return output;
-        }
-
-        /// <summary>
-        /// Reimports the script code resource according to the currently set import options.
-        /// </summary>
-        private void TriggerReimport()
-        {
-            ScriptCode scriptCode = (ScriptCode)InspectedObject;
-            string resourcePath = ProjectLibrary.GetPath(scriptCode);
-
-            ProjectLibrary.Reimport(resourcePath, importOptions, true);
         }
     }
 

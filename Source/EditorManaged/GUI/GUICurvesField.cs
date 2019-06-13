@@ -1,7 +1,7 @@
 ﻿using System;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     partial class GUICurvesField
     {
@@ -13,7 +13,7 @@ namespace BansheeEditor
         /// <summary>
         /// Callback triggered when the user clicks on the GUI element.
         /// </summary>
-        partial void OnClicked()
+        partial void Callback_OnClicked()
         {
             CurveEditorWindow.Show(Curve, (success, curve) =>
             {

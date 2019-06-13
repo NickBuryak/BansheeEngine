@@ -3,9 +3,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -38,7 +38,7 @@ namespace BansheeEditor
             public GUILayout title;
             public GUIPanel panel;
             public Inspector inspector;
-            public UInt64 instanceId;
+            public UUID uuid;
             public bool folded;
         }
 
@@ -47,7 +47,8 @@ namespace BansheeEditor
         /// </summary>
         private class InspectorResource
         {
-            public GUIPanel panel;
+            public GUIPanel mainPanel;
+            public GUIPanel previewPanel;
             public Inspector inspector;
         }
 
@@ -66,7 +67,6 @@ namespace BansheeEditor
 
         private SceneObject activeSO;
         private InspectableState modifyState;
-        private int undoCommandIdx = -1;
         private GUITextBox soNameInput;
         private GUIToggle soActiveToggle;
         private GUIEnumField soMobility;
@@ -82,6 +82,7 @@ namespace BansheeEditor
 
         private InspectorType currentType = InspectorType.None;
         private string activeResourcePath;
+        private bool resourceInspectorInitialized;
 
         /// <summary>
         /// Opens the inspector window from the menu bar.
@@ -105,9 +106,11 @@ namespace BansheeEditor
         /// Sets a resource whose GUI is to be displayed in the inspector. Clears any previous contents of the window.
         /// </summary>
         /// <param name="resourcePath">Resource path relative to the project of the resource to inspect.</param>
-        private void SetObjectToInspect(String resourcePath)
+        private void SetObjectToInspect(string resourcePath)
         {
             activeResourcePath = resourcePath;
+            resourceInspectorInitialized = false;
+
             if (!ProjectLibrary.Exists(resourcePath))
                 return;
 
@@ -118,6 +121,7 @@ namespace BansheeEditor
             Type resourceType = meta.Type;
 
             currentType = InspectorType.Resource;
+            resourceInspectorInitialized = true;
 
             inspectorScrollArea = new GUIScrollArea(ScrollBarType.ShowIfDoesntFit, ScrollBarType.NeverShow);
             GUI.AddElement(inspectorScrollArea);
@@ -148,14 +152,15 @@ namespace BansheeEditor
             inspectorLayout.AddSpace(COMPONENT_SPACING);
 
             inspectorResource = new InspectorResource();
-            inspectorResource.panel = inspectorLayout.AddPanel();
+            inspectorResource.mainPanel = inspectorLayout.AddPanel();
+            inspectorLayout.AddFlexibleSpace();
+            inspectorResource.previewPanel = inspectorLayout.AddPanel();
 
             var persistentProperties = persistentData.GetProperties(meta.UUID.ToString());
 
             inspectorResource.inspector = InspectorUtility.GetInspector(resourceType);
-            inspectorResource.inspector.Initialize(inspectorResource.panel, activeResourcePath, persistentProperties);
-
-            inspectorLayout.AddFlexibleSpace();
+            inspectorResource.inspector.Initialize(inspectorResource.mainPanel, inspectorResource.previewPanel,
+                activeResourcePath, persistentProperties);
         }
 
         /// <summary>
@@ -192,7 +197,7 @@ namespace BansheeEditor
                 inspectorLayout.AddSpace(COMPONENT_SPACING);
 
                 InspectorComponent data = new InspectorComponent();
-                data.instanceId = allComponents[i].InstanceId;
+                data.uuid = allComponents[i].UUID;
                 data.folded = false;
 
                 data.foldout = new GUIToggle(allComponents[i].GetType().Name, EditorStyles.Foldout);
@@ -211,7 +216,7 @@ namespace BansheeEditor
                 data.inspector = InspectorUtility.GetInspector(allComponents[i].GetType());
                 data.inspector.Initialize(data.panel, allComponents[i], persistentProperties);
 
-                bool isExpanded = data.inspector.Persistent.GetBool(data.instanceId + "_Expanded", true);
+                bool isExpanded = data.inspector.Persistent.GetBool(data.uuid + "_Expanded", true);
                 data.foldout.Value = isExpanded;
 
                 if (!isExpanded)
@@ -251,7 +256,12 @@ namespace BansheeEditor
             soNameInput = new GUITextBox(false, GUIOption.FlexibleWidth(180));
             soNameInput.Text = activeSO.Name;
             soNameInput.OnChanged += OnSceneObjectRename;
-            soNameInput.OnConfirmed += OnModifyConfirm;
+            soNameInput.OnConfirmed += () =>
+            {
+                OnModifyConfirm();
+                StartUndo("name");
+            };
+            soNameInput.OnFocusGained += () => StartUndo("name");
             soNameInput.OnFocusLost += OnModifyConfirm;
 
             nameLayout.AddElement(soActiveToggle);
@@ -273,23 +283,53 @@ namespace BansheeEditor
             soPos = new GUIVector3Field(new LocEdString("Position"), 50);
             sceneObjectLayout.AddElement(soPos);
 
-            soPos.OnChanged += OnPositionChanged;
-            soPos.OnConfirmed += OnModifyConfirm;
-            soPos.OnFocusLost += OnModifyConfirm;
+            soPos.OnComponentChanged += OnPositionChanged;
+            soPos.OnConfirm += x =>
+            {
+                OnModifyConfirm();
+                StartUndo("position." + x.ToString());
+            };
+            soPos.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if (focus)
+                    StartUndo("position." + comp.ToString());
+                else
+                    OnModifyConfirm();
+            };
 
             soRot = new GUIVector3Field(new LocEdString("Rotation"), 50);
             sceneObjectLayout.AddElement(soRot);
 
-            soRot.OnChanged += OnRotationChanged;
-            soRot.OnConfirmed += OnModifyConfirm;
-            soRot.OnFocusLost += OnModifyConfirm;
+            soRot.OnComponentChanged += OnRotationChanged;
+            soRot.OnConfirm += x =>
+            {
+                OnModifyConfirm();
+                StartUndo("rotation." + x.ToString());
+            };
+            soRot.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if (focus)
+                    StartUndo("rotation." + comp.ToString());
+                else
+                    OnModifyConfirm();
+            };
 
             soScale = new GUIVector3Field(new LocEdString("Scale"), 50);
             sceneObjectLayout.AddElement(soScale);
 
-            soScale.OnChanged += OnScaleChanged;
-            soScale.OnConfirmed += OnModifyConfirm;
-            soScale.OnFocusLost += OnModifyConfirm;
+            soScale.OnComponentChanged += OnScaleChanged;
+            soScale.OnConfirm += x =>
+            {
+                OnModifyConfirm();
+                StartUndo("scale." + x.ToString());
+            };
+            soScale.OnComponentFocusChanged += (focus, comp) =>
+            {
+                if (focus)
+                    StartUndo("scale." + comp.ToString());
+                else
+                    OnModifyConfirm();
+            };
 
             sceneObjectLayout.AddFlexibleSpace();
 
@@ -302,7 +342,7 @@ namespace BansheeEditor
         /// </summary>
         /// <param name="forceUpdate">If true, the GUI elements will be updated regardless of whether a change was
         ///                           detected or not.</param>
-        private void RefreshSceneObjectFields(bool forceUpdate)
+        internal void RefreshSceneObjectFields(bool forceUpdate)
         {
             if (activeSO == null)
                 return;
@@ -336,9 +376,10 @@ namespace BansheeEditor
                     };
                     btnRevertPrefab.OnClick += () =>
                     {
-                        UndoRedo.RecordSO(activeSO, true, "Reverting \"" + activeSO.Name + "\" to prefab.");
-
+                        GameObjectUndo.RecordSceneObject(activeSO, true, "Reverting \"" + activeSO.Name + "\" to prefab.");
                         PrefabUtility.RevertPrefab(activeSO);
+
+                        GameObjectUndo.ResolveDiffs();
                         EditorApplication.SetSceneDirty();
                     };
                     btnBreakPrefab.OnClick += () =>
@@ -376,24 +417,41 @@ namespace BansheeEditor
 
             Vector3 scale = activeSO.LocalScale;
 
-            if (!soPos.HasInputFocus)
+            if (!soPos.HasInputFocus || forceUpdate)
                 soPos.Value = position;
 
             // Avoid updating the rotation unless actually changed externally, since switching back and forth between
             // quaternion and euler angles can cause weird behavior
-            if (!soRot.HasInputFocus && rotation != lastRotation)
+            if ((!soRot.HasInputFocus && rotation != lastRotation) || forceUpdate)
             {
                 soRot.Value = rotation.ToEuler();
                 lastRotation = rotation;
             }
 
-            if (!soScale.HasInputFocus)
+            if (!soScale.HasInputFocus || forceUpdate)
                 soScale.Value = scale;
+        }
+
+        /// <summary>
+        /// Forces all the GUI fields for the specified component to update their values from the current component state.
+        /// </summary>
+        /// <param name="component">Component for whose GUI elements to perform the refresh on.</param>
+        internal void RefreshComponentFields(Component component)
+        {
+            if (component == null)
+                return;
+
+            foreach (var entry in inspectorComponents)
+            {
+                if (entry.uuid == component.UUID)
+                    entry.inspector.Refresh(true);
+            }
         }
 
         private void OnInitialize()
         {
             Selection.OnSelectionChanged += OnSelectionChanged;
+            ProjectLibrary.OnEntryImported += OnResourceImported;
 
             const string soName = "InspectorPersistentData";
             SceneObject so = Scene.Root.FindChild(soName);
@@ -410,6 +468,7 @@ namespace BansheeEditor
         private void OnDestroy()
         {
             Selection.OnSelectionChanged -= OnSelectionChanged;
+            ProjectLibrary.OnEntryImported -= OnResourceImported;
         }
 
         private void OnEditorUpdate()
@@ -423,7 +482,7 @@ namespace BansheeEditor
                 {
                     for (int i = 0; i < inspectorComponents.Count; i++)
                     {
-                        if (inspectorComponents[i].instanceId != allComponents[i].InstanceId)
+                        if (inspectorComponents[i].uuid != allComponents[i].UUID)
                         {
                             requiresRebuild = true;
                             break;
@@ -524,6 +583,7 @@ namespace BansheeEditor
 
                         if (DragDrop.DropInProgress)
                         {
+                            GameObjectUndo.RecordSceneObject(activeSO, false, $"Added component \"{draggedComponentType.Name}\" to \"{activeSO.Name}\"");
                             activeSO.AddComponent(draggedComponentType);
 
                             modifyState = InspectableState.Modified;
@@ -544,9 +604,6 @@ namespace BansheeEditor
         /// <param name="paths">A set of absolute resource paths that were selected.</param>
         private void OnSelectionChanged(SceneObject[] objects, string[] paths)
         {
-            if (currentType == InspectorType.SceneObject && modifyState == InspectableState.NotModified)
-                UndoRedo.Global.PopCommand(undoCommandIdx);
-
             Clear();
             modifyState = InspectableState.NotModified;
 
@@ -581,17 +638,25 @@ namespace BansheeEditor
             else if (objects.Length == 1)
             {
                 if (objects[0] != null)
-                {
-                    UndoRedo.RecordSO(objects[0]);
-                    undoCommandIdx = UndoRedo.Global.TopCommandId;
-
                     SetObjectToInspect(objects[0]);
-                }
             }
             else if (paths.Length == 1)
             {
                 SetObjectToInspect(paths[0]);
             }
+        }
+
+        /// <summary>
+        /// Updates the inspector if the inspected resource just got reimported.
+        /// </summary>
+        /// <param name="path">Path to the resource that got imported.</param>
+        private void OnResourceImported(string path)
+        {
+            if (resourceInspectorInitialized || string.IsNullOrEmpty(activeResourcePath))
+                return;
+
+            if(path == activeResourcePath)
+                SetObjectToInspect(path);
         }
 
         /// <summary>
@@ -601,7 +666,7 @@ namespace BansheeEditor
         /// <param name="expanded">Determines whether to display or hide component contents.</param>
         private void OnComponentFoldoutToggled(InspectorComponent inspectorData, bool expanded)
         {
-            inspectorData.inspector.Persistent.SetBool(inspectorData.instanceId + "_Expanded", expanded);
+            inspectorData.inspector.Persistent.SetBool(inspectorData.uuid + "_Expanded", expanded);
             inspectorData.inspector.SetVisible(expanded);
             inspectorData.folded = !expanded;
 
@@ -616,10 +681,12 @@ namespace BansheeEditor
         {
             if (activeSO != null)
             {
+                GameObjectUndo.RecordSceneObject(activeSO, false, $"Removed component \"{componentType.Name}\" from \"{activeSO.Name}\"");
                 activeSO.RemoveComponent(componentType);
 
                 modifyState = InspectableState.Modified;
                 EditorApplication.SetSceneDirty();
+                GameObjectUndo.ResolveDiffs();
             }
         }
 
@@ -677,6 +744,51 @@ namespace BansheeEditor
         }
 
         /// <summary>
+        /// Changes keyboard focus to a specific field on the component with the provided UUID.
+        /// </summary>
+        /// <param name="uuid">UUID of the component on which to select the field.</param>
+        /// <param name="path">Path to the field on the object being inspected.</param>
+        internal void FocusOnField(UUID uuid, string path)
+        {
+            if (activeSO == null)
+                return;
+
+            if (activeSO.UUID == uuid)
+            {
+                if(path == "position.X")
+                    soPos.SetInputFocus(VectorComponent.X, true);
+                else if(path == "position.Y")
+                    soPos.SetInputFocus(VectorComponent.Y, true);
+                else if(path == "position.Z")
+                    soPos.SetInputFocus(VectorComponent.Z, true);
+                else if(path == "rotation.X")
+                    soRot.SetInputFocus(VectorComponent.X, true);
+                else if(path == "rotation.Y")
+                    soRot.SetInputFocus(VectorComponent.Y, true);
+                else if(path == "rotation.Z")
+                    soRot.SetInputFocus(VectorComponent.Z, true);
+                else if(path == "scale.X")
+                    soScale.SetInputFocus(VectorComponent.X, true);
+                else if(path == "scale.Y")
+                    soScale.SetInputFocus(VectorComponent.Y, true);
+                else if(path == "scale.Z")
+                    soScale.SetInputFocus(VectorComponent.Z, true);
+                else if (path == "name")
+                    soNameInput.Focus = true;
+            }
+            else
+            {
+                foreach (var entry in inspectorComponents)
+                {
+                    if (entry.uuid != uuid)
+                        continue;
+
+                    entry.inspector.FocusOnField(path);
+                }
+            }
+        }
+
+        /// <summary>
         /// Returns the size of the title bar area that is displayed for <see cref="SceneObject"/> specific fields.
         /// </summary>
         /// <returns>Area of the title bar, relative to the window.</returns>
@@ -706,7 +818,11 @@ namespace BansheeEditor
         private void OnSceneObjectActiveStateToggled(bool active)
         {
             if (activeSO != null)
+            {
+                StartUndo("active");
                 activeSO.Active = active;
+                EndUndo();
+            }
         }
 
         /// <summary>
@@ -716,22 +832,25 @@ namespace BansheeEditor
         {
             if (modifyState.HasFlag(InspectableState.ModifyInProgress))
                 modifyState = InspectableState.Modified;
+
+            EndUndo();
         }
 
         /// <summary>
         /// Triggered when the position value in the currently active <see cref="SceneObject"/> changes. Updates the 
         /// necessary GUI elements.
         /// </summary>
-        /// <param name="value">New value of the field.</param>
-        private void OnPositionChanged(Vector3 value)
+        /// <param name="value">New value of the component that changed.</param>
+        /// <param name="component">Identifier of the component that changed.</param>
+        private void OnPositionChanged(float value, VectorComponent component)
         {
             if (activeSO == null)
                 return;
 
             if (EditorApplication.ActiveCoordinateMode == HandleCoordinateMode.World)
-                activeSO.Position = value;
+                activeSO.Position = soPos.Value;
             else
-                activeSO.LocalPosition = value;
+                activeSO.LocalPosition = soPos.Value;
 
             modifyState = InspectableState.ModifyInProgress;
             EditorApplication.SetSceneDirty();
@@ -741,13 +860,14 @@ namespace BansheeEditor
         /// Triggered when the rotation value in the currently active <see cref="SceneObject"/> changes. Updates the 
         /// necessary GUI elements.
         /// </summary>
-        /// <param name="value">New value of the field.</param>
-        private void OnRotationChanged(Vector3 value)
+        /// <param name="value">New value of the component that changed.</param>
+        /// <param name="component">Identifier of the component that changed.</param>
+        private void OnRotationChanged(float value, VectorComponent component)
         {
             if (activeSO == null)
                 return;
 
-            Quaternion rotation = Quaternion.FromEuler(value);
+            Quaternion rotation = Quaternion.FromEuler(soRot.Value);
             if (EditorApplication.ActiveCoordinateMode == HandleCoordinateMode.World)
                 activeSO.Rotation = rotation;
             else
@@ -762,13 +882,14 @@ namespace BansheeEditor
         /// Triggered when the scale value in the currently active <see cref="SceneObject"/> changes. Updates the 
         /// necessary GUI elements.
         /// </summary>
-        /// <param name="value">New value of the field.</param>
-        private void OnScaleChanged(Vector3 value)
+        /// <param name="value">New value of the component that changed.</param>
+        /// <param name="component">Identifier of the component that changed.</param>
+        private void OnScaleChanged(float value, VectorComponent component)
         {
             if (activeSO == null)
                 return;
 
-            activeSO.LocalScale = value;
+            activeSO.LocalScale = soScale.Value;
 
             modifyState = InspectableState.ModifyInProgress;
             EditorApplication.SetSceneDirty();
@@ -803,6 +924,27 @@ namespace BansheeEditor
             }
 
             dropAreas[dropAreas.Length - 1] = new Rect2I(0, yOffset, contentBounds.width, contentBounds.height - yOffset);
+        }
+
+        /// <summary>
+        /// Notifies the system to start recording a new undo command. Any changes to scene object fields after this is
+        /// called will be recorded in the command. User must call <see cref="EndUndo"/> after the field is done being
+        /// changed.
+        /// </summary>
+        /// <param name="name">Name of the field being changed.</param>
+        private void StartUndo(string name)
+        {
+            if (activeSO != null)
+                GameObjectUndo.RecordSceneObjectHeader(activeSO, name);
+        }
+
+        /// <summary>
+        /// Finishes recording an undo command started via <see cref="StartUndo(string)"/>. If any changes are detected on
+        /// the field an undo command is recorded onto the undo-redo stack, otherwise nothing is done.
+        /// </summary>
+        private void EndUndo()
+        {
+            GameObjectUndo.ResolveDiffs();
         }
     }
 

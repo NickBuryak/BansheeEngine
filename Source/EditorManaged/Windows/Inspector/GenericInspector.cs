@@ -1,9 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using System.Collections.Generic;
-using BansheeEngine;
 
-namespace BansheeEditor
+using System;
+using System.Collections.Generic;
+using bs;
+
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -16,7 +18,6 @@ namespace BansheeEditor
     internal sealed class GenericInspector : Inspector
     {
         private bool isEmpty = true;
-        private List<InspectableField> inspectableFields = new List<InspectableField>();
 
         /// <inheritdoc/>
         protected internal override void Initialize()
@@ -24,29 +25,16 @@ namespace BansheeEditor
             if (InspectedObject == null)
                 LoadResource();
 
-            if (InspectedObject != null)
-            {
-                SerializableObject serializableObject = new SerializableObject(InspectedObject.GetType(), InspectedObject);
-                inspectableFields = InspectableField.CreateFields(serializableObject, this, "", 0, Layout);
-                isEmpty = inspectableFields.Count == 0;
+            drawer.AddDefault(InspectedObject);
 
-                base.SetVisible(!isEmpty);
-            }
+            isEmpty = drawer.Fields.Count == 0;
+            base.SetVisible(!isEmpty);
         }
 
         /// <inheritdoc/>
-        protected internal override InspectableState Refresh()
+        protected internal override InspectableState Refresh(bool force = false)
         {
-            InspectableState state = InspectableState.NotModified;
-
-            int currentIndex = 0;
-            foreach (var field in inspectableFields)
-            {
-                state |= field.Refresh(currentIndex);
-                currentIndex += field.GetNumLayoutElements();
-            }
-
-            return state;
+            return drawer.Refresh(force);
         }
 
         /// <inheritdoc/>

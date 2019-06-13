@@ -12,7 +12,7 @@ namespace bs
 	 */
 
 	/** Different icon sizes for project resource preview icons. */
-	struct BS_SCRIPT_EXPORT(pl:true,ed:true) ProjectResourceIcons
+	struct BS_SCRIPT_EXPORT(pl:true,api:bed) ProjectResourceIcons
 	{
 		HTexture icon16;
 		HTexture icon32;
@@ -135,7 +135,7 @@ namespace bs
 		 * Removes all resource meta-data stored by this object. This includes meta-data for both active and inactive
 		 * resources. 
 		 */
-		void clearResourceMetaData() { mResourceMetaData.clear(); }
+		void clearResourceMetaData();
 
 		/**	Returns the import options used for importing the resource this object is referencing. */
 		const SPtr<ImportOptions>& getImportOptions() const { return mImportOptions; }

@@ -3,9 +3,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using BansheeEngine;
+using System.Runtime.CompilerServices;
+using System.Text;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -22,16 +24,16 @@ namespace BansheeEditor
         /// <summary>
         /// Creates a new inspectable dictionary GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
         ///                     contain other fields, in which case you should increase this value by one.</param>
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the dictionary whose contents to display.</param>
-        public InspectableDictionary(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout, 
+        public InspectableDictionary(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout, 
             SerializableProperty property)
-            : base(parent, title, path, SerializableProperty.FieldType.Dictionary, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.Dictionary, depth, layout, property)
         {
 
         }
@@ -43,9 +45,9 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
-            return dictionaryGUIField.Refresh();
+            return dictionaryGUIField.Refresh(force);
         }
 
         /// <inheritdoc/>
@@ -53,31 +55,88 @@ namespace BansheeEditor
         {
             GUILayout dictionaryLayout = layout.AddLayoutY(layoutIndex);
 
-            dictionaryGUIField = InspectableDictionaryGUI.Create(parent, title, path, property, dictionaryLayout, depth);
-            dictionaryGUIField.IsExpanded = parent.Persistent.GetBool(path + "_Expanded");
-            dictionaryGUIField.OnExpand += x => parent.Persistent.SetBool(path + "_Expanded", x);
+            dictionaryGUIField = InspectableDictionaryGUI.Create(context, title, path, property, dictionaryLayout, depth);
+            dictionaryGUIField.IsExpanded = context.Persistent.GetBool(path + "_Expanded");
+            dictionaryGUIField.OnExpand += x => context.Persistent.SetBool(path + "_Expanded", x);
+        }
+
+        /// <inheritdoc />
+        public override InspectableField FindPath(string path)
+        {
+            string subPath = GetSubPath(path, depth + 1);
+
+            if (string.IsNullOrEmpty(subPath))
+                return null;
+
+            int lastLeftIdx = subPath.LastIndexOf("Key[");
+            int lastRightIdx = -1;
+            bool isKey;
+            if (lastLeftIdx != -1)
+            {
+                lastRightIdx = subPath.LastIndexOf(']', lastLeftIdx);
+                isKey = true;
+            }
+            else
+            {
+                lastLeftIdx = subPath.LastIndexOf("Value[");
+                lastRightIdx = subPath.LastIndexOf(']', lastLeftIdx);
+
+                isKey = false;
+            }
+
+            if (lastLeftIdx == -1 || lastRightIdx == -1)
+                return null;
+
+            int count = lastRightIdx - 1 - lastLeftIdx;
+            if (count <= 0)
+                return null;
+
+            string arrayIdxStr = subPath.Substring(lastLeftIdx, count);
+
+            if (!int.TryParse(arrayIdxStr, out int idx))
+                return null;;
+
+            if (idx >= dictionaryGUIField.NumRows)
+                return null;
+
+            InspectableDictionaryGUIRow row = dictionaryGUIField.GetRow(idx);
+            InspectableField field = null;
+            if (isKey)
+                field = row?.FieldKey;
+            else
+                field = row?.FieldValue;
+
+            if (field != null)
+            {
+                if (field.Path == path)
+                    return field;
+
+                return field.FindPath(path);
+            }
+
+            return null;
         }
 
         /// <summary>
         /// Creates GUI elements that allow viewing and manipulation of a <see cref="SerializableDictionary"/> referenced
         /// by a serializable property.
         /// </summary>
-        public class InspectableDictionaryGUI : GUIDictionaryFieldBase
+        private class InspectableDictionaryGUI : GUIDictionaryFieldBase
         {
             private SerializableProperty property;
             private IDictionary dictionary;
             private int numElements;
-            private Inspector parent;
+            private InspectableContext context;
             private string path;
 
             private List<SerializableProperty> orderedKeys = new List<SerializableProperty>();
 
             /// <summary>
-            /// Returns the parent inspector the array GUI belongs to.
+            /// Context shared by all inspectable fields created by the same parent.
             /// </summary>
-            public Inspector Inspector
+            public InspectableContext Context
             {
-                get { return parent; }
+                get { return context; }
             }
 
             /// <summary>
@@ -89,9 +148,17 @@ namespace BansheeEditor
             }
 
             /// <summary>
+            /// Returns the number of rows in the array.
+            /// </summary>
+            public int NumRows
+            {
+                get { return GetNumRows(); }
+            }
+
+            /// <summary>
             /// Constructs a new dictionary GUI.
             /// </summary>
-            /// <param name="parent">Parent Inspector this field belongs to.</param>
+            /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
             /// <param name="title">Label to display on the list GUI title.</param>
             /// <param name="path">Full path to this property (includes name of this property and all parent properties).
             /// </param>
@@ -100,12 +167,12 @@ namespace BansheeEditor
             /// <param name="depth">Determines at which depth to render the background. Useful when you have multiple
             ///                     nested containers whose backgrounds are overlaping. Also determines background style,
             ///                     depths divisible by two will use an alternate style.</param>
-            protected InspectableDictionaryGUI(Inspector parent, LocString title, string path, SerializableProperty property, 
+            protected InspectableDictionaryGUI(InspectableContext context, LocString title, string path, SerializableProperty property, 
                 GUILayout layout, int depth = 0)
             : base(title, layout, depth)
             {
                 this.property = property;
-                this.parent = parent;
+                this.context = context;
                 this.path = path;
 
                 dictionary = property.GetValue<IDictionary>();
@@ -119,7 +186,7 @@ namespace BansheeEditor
             /// Builds the inspectable dictionary GUI elements. Must be called at least once in order for the contents to 
             /// be populated.
             /// </summary>
-            /// <param name="parent">Parent Inspector this field belongs to.</param>
+            /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
             /// <param name="title">Label to display on the list GUI title.</param>
             /// <param name="path">Full path to this property (includes name of this property and all parent properties).
             /// </param>
@@ -128,18 +195,31 @@ namespace BansheeEditor
             /// <param name="depth">Determines at which depth to render the background. Useful when you have multiple
             ///                     nested containers whose backgrounds are overlaping. Also determines background style,
             ///                     depths divisible by two will use an alternate style.</param>
-            public static InspectableDictionaryGUI Create(Inspector parent, LocString title, string path, 
+            public static InspectableDictionaryGUI Create(InspectableContext context, LocString title, string path, 
                 SerializableProperty property, GUILayout layout, int depth = 0)
             {
-                InspectableDictionaryGUI guiDictionary = new InspectableDictionaryGUI(parent, title, path, property, 
+                InspectableDictionaryGUI guiDictionary = new InspectableDictionaryGUI(context, title, path, property, 
                     layout, depth);
                 guiDictionary.BuildGUI();
 
                 return guiDictionary;
             }
 
+            /// <summary>
+            /// Returns an array row at the specified index.
+            /// </summary>
+            /// <param name="idx">Index of the row.</param>
+            /// <returns>Array row representation or null if index is out of range.</returns>
+            public InspectableDictionaryGUIRow GetRow(int idx)
+            {
+                if (idx < GetNumRows())
+                    return (InspectableDictionaryGUIRow)rows[idx];
+
+                return null;
+            }
+
             /// <inheritdoc/>
-            public override InspectableState Refresh()
+            public override InspectableState Refresh(bool force)
             {
                 // Check if any modifications to the array were made outside the inspector
                 IDictionary newDict = property.GetValue<IDictionary>();
@@ -157,17 +237,17 @@ namespace BansheeEditor
                 }
                 else
                 {
-                    if (dictionary != null)
+                    if (newDict != null)
                     {
-                        if (numElements != dictionary.Count)
+                        if (numElements != newDict.Count || force)
                         {
-                            numElements = dictionary.Count;
+                            numElements = newDict.Count;
                             BuildGUI();
                         }
                     }
                 }
 
-                return base.Refresh();
+                return base.Refresh(force);
             }
 
             /// <summary>
@@ -253,23 +333,29 @@ namespace BansheeEditor
             /// <inheritdoc/>
             protected internal override void AddEntry(object key, object value)
             {
+                StartUndo();
+
                 SerializableProperty keyProperty = (SerializableProperty)key;
                 SerializableProperty valueProperty = (SerializableProperty)value;
 
                 dictionary.Add(keyProperty.GetValue<object>(), valueProperty.GetValue<object>());
                 numElements = dictionary.Count;
 
+                EndUndo();
                 UpdateKeys();
             }
 
             /// <inheritdoc/>
             protected internal override void RemoveEntry(object key)
             {
+                StartUndo();
+
                 SerializableProperty keyProperty = (SerializableProperty)key;
 
                 dictionary.Remove(keyProperty.GetValue<object>());
                 numElements = dictionary.Count;
 
+                EndUndo();
                 UpdateKeys();
             }
 
@@ -331,21 +417,46 @@ namespace BansheeEditor
             /// <inheritdoc/>
             protected override void CreateDictionary()
             {
+                StartUndo();
+
                 dictionary = property.CreateDictionaryInstance();
                 numElements = dictionary.Count;
                 property.SetValue(dictionary);
 
+                EndUndo();
                 UpdateKeys();
             }
 
             /// <inheritdoc/>
             protected override void DeleteDictionary()
             {
+                StartUndo();
+
                 dictionary = null;
                 numElements = 0;
                 property.SetValue<object>(null);
 
+                EndUndo();
                 UpdateKeys();
+            }
+
+            /// <summary>
+            /// Notifies the system to start recording a new undo command. Any changes to the field after this is called
+            /// will be recorded in the command. User must call <see cref="EndUndo"/> after field is done being changed.
+            /// </summary>
+            protected void StartUndo()
+            {
+                if (context.Component != null)
+                    GameObjectUndo.RecordComponent(context.Component, path);
+            }
+
+            /// <summary>
+            /// Finishes recording an undo command started via <see cref="StartUndo"/>. If any changes are detected on the
+            /// field an undo command is recorded onto the undo-redo stack, otherwise nothing is done.
+            /// </summary>
+            protected void EndUndo()
+            {
+                GameObjectUndo.ResolveDiffs();
             }
 
             /// <summary>
@@ -362,9 +473,17 @@ namespace BansheeEditor
         /// </summary>
         private class InspectableDictionaryGUIRow : GUIDictionaryFieldRow
         {
+            /// <summary>
+            /// Inspectable field displaying the key on the dictionary row.
+            /// </summary>
+            public InspectableField FieldKey { get; private set; }
+
+            /// <summary>
+            /// Inspectable field displaying the value on the dictionary row.
+            /// </summary>
+            public InspectableField FieldValue { get; private set; }
+
             private GUILayoutY keyLayout;
-            private InspectableField fieldKey;
-            private InspectableField fieldValue;
 
             /// <inheritdoc/>
             protected override GUILayoutX CreateKeyGUI(GUILayoutY layout)
@@ -374,10 +493,10 @@ namespace BansheeEditor
                 SerializableProperty property = GetKey<SerializableProperty>();
 
                 string entryPath = dictParent.Path + "Key[" + RowIdx + "]";
-                fieldKey = CreateField(dictParent.Inspector, "Key", entryPath, 0, Depth + 1,
+                FieldKey = CreateField(dictParent.Context, "Key", entryPath, 0, Depth + 1,
                     new InspectableFieldLayout(layout), property);
 
-                return fieldKey.GetTitleLayout();
+                return FieldKey.GetTitleLayout();
             }
 
             /// <inheritdoc/>
@@ -387,7 +506,7 @@ namespace BansheeEditor
                 SerializableProperty property = GetValue<SerializableProperty>();
 
                 string entryPath = dictParent.Path + "Value[" + RowIdx + "]";
-                fieldValue = CreateField(dictParent.Inspector, "Value", entryPath, 0, Depth + 1,
+                FieldValue = CreateField(dictParent.Context, "Value", entryPath, 0, Depth + 1,
                     new InspectableFieldLayout(layout), property);
             }
 
@@ -398,12 +517,12 @@ namespace BansheeEditor
             }
 
             /// <inheritdoc/>
-            protected internal override InspectableState Refresh()
+            protected internal override InspectableState Refresh(bool force)
             {
-                fieldKey.Property = GetKey<SerializableProperty>();
-                fieldValue.Property = GetValue<SerializableProperty>();
+                FieldKey.Property = GetKey<SerializableProperty>();
+                FieldValue.Property = GetValue<SerializableProperty>();
 
-                return fieldValue.Refresh(0);
+                return FieldValue.Refresh(0, force);
             }
         }
     }

@@ -8,7 +8,6 @@
 #include "BsMonoUtil.h"
 #include "BsScriptGameObjectManager.h"
 #include "UndoRedo/BsUndoRedo.h"
-#include "UndoRedo/BsCmdRecordSO.h"
 #include "UndoRedo/BsCmdCloneSO.h"
 #include "UndoRedo/BsCmdCreateSO.h"
 #include "UndoRedo/BsCmdDeleteSO.h"
@@ -40,11 +39,11 @@ namespace bs
 		metaData.scriptClass->addInternalCall("Internal_Clear", (void*)&ScriptUndoRedo::internal_Clear);
 		metaData.scriptClass->addInternalCall("Internal_GetTopCommandId", (void*)&ScriptUndoRedo::internal_GetTopCommandId);
 		metaData.scriptClass->addInternalCall("Internal_PopCommand", (void*)&ScriptUndoRedo::internal_PopCommand);
-		metaData.scriptClass->addInternalCall("Internal_RecordSO", (void*)&ScriptUndoRedo::internal_RecordSO);
 		metaData.scriptClass->addInternalCall("Internal_CloneSO", (void*)&ScriptUndoRedo::internal_CloneSO);
 		metaData.scriptClass->addInternalCall("Internal_CloneSOMulti", (void*)&ScriptUndoRedo::internal_CloneSOMulti);
 		metaData.scriptClass->addInternalCall("Internal_Instantiate", (void*)&ScriptUndoRedo::internal_Instantiate);
 		metaData.scriptClass->addInternalCall("Internal_CreateSO", (void*)&ScriptUndoRedo::internal_CreateSO);
+		metaData.scriptClass->addInternalCall("Internal_CreateSO2", (void*)&ScriptUndoRedo::internal_CreateSO2);
 		metaData.scriptClass->addInternalCall("Internal_DeleteSO", (void*)&ScriptUndoRedo::internal_DeleteSO);
 		metaData.scriptClass->addInternalCall("Internal_ReparentSO", (void*)&ScriptUndoRedo::internal_ReparentSO);
 		metaData.scriptClass->addInternalCall("Internal_ReparentSOMulti", (void*)&ScriptUndoRedo::internal_ReparentSOMulti);
@@ -149,12 +148,6 @@ namespace bs
 		undoRedo->popCommand(id);
 	}
 
-	void ScriptUndoRedo::internal_RecordSO(ScriptSceneObject* soPtr, bool recordHierarchy, MonoString* description)
-	{
-		String nativeDescription = MonoUtil::monoToString(description);
-		CmdRecordSO::execute(soPtr->getHandle(), recordHierarchy, nativeDescription);
-	}
-
 	MonoObject* ScriptUndoRedo::internal_CloneSO(ScriptSceneObject* soPtr, MonoString* description)
 	{
 		String nativeDescription = MonoUtil::monoToString(description);
@@ -202,7 +195,47 @@ namespace bs
 		String nativeDescription = MonoUtil::monoToString(description);
 		HSceneObject newObj = CmdCreateSO::execute(nativeName, 0, nativeDescription);
 
-		return ScriptGameObjectManager::instance().createScriptSceneObject(newObj)->getManagedInstance();
+		return ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(newObj)->getManagedInstance();
+	}
+
+	MonoObject* ScriptUndoRedo::internal_CreateSO2(MonoString* name, MonoArray* types, MonoString* description)
+	{
+		String nativeName = MonoUtil::monoToString(name);
+		String nativeDescription = MonoUtil::monoToString(description);
+
+		ScriptAssemblyManager& sam = ScriptAssemblyManager::instance();
+		MonoClass* managedComponent = sam.getBuiltinClasses().managedComponentClass;
+
+		ScriptArray scriptArray(types);
+		Vector<UINT32> typeIds;
+		for (UINT32 i = 0; i < scriptArray.size(); i++)
+		{
+			MonoReflectionType* paramType = scriptArray.get<MonoReflectionType*>(i);
+			if(!paramType)
+				continue;
+
+			::MonoClass* requestedClass = MonoUtil::getClass(paramType);
+
+			bool isManagedComponent = MonoUtil::isSubClassOf(requestedClass, managedComponent->_getInternalClass());
+			if (isManagedComponent)
+			{
+				LOGWRN("Only built-in components can be added though this method.");
+				continue;
+			}
+
+			BuiltinComponentInfo* info = sam.getBuiltinComponentInfo(paramType);
+			if (info == nullptr)
+			{
+				LOGWRN("Provided type is not a valid component")
+				continue;
+			}
+
+			typeIds.push_back(info->typeId);
+		}
+
+		HSceneObject newObj = CmdCreateSO::execute(nativeName, 0, typeIds, nativeDescription);
+
+		return ScriptGameObjectManager::instance().getOrCreateScriptSceneObject(newObj)->getManagedInstance();
 	}
 
 	void ScriptUndoRedo::internal_DeleteSO(ScriptSceneObject* soPtr, MonoString* description)

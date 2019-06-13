@@ -1,11 +1,11 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
-using BansheeEngine;
+using bs;
 using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Windows
      *  @{
@@ -66,7 +66,7 @@ namespace BansheeEditor
         /// <summary>
         /// Opens the console window.
         /// </summary>
-        [MenuItem("Windows/Log", ButtonModifier.CtrlAlt, ButtonCode.L, 6000)]
+        [MenuItem("Windows/Log", ButtonModifier.CtrlAlt, ButtonCode.M, 6000)]
         private static void OpenConsoleWindow()
         {
             OpenWindow<LogWindow>();
@@ -84,16 +84,16 @@ namespace BansheeEditor
             GUILayoutX titleLayout = layout.AddLayoutX();
 
             GUIContentImages infoImages = new GUIContentImages(
-                EditorBuiltin.GetLogIcon(LogIcon.Info, 16, false),
-                EditorBuiltin.GetLogIcon(LogIcon.Info, 16, true));
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Info, 16, false),
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Info, 16, true));
 
             GUIContentImages warningImages = new GUIContentImages(
-                EditorBuiltin.GetLogIcon(LogIcon.Warning, 16, false),
-                EditorBuiltin.GetLogIcon(LogIcon.Warning, 16, true));
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Warning, 16, false),
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Warning, 16, true));
 
             GUIContentImages errorImages = new GUIContentImages(
-                EditorBuiltin.GetLogIcon(LogIcon.Error, 16, false),
-                EditorBuiltin.GetLogIcon(LogIcon.Error, 16, true));
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Error, 16, false),
+                EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Error, 16, true));
 
             GUIToggle infoBtn = new GUIToggle(new GUIContent(infoImages), EditorStyles.Button, GUIOption.FixedHeight(TITLE_HEIGHT));
             GUIToggle warningBtn = new GUIToggle(new GUIContent(warningImages), EditorStyles.Button, GUIOption.FixedHeight(TITLE_HEIGHT));
@@ -488,15 +488,15 @@ namespace BansheeEditor
                 switch (data.type)
                 {
                     case DebugMessageType.Info:
-                        icon.SetTexture(EditorBuiltin.GetLogIcon(LogIcon.Info, 32, false));
+                        icon.SetTexture(EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Info, 32, false));
                         break;
                     case DebugMessageType.Warning:
                     case DebugMessageType.CompilerWarning:
-                        icon.SetTexture(EditorBuiltin.GetLogIcon(LogIcon.Warning, 32, false));
+                        icon.SetTexture(EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Warning, 32, false));
                         break;
                     case DebugMessageType.Error:
                     case DebugMessageType.CompilerError:
-                        icon.SetTexture(EditorBuiltin.GetLogIcon(LogIcon.Error, 32, false));
+                        icon.SetTexture(EditorBuiltin.GetLogMessageIcon(LogMessageIcon.Error, 32, false));
                         break;
                 }
 

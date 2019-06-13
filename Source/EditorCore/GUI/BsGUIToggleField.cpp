@@ -4,7 +4,6 @@
 #include "GUI/BsGUILayout.h"
 #include "GUI/BsGUIToggle.h"
 #include "GUI/BsGUILabel.h"
-#include "UndoRedo/BsCmdInputFieldValueChange.h"
 
 using namespace std::placeholders;
 
@@ -28,9 +27,9 @@ namespace bs
 		mValue = value;
 
 		if(value) 
-			mToggle->toggleOn();
+			mToggle->_toggleOn(false);
 		else
-			mToggle->toggleOff();
+			mToggle->_toggleOff(false);
 	}
 
 	void GUIToggleField::setTint(const Color& color)
@@ -39,14 +38,6 @@ namespace bs
 			mLabel->setTint(color);
 
 		mToggle->setTint(color);
-	}
-
-	void GUIToggleField::_setValue(bool value, bool triggerEvent)
-	{
-		setValue(value);
-
-		if (triggerEvent)
-			onValueChanged(value);
 	}
 
 	void GUIToggleField::styleUpdated()
@@ -59,7 +50,8 @@ namespace bs
 
 	void GUIToggleField::valueChanged(bool newValue)
 	{
-		CmdInputFieldValueChange<GUIToggleField, bool>::execute(this, newValue);
+		setValue(newValue);
+		onValueChanged(newValue);
 	}
 
 	const String& GUIToggleField::getGUITypeName()

@@ -1,9 +1,8 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
+using bs;
 
-using BansheeEngine;
-
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -21,7 +20,7 @@ namespace BansheeEditor
         /// <summary>
         /// Creates a new inspectable integer GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
@@ -29,9 +28,9 @@ namespace BansheeEditor
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the field whose contents to display.</param>
         /// <param name="style">Information that can be used for customizing field rendering and behaviour.</param>
-        public InspectableInt(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout, 
+        public InspectableInt(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout, 
             SerializableProperty property, InspectableFieldStyleInfo style)
-            : base(parent, title, path, SerializableProperty.FieldType.Int, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.Int, depth, layout, property)
         {
             this.style = style;
         }
@@ -50,17 +49,22 @@ namespace BansheeEditor
                         guiIntField.SetRange((int) style.RangeStyle.Min, (int) style.RangeStyle.Max);
                 }
                 guiIntField.OnChanged += OnFieldValueChanged;
-                guiIntField.OnConfirmed += OnFieldValueConfirm;
+                guiIntField.OnConfirmed += () =>
+                {
+                    OnFieldValueConfirm();
+                    StartUndo();
+                };
                 guiIntField.OnFocusLost += OnFieldValueConfirm;
+                guiIntField.OnFocusGained += StartUndo;
 
                 layout.AddElement(layoutIndex, guiIntField);
             }
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
-            if (guiIntField != null && !guiIntField.HasInputFocus)
+            if (guiIntField != null && (!guiIntField.HasInputFocus || force))
                 guiIntField.Value = property.GetValue<int>();
 
             InspectableState oldState = state;
@@ -68,6 +72,12 @@ namespace BansheeEditor
                 state = InspectableState.NotModified;
 
             return oldState;
+        }
+
+        /// <inheritdoc />
+        public override void SetHasFocus(string subFieldName = null)
+        {
+            guiIntField.Focus = true;
         }
 
         /// <summary>
@@ -87,6 +97,8 @@ namespace BansheeEditor
         {
             if(state.HasFlag(InspectableState.ModifyInProgress))
                 state |= InspectableState.Modified;
+
+            EndUndo();
         }
     }
 

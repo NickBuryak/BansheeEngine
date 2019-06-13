@@ -15,7 +15,7 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptCodeEditor : public ScriptObject<ScriptCodeEditor>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "CodeEditor")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "CodeEditor")
 
 	private:
 		ScriptCodeEditor(MonoObject* instance);
@@ -28,6 +28,7 @@ namespace bs
 		static MonoArray* internal_GetAvailableEditors();
 		static void internal_OpenFile(MonoString* path, UINT32 line);
 		static void internal_SyncSolution();
+		static MonoString* internal_GetSolutionPath();
 	};
 
 	/** @} */

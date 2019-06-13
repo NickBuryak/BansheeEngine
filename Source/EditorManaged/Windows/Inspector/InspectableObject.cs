@@ -3,9 +3,9 @@
 using System.Collections.Generic;
 using System;
 using System.Reflection;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -20,7 +20,7 @@ namespace BansheeEditor
         private const int IndentAmount = 5;
 
         private object propertyValue;
-        private List<InspectableField> children = new List<InspectableField>();
+        private InspectorFieldDrawer drawer;
         private InspectableFieldStyleInfo style;
 
         private GUILayoutY guiLayout;
@@ -36,9 +36,9 @@ namespace BansheeEditor
         private Type[] instantiableTypes;
 
         /// <summary>
-        /// Creates a new inspectable array GUI for the specified property.
+        /// Creates a new inspectable object GUI for the specified property.
         /// </summary>
-        /// <param name="parent">Parent Inspector this field belongs to.</param>
+        /// <param name="context">Context shared by all inspectable fields created by the same parent.</param>
         /// <param name="title">Name of the property, or some other value to set as the title.</param>
         /// <param name="path">Full path to this property (includes name of this property and all parent properties).</param>
         /// <param name="depth">Determines how deep within the inspector nesting hierarchy is this field. Some fields may
@@ -46,12 +46,12 @@ namespace BansheeEditor
         /// <param name="layout">Parent layout that all the field elements will be added to.</param>
         /// <param name="property">Serializable property referencing the object whose contents to display.</param>
         /// <param name="style">Information that can be used for customizing field rendering and behaviour.</param>
-        public InspectableObject(Inspector parent, string title, string path, int depth, InspectableFieldLayout layout, 
+        public InspectableObject(InspectableContext context, string title, string path, int depth, InspectableFieldLayout layout, 
             SerializableProperty property, InspectableFieldStyleInfo style)
-            : base(parent, title, path, SerializableProperty.FieldType.Object, depth, layout, property)
+            : base(context, title, path, SerializableProperty.FieldType.Object, depth, layout, property)
         {
             this.style = style;
-            isExpanded = parent.Persistent.GetBool(path + "_Expanded");
+            isExpanded = context.Persistent.GetBool(path + "_Expanded");
             isInline = style != null && style.StyleFlags.HasFlag(InspectableFieldStyleFlags.Inline);
 
             // Builds a context menu that lets the user create objects to assign to this field.
@@ -83,7 +83,12 @@ namespace BansheeEditor
                             prefix = type.Namespace + ".";
 
                         createContextMenu.AddItem(prefix + type.Name,
-                            () => property.SetValue(Activator.CreateInstance(type)));
+                            () =>
+                            {
+                                StartUndo();
+                                property.SetValue(Activator.CreateInstance(type));
+                                EndUndo();
+                            });
                     }
                 }
             }
@@ -96,7 +101,7 @@ namespace BansheeEditor
         }
 
         /// <inheritdoc/>
-        public override InspectableState Refresh(int layoutIndex)
+        public override InspectableState Refresh(int layoutIndex, bool force = false)
         {
             // Check if modified internally and rebuild if needed
             object newPropertyValue = property.GetValue<object>();
@@ -119,15 +124,31 @@ namespace BansheeEditor
                 BuildGUI(layoutIndex);
             }
 
-            InspectableState state = InspectableState.NotModified;
-            int currentIndex = 0;
-            for (int i = 0; i < children.Count; i++)
+            if(drawer != null)
+                return drawer.Refresh(force);
+
+            return InspectableState.NotModified;
+        }
+
+        /// <inheritdoc />
+        public override InspectableField FindPath(string path)
+        {
+            if(drawer != null)
+                return FindPath(path, depth, drawer.Fields);
+
+            return null;
+        }
+
+        /// <inheritdoc />
+        protected override void SetActive(bool active)
+        {
+            if (drawer != null)
             {
-                state |= children[i].Refresh(currentIndex);
-                currentIndex += children[i].GetNumLayoutElements();
+                foreach (var entry in drawer.Fields)
+                    entry.Active = active;
             }
 
-            return state;
+            base.SetActive(active);
         }
 
         /// <summary>
@@ -168,7 +189,7 @@ namespace BansheeEditor
                     guiFoldout.OnToggled += OnFoldoutToggled;
                     guiInternalTitleLayout.AddElement(guiFoldout);
 
-                    if (!style.StyleFlags.HasFlag(InspectableFieldStyleFlags.NotNull))
+                    if (!property.IsValueType && (style == null || !style.StyleFlags.HasFlag(InspectableFieldStyleFlags.NotNull)))
                     {
                         GUIContent clearIcon = new GUIContent(
                             EditorBuiltin.GetInspectorWindowIcon(InspectorWindowIcon.Clear),
@@ -213,7 +234,14 @@ namespace BansheeEditor
                         else
                             guiContentLayout = guiLayout;
 
-                        children = CreateFields(serializableObject, parent, path, depth + 1, guiContentLayout);
+                        drawer = new InspectorFieldDrawer(context, guiContentLayout, path, depth + 1);
+                        drawer.AddDefault(serializableObject);
+
+                        if (!active)
+                        {
+                            foreach (var field in drawer.Fields)
+                                field.Active = false;
+                        }
                     }
                 }
                 else
@@ -248,10 +276,7 @@ namespace BansheeEditor
             }
             else if (state == State.Filled)
             {
-                foreach (var child in children)
-                    child.Destroy();
-
-                children.Clear();
+                drawer?.Clear();
 
                 guiInternalTitleLayout?.Destroy();
                 guiInternalTitleLayout = null;
@@ -293,7 +318,7 @@ namespace BansheeEditor
         /// <param name="expanded">Determines whether the contents were expanded or collapsed.</param>
         private void OnFoldoutToggled(bool expanded)
         {
-            parent.Persistent.SetBool(path + "_Expanded", expanded);
+            context.Persistent.SetBool(path + "_Expanded", expanded);
 
             isExpanded = expanded;
             forceUpdate = true;
@@ -308,7 +333,11 @@ namespace BansheeEditor
             if (createContextMenu == null)
             {
                 if (instantiableTypes.Length > 0)
+                {
+                    StartUndo();
                     property.SetValue(Activator.CreateInstance(instantiableTypes[0]));
+                    EndUndo();
+                }
             }
             else
             {
@@ -325,7 +354,9 @@ namespace BansheeEditor
         /// </summary>
         private void OnClearButtonClicked()
         {
+            StartUndo();
             property.SetValue<object>(null);
+            EndUndo();
         }
 
         /// <summary>

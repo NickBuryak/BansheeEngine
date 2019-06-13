@@ -15,7 +15,7 @@ namespace bs
 	class BS_SCR_BED_EXPORT ScriptGUISceneTreeView : public TScriptGUIElement<ScriptGUISceneTreeView>
 	{
 	public:
-		SCRIPT_OBJ(EDITOR_ASSEMBLY, "BansheeEditor", "GUISceneTreeView")
+		SCRIPT_OBJ(EDITOR_ASSEMBLY, EDITOR_NS, "GUISceneTreeView")
 
 	private:
 		ScriptGUISceneTreeView(MonoObject* instance, GUISceneTreeView* treeView);
@@ -41,6 +41,8 @@ namespace bs
 		static void internal_duplicateSelection(ScriptGUISceneTreeView* thisPtr);
 		static void internal_deleteSelection(ScriptGUISceneTreeView* thisPtr);
 		static void internal_renameSelection(ScriptGUISceneTreeView* thisPtr);
+		static MonoObject* internal_getState(ScriptGUISceneTreeView* thisPtr);
+		static void internal_setState(ScriptGUISceneTreeView* thisPtr, MonoObject* obj);
 
 		typedef void(BS_THUNKCALL *OnModifiedThunkDef) (MonoObject*, MonoException**);
 		typedef void(BS_THUNKCALL *OnResourceDroppedThunkDef) (MonoObject*, MonoObject*, MonoArray*, MonoException**);

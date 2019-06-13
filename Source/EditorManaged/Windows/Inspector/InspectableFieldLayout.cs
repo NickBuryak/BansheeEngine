@@ -1,9 +1,9 @@
 ﻿//********************************** Banshee Engine (www.banshee3d.com) **************************************************//
 //**************** Copyright (c) 2016 Marko Pintera (marko.pintera@gmail.com). All rights reserved. **********************//
 using System.Collections.Generic;
-using BansheeEngine;
+using bs;
 
-namespace BansheeEditor
+namespace bs.Editor
 {
     /** @addtogroup Inspector
      *  @{
@@ -84,6 +84,16 @@ namespace BansheeEditor
 
             elements.Clear();
         }
+
+        /// <summary>
+        /// Activates or deactivates the underlying GUI elements.
+        /// </summary>
+        public void SetActive(bool active)
+        {
+            foreach (var element in elements)
+                element.Active = active;
+        }
+
     }
 
     /** @} */
